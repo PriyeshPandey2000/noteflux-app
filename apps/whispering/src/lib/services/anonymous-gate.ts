@@ -1,4 +1,5 @@
 import { supabase } from './auth/supabase-client';
+import { auth } from '$lib/stores/auth.svelte';
 
 /**
  * Check if anonymous user has reached the 5-minute gate
@@ -9,23 +10,25 @@ export async function checkAnonymousGate(): Promise<{
   totalMinutes: number;
 } | null> {
   try {
-    // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    if (!auth.isAuthenticated) {
       return null;
     }
 
     // Only check gate for anonymous users
-    if (!user.is_anonymous) {
+    if (!auth.isAnonymous) {
       return { needsSignup: false, totalMinutes: 0 };
+    }
+
+    const userId = auth.user?.id;
+    if (!userId) {
+      return null;
     }
 
     // Get user's total transcribed minutes
     const { data: usageData, error: usageError } = await supabase
       .from('total_usage_limit')
       .select('total_minutes')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single();
 
     if (usageError || !usageData) {

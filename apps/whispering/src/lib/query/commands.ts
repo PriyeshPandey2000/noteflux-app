@@ -56,37 +56,29 @@ let vadDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 // Helper function to check authentication and show dialog if not authenticated
 // This ensures users are authenticated before they can start recording
 async function checkAuthAndShowDialog(): Promise<boolean> {
-	try {
-		const { supabase } = await import('$lib/services/auth/supabase-client');
-		const { data: { user } } = await supabase.auth.getUser();
-		
-		if (!user) {
-			// Show auth required dialog and bring window to front
-			if (window.__TAURI_INTERNALS__) {
-				try {
-					const { getCurrentWindow } = await import('@tauri-apps/api/window');
-					const currentWindow = getCurrentWindow();
-					await currentWindow.show();
-					await currentWindow.setAlwaysOnTop(true);
-					await currentWindow.setFocus();
-					
-					setTimeout(() => {
-						currentWindow.setAlwaysOnTop(false).catch(() => {});
-					}, 2000);
-				} catch (windowError) {
-					console.warn('Failed to bring window to front:', windowError);
-				}
-			}
-			
-			authRequiredDialog.open();
-			return false;
-		}
-		
+	if (auth.isAuthenticated) {
 		return true;
-	} catch (error) {
-		console.error('Auth check failed:', error);
-		return false;
 	}
+
+	// Show auth required dialog and bring window to front
+	if (window.__TAURI_INTERNALS__) {
+		try {
+			const { getCurrentWindow } = await import('@tauri-apps/api/window');
+			const currentWindow = getCurrentWindow();
+			await currentWindow.show();
+			await currentWindow.setAlwaysOnTop(true);
+			await currentWindow.setFocus();
+
+			setTimeout(() => {
+				currentWindow.setAlwaysOnTop(false).catch(() => {});
+			}, 2000);
+		} catch (windowError) {
+			console.warn('Failed to bring window to front:', windowError);
+		}
+	}
+
+	authRequiredDialog.open();
+	return false;
 }
 
 // Internal mutations for manual recording
