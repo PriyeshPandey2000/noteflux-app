@@ -9,6 +9,7 @@
 		{ title: 'General', href: '/settings' },
 		{ title: 'Recording', href: '/settings/recording' },
 		{ title: 'Transcription', href: '/settings/transcription' },
+		{ title: 'Dictionary', href: '/settings/dictionary' },
 		// { title: 'API Keys', href: '/settings/api-keys' },
 		{ title: 'Sound', href: '/settings/sound' },
 		{

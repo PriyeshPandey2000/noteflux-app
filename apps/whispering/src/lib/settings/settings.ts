@@ -163,6 +163,9 @@ export const settingsSchema = z.object({
 	// Shared settings in transcription
 	'transcription.outputLanguage': z.enum(SUPPORTED_LANGUAGES).default('auto'),
 
+	'transcription.dictionary': z
+		.array(z.object({ word: z.string(), phoneticCode: z.string() }))
+		.default([]),
 	'transcription.prompt': z.string().default(''),
 
 	'transcription.selectedTranscriptionService': z

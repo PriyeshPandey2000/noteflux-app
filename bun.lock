@@ -15,7 +15,7 @@
     },
     "apps/cli": {
       "name": "@epicenter/cli",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "bin": {
         "epicenter": "src/index.ts",
       },
@@ -30,7 +30,7 @@
     },
     "apps/whispering": {
       "name": "noteflux",
-      "version": "0.0.4",
+      "version": "0.0.10",
       "dependencies": {
         "@anthropic-ai/sdk": "^0.55.0",
         "@aptabase/tauri": "^0.4.1",
@@ -62,6 +62,7 @@
         "clsx": "^2.1.1",
         "date-fns": "^4.1.0",
         "dexie": "^4.0.11",
+        "double-metaphone": "^2.0.1",
         "elevenlabs": "^1.59.0",
         "groq-sdk": "^0.25.0",
         "nanoid": "^5.1.5",
@@ -664,6 +665,8 @@
     "diff": ["diff@8.0.2", "", {}, "sha512-sSuxWU5j5SR9QQji/o2qMvqRNYRDOcBTgsJ/DeCf4iSN4gW+gNMXM7wFIP+fdXZxoNiAnHUTGjCr+TSWXdRDKg=="],
 
     "diff3": ["diff3@0.0.3", "", {}, "sha512-iSq8ngPOt0K53A6eVr4d5Kn6GNrM2nQZtC740pzIriHtn4pOQ2lyzEXQMBeVcWERN0ye7fhBsk9PbLLQOnUx/g=="],
+
+    "double-metaphone": ["double-metaphone@2.0.1", "", { "bin": { "double-metaphone": "cli.js" } }, "sha512-oHqGfNo2bG/VTZSGFz98TWpyv3WD+d9TDOxwAY8L+zqwm4sGawNvEynegjPU+4HowE4HnIXSYAq0lst2YJgfzA=="],
 
     "dunder-proto": ["dunder-proto@1.0.1", "", { "dependencies": { "call-bind-apply-helpers": "^1.0.1", "es-errors": "^1.3.0", "gopd": "^1.2.0" } }, "sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A=="],
 

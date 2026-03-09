@@ -3,6 +3,7 @@ import type { Recording } from '$lib/services/db';
 import { NoteFluxErr, type NoteFluxError } from '$lib/result';
 import * as services from '$lib/services';
 import { settings } from '$lib/stores/settings.svelte';
+import { applyDictionary } from '$lib/utils/dictionary';
 import { getGroqApiKey } from '$lib/utils/embedded-keys';
 import { Err, Ok, partitionResults, type Result } from 'wellcrafted/result';
 
@@ -359,6 +360,12 @@ async function transcribeBlob(
 				// Don't fail the transcription if usage tracking fails
 			}
 		}
+	}
+
+	// Apply dictionary replacements before returning
+	if (transcriptionResult.data) {
+		const entries = settings.value['transcription.dictionary'];
+		return Ok(applyDictionary(transcriptionResult.data, entries));
 	}
 
 	return transcriptionResult;
