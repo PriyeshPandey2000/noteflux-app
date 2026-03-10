@@ -69,17 +69,17 @@
 			enableSorting: false,
 			id: 'mark-selected',
 		},
-		{
-			accessorKey: 'id',
-			cell: ({ getValue }) =>
-				renderComponent(Badge, {
-					children: createRawSnippet((name) => ({
-						render: () => getValue<string>(),
-					})),
-					variant: 'id',
-				}),
-			header: 'ID',
-		},
+		// {
+		// 	accessorKey: 'id',
+		// 	cell: ({ getValue }) =>
+		// 		renderComponent(Badge, {
+		// 			children: createRawSnippet((name) => ({
+		// 				render: () => getValue<string>(),
+		// 			})),
+		// 			variant: 'id',
+		// 		}),
+		// 	header: 'ID',
+		// },
 		{
 			accessorKey: 'title',
 			header: ({ column }) =>

@@ -45,7 +45,7 @@
 
 	<div class="flex gap-2">
 		<Input
-			placeholder="e.g. NoteFlux, Priyesh, shadcn"
+			placeholder=""
 			bind:value={newWord}
 			onkeydown={(e) => {
 				if (e.key === 'Enter') addWord();
