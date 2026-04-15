@@ -60,7 +60,8 @@
 				"height": 700,
 				"minHeight": 84,
 				"minWidth": 72,
-				"transparent": true
+				"transparent": true,
+				"backgroundThrottling": "disabled"
 			}
 		],
 		"security": {
