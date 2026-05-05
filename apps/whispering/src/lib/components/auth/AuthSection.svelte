@@ -2,8 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/ui/button';
 	import { auth } from '$lib/stores/auth.svelte';
-	
-	// AuthSection component loaded
+	import { subscription } from '$lib/services/subscription/polar';
+	import { ZapIcon } from '@lucide/svelte';
 	
 	async function handleSignIn() {
 		try {
@@ -24,10 +24,17 @@
 	async function handleSignOut() {
 		try {
 			await auth.signOut();
-			// Redirect to homepage after sign out
 			goto('/');
 		} catch (error) {
 			console.error('Sign out failed:', error);
+		}
+	}
+
+	async function handleSubscribe() {
+		try {
+			await subscription.openCheckout(auth.user);
+		} catch (error) {
+			console.error('Subscribe failed:', error);
 		}
 	}
 	
@@ -43,10 +50,14 @@
 		</div>
 	</div>
 {:else if auth.isAuthenticated}
-	<!-- Sign out button without border -->
-	<Button onclick={handleSignOut} size="sm" variant="outline">
-		Sign Out
-	</Button>
+	<div class="flex items-center gap-3">
+		<Button onclick={handleSubscribe} size="sm">
+			Subscribe
+		</Button>
+		<Button onclick={handleSignOut} size="sm" variant="outline">
+			Sign Out
+		</Button>
+	</div>
 {:else}
 	<div class="flex flex-col items-center gap-4 p-4 border rounded-lg bg-muted/20">
 		<div class="text-center">

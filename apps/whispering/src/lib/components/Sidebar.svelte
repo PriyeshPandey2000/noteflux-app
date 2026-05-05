@@ -13,13 +13,20 @@
 		SettingsIcon,
 		SunIcon,
 		MoonIcon,
+		ZapIcon,
 	} from '@lucide/svelte';
 	import { toggleMode } from 'mode-watcher';
+	import { auth } from '$lib/stores/auth.svelte';
+	import { subscription } from '$lib/services/subscription/polar';
 
 	let { class: className }: { class?: string } = $props();
 
 	let isCollapsed = $state(false);
 	let feedbackDialogOpen = $state(false);
+
+	async function handleSubscribe() {
+		await subscription.openCheckout(auth.user);
+	}
 
 	const navItems = [
 		{
@@ -60,6 +67,13 @@
 			icon: BugIcon,
 			label: 'Send feedback',
 			type: 'button',
+		},
+		{
+			action: handleSubscribe,
+			icon: ZapIcon,
+			label: 'Subscribe',
+			type: 'button',
+			show: auth.isAuthenticated && !subscription.isPro,
 		},
 		{
 			external: true,
@@ -128,7 +142,9 @@
 	<div class={cn('p-3 border-t border-purple-100/50 dark:border-stone-800 space-y-1', isCollapsed ? 'items-center flex flex-col' : '')}>
 		{#each footerItems as item}
 			{@const Icon = item.icon}
-			{#if item.type === 'anchor'}
+			{#if item.show !== undefined && !item.show}
+				<!-- Skip hidden items -->
+			{:else if item.type === 'anchor'}
 				<a
 					href={item.href}
 					title={isCollapsed ? item.label : undefined}

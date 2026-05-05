@@ -246,7 +246,7 @@
 	{:else}
 		<!-- Sign Out - When authenticated - Extreme top-right corner -->
 		<!-- {#if auth.isAuthenticated}
-			<div class="absolute top-4 right-4 z-10">
+			<div class="absolute top-4 right-4 z-[100]">
 				<AuthSection />
 			</div>
 		{/if} -->
