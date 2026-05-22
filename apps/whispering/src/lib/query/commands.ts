@@ -1,4 +1,6 @@
 import { fromTaggedErr, fromTaggedError, NoteFluxErr } from '$lib/result';
+import type { SelectionContext } from '$lib/services/clipboard/types';
+import * as services from '$lib/services';
 import { checkAnonymousGate } from '$lib/services/anonymous-gate';
 import { analytics } from '$lib/services/posthog';
 import { auth } from '$lib/stores/auth.svelte';
@@ -47,6 +49,10 @@ let recordingInitiatedVia: 'global-shortcut' | 'local' | null = null;
 // Track whether window was focused when recording started
 // Used to determine if we should keep window visible during delivery
 let wasWindowFocusedAtRecordingStart: boolean = false;
+
+// Track text selected (with surrounding context) in focused app when recording started
+// Used to send selected text + context + spoken instruction to LLM for inline editing
+let selectionContextAtRecordingStart: SelectionContext | null = null;
 
 // Track VAD recording state for debouncing and initiation context
 let vadInitiatedVia: 'global-shortcut' | 'local' | null = null;
@@ -99,6 +105,14 @@ const startManualRecording = defineMutation({
 			}
 		} else {
 			wasWindowFocusedAtRecordingStart = false;
+		}
+
+		// Capture selected text + surrounding context at recording start (global shortcut + desktop only)
+		// Stored so delivery can send it to LLM for inline editing
+		if (initiatedVia === 'global-shortcut' && window.__TAURI_INTERNALS__) {
+			selectionContextAtRecordingStart = await services.clipboard.getSelectionWithContext();
+		} else {
+			selectionContextAtRecordingStart = null;
 		}
 
 		// Check authentication first (anonymous users have session from onboarding start)
@@ -240,11 +254,13 @@ const stopManualRecording = defineMutation({
 		// Log manual recording completion
 		let duration: number | undefined;
 		const initiatedVia = recordingInitiatedVia || 'local';
+		const selectionContext = selectionContextAtRecordingStart;
 		if (manualRecordingStartTime) {
 			duration = Date.now() - manualRecordingStartTime;
 			manualRecordingStartTime = null; // Reset for next recording
 		}
 		recordingInitiatedVia = null; // Reset for next recording
+		selectionContextAtRecordingStart = null; // Reset for next recording
 
 		rpc.analytics.logEvent.execute({
 			blob_size: blob.size,
@@ -262,6 +278,7 @@ const stopManualRecording = defineMutation({
 				completionTitle: '✨ Recording Complete!',
 				toastId,
 				initiatedVia,
+				selectionContext,
 			});
 		} catch (error) {
 			// Ensure overlay is hidden even if pipeline fails unexpectedly
@@ -508,6 +525,7 @@ export const commands = {
 					// Reset start time and initiation method if recording was cancelled
 					manualRecordingStartTime = null;
 					recordingInitiatedVia = null;
+					selectionContextAtRecordingStart = null;
 					notify.success.execute({
 						title: '✅ All Done!',
 						description: 'Recording cancelled successfully',
@@ -672,12 +690,14 @@ async function processRecordingPipeline({
 	completionTitle,
 	toastId,
 	initiatedVia = 'local',
+	selectionContext = null,
 }: {
 	blob: Blob;
 	completionDescription: string;
 	completionTitle: string;
 	toastId: string;
 	initiatedVia?: 'global-shortcut' | 'local';
+	selectionContext?: SelectionContext | null;
 }) {
 	const now = new Date().toISOString();
 	const newRecordingId = nanoid();
@@ -772,6 +792,7 @@ async function processRecordingPipeline({
 			toastId: transcribeToastId,
 			initiatedVia,
 			wasWindowFocusedAtStart: wasWindowFocusedAtRecordingStart,
+			selectionContext,
 		});
 
 		// Track text delivery

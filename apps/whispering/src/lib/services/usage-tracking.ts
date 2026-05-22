@@ -111,6 +111,83 @@ function calculateCost(durationMinutes: number, provider: string): number {
   }
 }
 
+// Cost per million tokens in USD, keyed by "provider:model"
+const LLM_COSTS_PER_MILLION_TOKENS: Record<string, { input: number; output: number }> = {
+  'groq:llama-3.3-70b-versatile':          { input: 0.59,  output: 0.79 },
+  'groq:llama-3.1-70b-versatile':          { input: 0.59,  output: 0.79 },
+  'groq:llama-3.1-8b-instant':             { input: 0.05,  output: 0.08 },
+  'groq:llama3-8b-8192':                   { input: 0.05,  output: 0.08 },
+  'groq:llama3-70b-8192':                  { input: 0.59,  output: 0.79 },
+  'openai:gpt-4o':                         { input: 2.50,  output: 10.00 },
+  'openai:gpt-4o-mini':                    { input: 0.15,  output: 0.60 },
+  'openai:gpt-3.5-turbo':                  { input: 0.50,  output: 1.50 },
+  'anthropic:claude-3-5-sonnet-20241022':  { input: 3.00,  output: 15.00 },
+  'anthropic:claude-3-5-haiku-20241022':   { input: 0.80,  output: 4.00 },
+  'anthropic:claude-3-haiku-20240307':     { input: 0.25,  output: 1.25 },
+  'google:gemini-1.5-flash':               { input: 0.075, output: 0.30 },
+  'google:gemini-1.5-pro':                 { input: 1.25,  output: 5.00 },
+  'google:gemini-2.0-flash':               { input: 0.10,  output: 0.40 },
+};
+
+function calculateLlmCost(provider: string, model: string, inputTokens: number, outputTokens: number): number {
+  const key = `${provider.toLowerCase()}:${model.toLowerCase()}`;
+  const costs = LLM_COSTS_PER_MILLION_TOKENS[key];
+  if (!costs) {
+    console.warn(`[usage-tracking] Unknown model for cost calculation: ${key}`);
+    return 0;
+  }
+  return (inputTokens / 1_000_000) * costs.input + (outputTokens / 1_000_000) * costs.output;
+}
+
+/**
+ * Tracks usage for LLM completion calls (transformations, inline editing).
+ * Fire-and-forget — does not block the caller.
+ */
+export async function trackLlmUsage({
+  feature,
+  provider,
+  model,
+  inputTokens,
+  outputTokens,
+}: {
+  feature: 'inline-edit' | 'transformation';
+  provider: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+}): Promise<void> {
+  const estimatedCost = calculateLlmCost(provider, model, inputTokens, outputTokens);
+
+  setTimeout(async () => {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.log('[usage-tracking] LLM tracking skipped: user not authenticated');
+        return;
+      }
+
+      const { error: logError } = await supabase.from('llm_usage_logs').insert({
+        user_id: user.id,
+        feature,
+        provider,
+        model,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        estimated_cost: estimatedCost,
+      });
+
+      if (logError) {
+        console.error('[usage-tracking] LLM usage tracking failed:', logError);
+        return;
+      }
+
+      console.log(`✅ [usage-tracking] LLM tracked: ${feature} ${provider}/${model} ${inputTokens}in/${outputTokens}out $${estimatedCost.toFixed(6)}`);
+    } catch (error) {
+      console.error('[usage-tracking] LLM usage tracking error:', error);
+    }
+  }, 0);
+}
+
 /**
  * Get audio duration from a blob using HTML5 Audio API
  * This is the most reliable and lightweight method

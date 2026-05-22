@@ -149,7 +149,11 @@ export function createAnthropicCompletionService(): CompletionService {
 				});
 			}
 
-			return Ok(responseText);
+			return Ok({
+				text: responseText,
+				inputTokens: completion.usage?.input_tokens ?? 0,
+				outputTokens: completion.usage?.output_tokens ?? 0,
+			});
 		},
 	};
 }

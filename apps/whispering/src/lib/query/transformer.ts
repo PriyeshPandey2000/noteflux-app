@@ -14,6 +14,7 @@ import {
 import * as services from '$lib/services';
 import { settings } from '$lib/stores/settings.svelte';
 import { getGroqApiKey } from '$lib/utils/embedded-keys';
+import { trackLlmUsage } from '$lib/services/usage-tracking';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, isErr, Ok, type Result } from 'wellcrafted/result';
 
@@ -229,7 +230,16 @@ async function handleStep({
 						return Err(completionError.message);
 					}
 
-					return Ok(completionResponse);
+					// Fire-and-forget usage tracking
+					trackLlmUsage({
+						feature: 'transformation',
+						provider: 'groq',
+						model,
+						inputTokens: completionResponse.inputTokens,
+						outputTokens: completionResponse.outputTokens,
+					});
+
+					return Ok(completionResponse.text);
 				}
 
 				// case 'OpenAI': {

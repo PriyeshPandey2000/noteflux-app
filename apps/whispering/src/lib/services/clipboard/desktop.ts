@@ -43,6 +43,24 @@ export function createClipboardServiceDesktop(): ClipboardService {
 			});
 		},
 
+		getSelectionWithContext: async () => {
+			try {
+				const result = await invoke<{
+					selected_text: string;
+					context_before: string;
+					context_after: string;
+				} | null>('get_selection_with_context', { contextChars: 200 });
+				if (!result) return null;
+				return {
+					selectedText: result.selected_text,
+					contextBefore: result.context_before,
+					contextAfter: result.context_after,
+				};
+			} catch {
+				return null;
+			}
+		},
+
 		pasteFromClipboard: async () => {
 			console.log('🚀 [CLIPBOARD] pasteFromClipboard called');
 			// Try to paste using keyboard shortcut

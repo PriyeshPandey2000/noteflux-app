@@ -48,5 +48,7 @@ export function createClipboardServiceWeb(): ClipboardService {
 					'Automatic paste is not supported in web browsers for security reasons. Please paste manually using Cmd/Ctrl+V.',
 			});
 		},
+
+		getSelectionWithContext: async () => null,
 	};
 }

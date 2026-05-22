@@ -3,6 +3,12 @@ import type { Result } from 'wellcrafted/result';
 
 import { createTaggedError } from 'wellcrafted/error';
 
+export type SelectionContext = {
+	selectedText: string;
+	contextBefore: string;
+	contextAfter: string;
+};
+
 const { ClipboardServiceErr, ClipboardServiceError } = createTaggedError(
 	'ClipboardServiceError',
 );
@@ -50,6 +56,17 @@ export type ClipboardService = {
 	pasteFromClipboard: () => MaybePromise<
 		Result<void, ClipboardServiceError | NoteFluxError>
 	>;
+
+	/**
+	 * Gets the selected text plus surrounding context from the focused application
+	 * via macOS Accessibility API (AXSelectedText, AXSelectedTextRange, AXValue).
+	 * contextBefore/contextAfter may be empty if the element does not expose AXValue
+	 * (e.g. password fields, some PDF viewers).
+	 *
+	 * - Desktop (macOS): Returns context or null if nothing selected / AX unavailable
+	 * - Web/non-macOS: Always returns null
+	 */
+	getSelectionWithContext: () => Promise<SelectionContext | null>;
 };
 export { ClipboardServiceErr, ClipboardServiceError };
 

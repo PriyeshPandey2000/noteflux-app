@@ -38,6 +38,8 @@ export function createClipboardServiceExtension(): ClipboardService {
 					return writeTextToCursor(text);
 				},
 			}),
+
+		getSelectionWithContext: async () => null,
 	};
 }
 
