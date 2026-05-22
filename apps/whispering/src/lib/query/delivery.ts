@@ -162,16 +162,6 @@ export const delivery = {
 					return Ok(undefined);
 				}
 
-				// Guard: selection too long for context window
-				if (normalizedSelectedText.length > 4000) {
-					rpc.notify.error.execute({
-						title: '⚠️ Selection too long',
-						description: 'Select less than 4000 characters for smart editing.',
-						id: toastId,
-					});
-					return Ok(undefined);
-				}
-
 				// Guard: no API key
 				const apiKey = getGroqApiKey();
 				if (!apiKey) {
