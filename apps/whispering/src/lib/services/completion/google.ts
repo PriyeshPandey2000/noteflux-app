@@ -35,21 +35,26 @@ export function createGoogleCompletionService(): CompletionService {
 						model: modelName,
 					});
 					const { response } = await model.generateContent(combinedPrompt);
-					return response.text();
+					return response;
 				},
 			});
 
 			if (completionError) return Err(completionError);
 
-			if (!completion) {
+			const responseText = completion.text();
+			if (!responseText) {
 				return CompletionServiceErr({
-					cause: completionError,
+					cause: undefined,
 					context: { model: modelName, systemPrompt, userPrompt },
 					message: 'Google API returned an empty response',
 				});
 			}
 
-			return Ok(completion);
+			return Ok({
+				text: responseText,
+				inputTokens: completion.usageMetadata?.promptTokenCount ?? 0,
+				outputTokens: completion.usageMetadata?.candidatesTokenCount ?? 0,
+			});
 		},
 	};
 }

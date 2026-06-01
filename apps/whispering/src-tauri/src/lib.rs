@@ -10,7 +10,7 @@ mod keyboard;
 
 // Re-export platform-specific functions
 #[cfg(target_os = "macos")]
-use accessibility::{is_macos_accessibility_enabled, open_apple_accessibility};
+use accessibility::{get_selection_with_context, is_macos_accessibility_enabled, open_apple_accessibility};
 
 #[cfg(target_os = "macos")]
 use microphone::{is_macos_microphone_enabled, request_macos_microphone_permission};
@@ -391,6 +391,7 @@ pub async fn run() {
         paste,
         open_apple_accessibility,
         is_macos_accessibility_enabled,
+        get_selection_with_context,
         is_macos_microphone_enabled,
         request_macos_microphone_permission,
         // Audio recorder commands

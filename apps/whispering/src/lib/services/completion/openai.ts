@@ -142,7 +142,11 @@ export function createOpenAiCompletionService(): CompletionService {
 				});
 			}
 
-			return Ok(responseText);
+			return Ok({
+				text: responseText,
+				inputTokens: completion.usage?.prompt_tokens ?? 0,
+				outputTokens: completion.usage?.completion_tokens ?? 0,
+			});
 		},
 	};
 }
