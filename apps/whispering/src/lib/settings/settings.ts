@@ -171,6 +171,9 @@ export const settingsSchema = z.object({
 	'transcription.selectedTranscriptionService': z
 		.enum(TRANSCRIPTION_SERVICE_IDS)
 		.default('Groq'),
+	'transcription.qwen3asr.modelId': z
+		.string()
+		.default('aufklarer/Qwen3-ASR-0.6B-MLX-4bit'),
 	'transcription.speaches.baseUrl': z.string().default('http://localhost:8000'),
 	'transcription.speaches.modelId': z
 		.string()

@@ -24,6 +24,7 @@
     "clipboard-manager:allow-write-text",
     "fs:allow-read",
     "fs:allow-write",
+    "fs:allow-write-file",
     "fs:allow-exists",
     "fs:allow-create",
     "fs:allow-mkdir",
@@ -54,6 +55,12 @@
     },
     "opener:allow-default-urls",
     "updater:default",
-    "aptabase:allow-track-event"
+    "aptabase:allow-track-event",
+    "shell:allow-execute",
+    "shell:allow-spawn",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [{ "name": "qwen3-asr-cli", "sidecar": true, "args": true }]
+    }
   ]
 }
