@@ -26,6 +26,7 @@ export const TRANSCRIPTION_SERVICE_IDS = [
 	'speaches',
 	'ElevenLabs',
 	'Deepgram',
+	'Qwen3ASR',
 ] as const;
 
 type ApiTranscriptionService = BaseTranscriptionService & {
@@ -42,8 +43,13 @@ type BaseTranscriptionService = {
 	name: string;
 };
 
+type LocalTranscriptionService = BaseTranscriptionService & {
+	type: 'local';
+};
+
 type SatisfiedTranscriptionService =
 	| ApiTranscriptionService
+	| LocalTranscriptionService
 	| ServerTranscriptionService;
 
 type ServerTranscriptionService = BaseTranscriptionService & {
@@ -56,13 +62,19 @@ type TranscriptionServiceId = (typeof TRANSCRIPTION_SERVICE_IDS)[number];
 export const TRANSCRIPTION_SERVICES = [
 	{
 		apiKeyField: 'apiKeys.groq',
-		defaultModel: GROQ_MODELS[2],
+		defaultModel: GROQ_MODELS[1],
 		icon: CloudIcon,
 		id: 'Groq',
 		models: GROQ_MODELS,
 		modelSettingKey: 'transcription.groq.model',
 		name: 'Groq Whisper',
 		type: 'api',
+	},
+	{
+		icon: HexagonIcon,
+		id: 'Qwen3ASR',
+		name: 'Qwen3-ASR (Local)',
+		type: 'local',
 	},
 	// COMMENTED OUT: BYOK providers - using only Groq for SaaS model
 	// {

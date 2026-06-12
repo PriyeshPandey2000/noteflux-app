@@ -131,3 +131,46 @@ export const SUPPORTED_LANGUAGES_OPTIONS = SUPPORTED_LANGUAGES.map(
 	(lang) =>
 		({ label: SUPPORTED_LANGUAGES_TO_LABEL[lang], value: lang }) as const,
 );
+
+/**
+ * Languages supported by Qwen3-ASR (30 languages; Cantonese and the 22
+ * Chinese dialects have no ISO codes in our list, so they're excluded).
+ * Source: https://github.com/QwenLM/Qwen3-ASR
+ */
+export const QWEN3_ASR_SUPPORTED_LANGUAGES = [
+	'auto',
+	'ar',
+	'cs',
+	'da',
+	'de',
+	'el',
+	'en',
+	'es',
+	'fa',
+	'fi',
+	'fr',
+	'hi',
+	'hu',
+	'id',
+	'it',
+	'ja',
+	'ko',
+	'mk',
+	'ms',
+	'nl',
+	'pl',
+	'pt',
+	'ro',
+	'ru',
+	'sv',
+	'th',
+	'tl',
+	'tr',
+	'vi',
+	'zh',
+] as const satisfies readonly SupportedLanguage[];
+
+export const QWEN3_ASR_LANGUAGES_OPTIONS = QWEN3_ASR_SUPPORTED_LANGUAGES.map(
+	(lang) =>
+		({ label: SUPPORTED_LANGUAGES_TO_LABEL[lang], value: lang }) as const,
+);

@@ -10,8 +10,27 @@
 
 	import AppShell from './+layout/AppShell.svelte';
 	import SignupRequiredDialog from '$lib/components/auth/SignupRequiredDialog.svelte';
+	import { settings } from '$lib/stores/settings.svelte';
+	import { QWEN3_ASR_SUPPORTED_LANGUAGES } from '$lib/constants/languages';
 
 	let { children } = $props();
+
+	// Warm up daemon on Qwen3ASR select; kill it when switching away to free RAM.
+	// Also resets output language to 'auto' if the current language isn't supported
+	// by Qwen3ASR — prevents blank/invalid selection in the language dropdown.
+	$effect(() => {
+		if (settings.value['transcription.selectedTranscriptionService'] === 'Qwen3ASR') {
+			const lang = settings.value['transcription.outputLanguage'];
+			if (!(QWEN3_ASR_SUPPORTED_LANGUAGES as readonly string[]).includes(lang)) {
+				settings.updateKey('transcription.outputLanguage', 'auto');
+			}
+			services.transcriptions.qwen3asr.preload(
+				settings.value['transcription.qwen3asr.modelId'] as import('$lib/services/transcription/qwen3-asr').Qwen3ASRModelId,
+			);
+		} else {
+			services.transcriptions.qwen3asr.shutdown();
+		}
+	});
 
 	onNavigate((navigation) => {
 		if (!document.startViewTransition) return;

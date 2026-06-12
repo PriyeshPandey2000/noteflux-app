@@ -23,9 +23,7 @@
 	import { checkForUpdates } from './check-for-updates';
 	import {
 		resetGlobalShortcutsToDefaultIfDuplicates,
-		resetLocalShortcutsToDefaultIfDuplicates,
 		syncGlobalShortcutsWithSettings,
-		syncLocalShortcutsWithSettings,
 	} from './register-commands';
 	import { registerOnboarding } from './register-onboarding';
 
