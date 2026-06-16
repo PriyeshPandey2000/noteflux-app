@@ -302,6 +302,11 @@ async function transcribeBlob(
 						prompt: settings.value['transcription.prompt'],
 						temperature: settings.value['transcription.temperature'],
 					});
+				case 'Qwen3ASR':
+					return await services.transcriptions.qwen3asr.transcribe(blob, {
+						outputLanguage: settings.value['transcription.outputLanguage'],
+						modelId: settings.value['transcription.qwen3asr.modelId'] as import('$lib/services/transcription/qwen3-asr').Qwen3ASRModelId,
+					});
 				// case 'OpenAI':
 				// 	return await services.transcriptions.openai.transcribe(blob, {
 				// 		apiKey: settings.value['apiKeys.openai'],

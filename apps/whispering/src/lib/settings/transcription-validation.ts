@@ -32,11 +32,7 @@ export function isTranscriptionServiceConfigured(
 			const apiKey = settings.value[service.apiKeyField];
 			return apiKey !== '';
 		}
-		case 'server': {
-			const url = settings.value[service.serverUrlField];
-			return url !== '';
-		}
-		default: {
+		case 'local': {
 			return true;
 		}
 	}

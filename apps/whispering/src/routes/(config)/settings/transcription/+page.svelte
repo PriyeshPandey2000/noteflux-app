@@ -12,7 +12,11 @@
 		GroqApiKeyInput,
 		OpenAiApiKeyInput
 	} from '$lib/components/settings';
-	import { SUPPORTED_LANGUAGES_OPTIONS } from '$lib/constants/languages';
+	import Qwen3ASRModelCard from '$lib/components/settings/Qwen3ASRModelCard.svelte';
+	import {
+		QWEN3_ASR_LANGUAGES_OPTIONS,
+		SUPPORTED_LANGUAGES_OPTIONS,
+	} from '$lib/constants/languages';
 	import {
 		DEEPGRAM_TRANSCRIPTION_MODELS,
 		ELEVENLABS_TRANSCRIPTION_MODELS,
@@ -41,7 +45,7 @@
 	</div>
 	<Separator />
 
-	<!-- <LabeledSelect
+	<LabeledSelect
 		id="selected-transcription-service"
 		label="Transcription Service"
 		items={TRANSCRIPTION_SERVICE_OPTIONS}
@@ -50,7 +54,7 @@
 			settings.updateKey('transcription.selectedTranscriptionService', selected);
 		}}
 		placeholder="Select a transcription service"
-	/> -->
+	/>
 
 	{#if settings.value['transcription.selectedTranscriptionService'] === 'OpenAI'}
 		<LabeledSelect
@@ -152,6 +156,8 @@
 			{/snippet}
 		</LabeledSelect>
 		<ElevenLabsApiKeyInput />
+	{:else if settings.value['transcription.selectedTranscriptionService'] === 'Qwen3ASR'}
+		<Qwen3ASRModelCard />
 	{:else if settings.value['transcription.selectedTranscriptionService'] === 'speaches'}
 		<div class="space-y-4">
 			<Card.Root>
@@ -328,7 +334,10 @@
 	<LabeledSelect
 		id="output-language"
 		label="Output Language"
-		items={SUPPORTED_LANGUAGES_OPTIONS}
+		items={settings.value['transcription.selectedTranscriptionService'] ===
+		'Qwen3ASR'
+			? QWEN3_ASR_LANGUAGES_OPTIONS
+			: SUPPORTED_LANGUAGES_OPTIONS}
 		selected={settings.value['transcription.outputLanguage']}
 		onSelectedChange={(selected) => {
 			settings.updateKey('transcription.outputLanguage', selected);
@@ -336,31 +345,33 @@
 		placeholder="Select a language"
 	/>
 
-	<LabeledInput
-		id="temperature"
-		label="Temperature"
-		type="number"
-		min="0"
-		max="1"
-		step="0.1"
-		placeholder="0"
-		value={settings.value['transcription.temperature']}
-		oninput={({ currentTarget: { value } }) => {
-			settings.updateKey('transcription.temperature', value);
-		}}
-		description="Controls randomness in the model's output. 0 is focused and deterministic, 1 is more creative."
-	/>
+	{#if settings.value['transcription.selectedTranscriptionService'] !== 'Qwen3ASR'}
+		<LabeledInput
+			id="temperature"
+			label="Temperature"
+			type="number"
+			min="0"
+			max="1"
+			step="0.1"
+			placeholder="0"
+			value={settings.value['transcription.temperature']}
+			oninput={({ currentTarget: { value } }) => {
+				settings.updateKey('transcription.temperature', value);
+			}}
+			description="Controls randomness in the model's output. 0 is focused and deterministic, 1 is more creative."
+		/>
 
-	<LabeledTextarea
-		id="transcription-prompt"
-		label="System Prompt"
-		placeholder="e.g., This is an academic lecture about quantum physics with technical terms like 'eigenvalue' and 'Schrödinger'"
-		value={settings.value['transcription.prompt']}
-		oninput={({ currentTarget: { value } }) => {
-			settings.updateKey('transcription.prompt', value);
-		}}
-		description="Helps transcription service (e.g., Whisper) better recognize specific terms, names, or context during initial transcription. Not for text transformations - use the Transformations tab for post-processing rules."
-	/>
+		<LabeledTextarea
+			id="transcription-prompt"
+			label="System Prompt"
+			placeholder="e.g., This is an academic lecture about quantum physics with technical terms like 'eigenvalue' and 'Schrödinger'"
+			value={settings.value['transcription.prompt']}
+			oninput={({ currentTarget: { value } }) => {
+				settings.updateKey('transcription.prompt', value);
+			}}
+			description="Helps transcription service (e.g., Whisper) better recognize specific terms, names, or context during initial transcription. Not for text transformations - use the Transformations tab for post-processing rules."
+		/>
+	{/if}
 </div>
 
 {#snippet renderModelOption({

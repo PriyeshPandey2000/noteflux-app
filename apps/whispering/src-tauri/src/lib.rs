@@ -33,6 +33,21 @@ use recorder::commands::{
     set_overlay_processing, show_recording_overlay, start_recording, stop_recording, AppData,
 };
 
+// Persistent Qwen3-ASR sidecar daemon — model loads once, stays alive.
+// stdout is owned by a background reader thread; lines arrive via `reader`.
+// Dropping QwenASRDaemon kills the child and drops the receiver, which
+// causes the reader thread to exit on its next send attempt.
+#[cfg(target_os = "macos")]
+struct QwenASRDaemon {
+    child: std::process::Child,
+    stdin: std::process::ChildStdin,
+    reader: std::sync::mpsc::Receiver<String>,
+    model_id: String,
+}
+
+#[cfg(target_os = "macos")]
+struct QwenASRState(std::sync::Arc<std::sync::Mutex<Option<QwenASRDaemon>>>);
+
 #[cfg(target_os = "macos")]
 fn make_window_truly_transparent(window: &tauri::WebviewWindow) {
     unsafe {
@@ -366,7 +381,11 @@ pub async fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_shell::init())
         .manage(AppData::new());
+
+    #[cfg(target_os = "macos")]
+    { builder = builder.manage(QwenASRState(std::sync::Arc::new(std::sync::Mutex::new(None)))); }
 
     #[cfg(desktop)]
     {
@@ -412,6 +431,13 @@ pub async fn run() {
         enable_fn_recording_mode,
         disable_fn_recording_mode,
         reinitialize_fn_manager,
+        // Qwen3-ASR local transcription
+        transcribe_qwen3_asr,
+        preload_qwen3_asr,
+        shutdown_qwen3_asr,
+        qwen3_asr_model_status,
+        download_qwen3_asr_model,
+        delete_qwen3_asr_model,
     ]);
 
     #[cfg(not(target_os = "macos"))]
@@ -684,4 +710,360 @@ fn paste() -> Result<(), String> {
         .map_err(|e| format!("Failed to release modifier key: {}", e))?;
 
     Ok(())
+}
+
+// Resolves sidecar binary + metallib paths from the app handle.
+#[cfg(target_os = "macos")]
+fn qwen_daemon_paths(
+    app_handle: &tauri::AppHandle,
+) -> Result<(std::path::PathBuf, String), String> {
+    use tauri::Manager;
+
+    let metallib_path = app_handle
+        .path()
+        .resource_dir()
+        .map(|d| d.join("default.metallib"))
+        .ok()
+        .filter(|p| p.exists())
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let exe_dir = std::env::current_exe()
+        .map_err(|e| format!("Cannot find exe path: {}", e))?
+        .parent()
+        .ok_or("Exe has no parent dir")?
+        .to_path_buf();
+
+    Ok((exe_dir.join("qwen3-asr-cli"), metallib_path))
+}
+
+// Spawns the daemon if not running and blocks until the model is loaded (READY).
+// Caller must hold no lock; this locks internally via the guard it receives.
+#[cfg(target_os = "macos")]
+fn qwen_ensure_daemon(
+    guard: &mut Option<QwenASRDaemon>,
+    sidecar_bin: &std::path::Path,
+    metallib_path: &str,
+    model_id: &str,
+) -> Result<(), String> {
+    use std::io::BufRead;
+
+    // Kill existing daemon if it was loaded with a different model.
+    if let Some(existing) = guard.as_ref() {
+        if existing.model_id == model_id {
+            return Ok(());
+        }
+        if let Some(mut old) = guard.take() {
+            old.child.kill().ok();
+            old.child.wait().ok();
+        }
+    }
+
+    let mut cmd = std::process::Command::new(sidecar_bin);
+    cmd.stdin(std::process::Stdio::piped())
+       .stdout(std::process::Stdio::piped())
+       .stderr(std::process::Stdio::inherit())
+       .arg("--model")
+       .arg(model_id);
+
+    if !metallib_path.is_empty() {
+        cmd.env("MLX_METAL_PATH", metallib_path);
+    }
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("Failed to spawn qwen3-asr-cli: {}", e))?;
+
+    let stdin = child.stdin.take().ok_or("Failed to get stdin")?;
+    let mut stdout = std::io::BufReader::new(
+        child.stdout.take().ok_or("Failed to get stdout")?
+    );
+
+    // Spawn a reader thread that owns stdout and forwards lines via channel.
+    // This lets us use recv_timeout() everywhere instead of blocking read_line().
+    let (line_tx, line_rx) = std::sync::mpsc::channel::<String>();
+    std::thread::spawn(move || {
+        use std::io::BufRead;
+        let mut buf = String::new();
+        loop {
+            buf.clear();
+            match stdout.read_line(&mut buf) {
+                Ok(0) | Err(_) => break, // EOF or error — receiver gets Disconnected
+                Ok(_) => {
+                    if line_tx.send(buf.trim().to_string()).is_err() {
+                        break; // receiver dropped (daemon cleared) — exit thread
+                    }
+                }
+            }
+        }
+    });
+
+    let mut daemon = QwenASRDaemon { child, stdin, reader: line_rx, model_id: model_id.to_string() };
+
+    // Wait for "READY" with a 60s timeout — generous enough for slow first loads
+    // (Metal kernel compilation) but prevents hanging forever on a stuck sidecar.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    loop {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
+            daemon.child.kill().ok();
+            return Err("Daemon startup timed out (60s) — sidecar may have hung during model load".to_string());
+        }
+        match daemon.reader.recv_timeout(remaining) {
+            Ok(line) if line == "READY" => break,
+            Ok(line) if line.is_empty() => continue,
+            Ok(line) => {
+                daemon.child.kill().ok();
+                return Err(format!("Sidecar startup error: {}", line));
+            }
+            Err(_) => {
+                daemon.child.kill().ok();
+                return Err("Daemon startup timed out (60s)".to_string());
+            }
+        }
+    }
+
+    *guard = Some(daemon);
+    Ok(())
+}
+
+// Guards against concurrent model downloads.
+#[cfg(target_os = "macos")]
+static QWEN_DOWNLOAD_IN_PROGRESS: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+// Returns "downloaded" or "not_downloaded" based on local model cache.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn qwen3_asr_model_status(
+    model_id: String,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    let (sidecar_bin, _) = qwen_daemon_paths(&app_handle)?;
+
+    let output = tokio::task::spawn_blocking(move || {
+        std::process::Command::new(&sidecar_bin)
+            .arg("--model").arg(&model_id)
+            .arg("--status")
+            .output()
+            .map_err(|e| format!("Failed to run status check: {}", e))
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))??;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.trim() == "DOWNLOADED" {
+        Ok("downloaded".to_string())
+    } else {
+        Ok("not_downloaded".to_string())
+    }
+}
+
+// Downloads the model, emitting "qwen3-asr-download-progress" events (0-100).
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn download_qwen3_asr_model(
+    model_id: String,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    use std::io::{BufRead, Read};
+    use std::sync::atomic::Ordering;
+    use tauri::Emitter;
+
+    if QWEN_DOWNLOAD_IN_PROGRESS.swap(true, Ordering::SeqCst) {
+        return Err("Download already in progress".to_string());
+    }
+
+    let (sidecar_bin, _) = qwen_daemon_paths(&app_handle).map_err(|e| {
+        QWEN_DOWNLOAD_IN_PROGRESS.store(false, Ordering::SeqCst);
+        e
+    })?;
+
+    let result = tokio::task::spawn_blocking(move || {
+        let mut child = std::process::Command::new(&sidecar_bin)
+            .arg("--model").arg(&model_id)
+            .arg("--download")
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to start download: {}", e))?;
+
+        let stdout = std::io::BufReader::new(
+            child.stdout.take().ok_or("Failed to get stdout")?
+        );
+
+        let mut done = false;
+        for line in stdout.lines() {
+            let line = line.map_err(|e| format!("Read error: {}", e))?;
+            let line = line.trim();
+            if let Some(pct_str) = line.strip_prefix("PROGRESS:") {
+                if let Ok(pct) = pct_str.parse::<u32>() {
+                    let _ = app_handle.emit("qwen3-asr-download-progress", pct);
+                }
+            } else if line == "DONE" {
+                done = true;
+            }
+        }
+
+        let mut stderr_text = String::new();
+        if let Some(mut stderr) = child.stderr.take() {
+            let _ = stderr.read_to_string(&mut stderr_text);
+        }
+
+        let status = child.wait().map_err(|e| format!("Wait failed: {}", e))?;
+
+        if done && status.success() {
+            Ok(())
+        } else {
+            Err(format!(
+                "Model download failed: {}",
+                if stderr_text.trim().is_empty() { "unknown error" } else { stderr_text.trim() }
+            ))
+        }
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))
+    .and_then(|r| r);
+
+    QWEN_DOWNLOAD_IN_PROGRESS.store(false, Ordering::SeqCst);
+    result
+}
+
+// Deletes the cached model weights. Kills the daemon first so the ~1GB of
+// loaded weights are freed and the files aren't held open.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn delete_qwen3_asr_model(
+    model_id: String,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, QwenASRState>,
+) -> Result<(), String> {
+    use std::sync::atomic::Ordering;
+
+    if QWEN_DOWNLOAD_IN_PROGRESS.load(Ordering::SeqCst) {
+        return Err("Cannot delete while a download is in progress".to_string());
+    }
+
+    let (sidecar_bin, _) = qwen_daemon_paths(&app_handle)?;
+    let daemon_arc = state.0.clone();
+
+    tokio::task::spawn_blocking(move || {
+        let mut guard = daemon_arc.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
+        // Only kill daemon if it's running the model being deleted.
+        if guard.as_ref().map(|d| d.model_id == model_id).unwrap_or(false) {
+            if let Some(mut daemon) = guard.take() {
+                let _ = daemon.child.kill();
+                let _ = daemon.child.wait();
+            }
+        }
+
+        let output = std::process::Command::new(&sidecar_bin)
+            .arg("--model").arg(&model_id)
+            .arg("--delete")
+            .output()
+            .map_err(|e| format!("Failed to run delete: {}", e))?;
+
+        if String::from_utf8_lossy(&output.stdout).trim() == "DELETED" {
+            Ok(())
+        } else {
+            Err(format!(
+                "Model delete failed: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            ))
+        }
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))?
+}
+
+// Kills the running daemon, freeing model weights from RAM.
+// Called when the user switches away from Qwen3ASR to another service.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn shutdown_qwen3_asr(
+    state: tauri::State<'_, QwenASRState>,
+) -> Result<(), String> {
+    let daemon_arc = state.0.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut guard = daemon_arc.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
+        if let Some(mut daemon) = guard.take() {
+            daemon.child.kill().ok();
+            daemon.child.wait().ok();
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))?
+}
+
+// Warms up the daemon in the background so the first transcription is instant.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn preload_qwen3_asr(
+    model_id: String,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, QwenASRState>,
+) -> Result<(), String> {
+    let (sidecar_bin, metallib_path) = qwen_daemon_paths(&app_handle)?;
+    let daemon_arc = state.0.clone();
+
+    tokio::task::spawn_blocking(move || {
+        let mut guard = daemon_arc.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
+        qwen_ensure_daemon(&mut guard, &sidecar_bin, &metallib_path, &model_id)
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))?
+}
+
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn transcribe_qwen3_asr(
+    audio_path: String,
+    language: Option<String>,
+    model_id: String,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, QwenASRState>,
+) -> Result<String, String> {
+    use std::io::Write;
+
+    let (sidecar_bin, metallib_path) = qwen_daemon_paths(&app_handle)?;
+
+    let daemon_arc = state.0.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut guard = daemon_arc.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
+
+        qwen_ensure_daemon(&mut guard, &sidecar_bin, &metallib_path, &model_id)?;
+
+        let daemon = guard.as_mut().unwrap();
+
+        // Send "<audio_path>\t<language>" — empty lang = auto-detect.
+        let lang = language.unwrap_or_default();
+        if let Err(e) = writeln!(daemon.stdin, "{}\t{}", audio_path, lang) {
+            *guard = None;
+            return Err(format!("Failed to write to sidecar: {}", e));
+        }
+
+        // 30s is generous for any real recording; hangs or crashes surface quickly.
+        let response = match daemon.reader.recv_timeout(std::time::Duration::from_secs(30)) {
+            Ok(line) => line,
+            Err(_) => {
+                // Timeout or disconnected (daemon died) — clear so next call respawns.
+                *guard = None;
+                return Err("Transcription timed out or sidecar exited".to_string());
+            }
+        };
+
+        if let Some(text) = response.strip_prefix("OK:") {
+            Ok(text.to_string())
+        } else if let Some(err) = response.strip_prefix("ERR:") {
+            Err(format!("Transcription error: {}", err))
+        } else {
+            // Protocol corruption — restart daemon on next call.
+            let msg = format!("Unexpected sidecar response: {}", response);
+            *guard = None;
+            Err(msg)
+        }
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))?
 }

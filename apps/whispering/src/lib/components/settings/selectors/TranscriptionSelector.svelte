@@ -9,24 +9,49 @@
 		getSelectedTranscriptionService,
 		isTranscriptionServiceConfigured,
 	} from '$lib/settings/transcription-validation';
+	import * as services from '$lib/services';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { Badge } from '$lib/ui/badge';
 	import * as Command from '$lib/ui/command';
 	import { useCombobox } from '$lib/ui/hooks';
 	import * as Popover from '$lib/ui/popover';
 	import { cn } from '$lib/ui/utils';
-	import { CheckIcon, MicIcon, SettingsIcon } from '@lucide/svelte';
+	import {
+		DEFAULT_QWEN3_ASR_MODEL_ID,
+		QWEN3_ASR_MODELS,
+		type Qwen3ASRModelId,
+	} from '$lib/services/transcription/qwen3-asr';
+	import { CheckIcon, DownloadIcon, MicIcon, SettingsIcon } from '@lucide/svelte';
+	import { toast } from 'svelte-sonner';
 
 	let { class: className }: { class?: string } = $props();
 
 	const selectedService = $derived(getSelectedTranscriptionService());
 
+	// Local model checks — run once when dropdown opens.
+	let isLocalModelDownloaded = $state(false);
+	let isLocalModelSupported = $state(true);
+	$effect(() => {
+		if (combobox.open) {
+			services.transcriptions.qwen3asr.isMacOSSupported().then((supported) => {
+				isLocalModelSupported = supported;
+				if (supported) {
+					const selectedModelId = (settings.value['transcription.qwen3asr.modelId'] ??
+						DEFAULT_QWEN3_ASR_MODEL_ID) as Qwen3ASRModelId;
+					services.transcriptions.qwen3asr.getModelStatus(selectedModelId).then((status) => {
+						isLocalModelDownloaded = status === 'downloaded';
+					});
+				}
+			});
+		}
+	});
+
 	function getSelectedModelNameOrUrl(service: TranscriptionService) {
 		switch (service.type) {
 			case 'api':
 				return settings.value[service.modelSettingKey];
-			case 'server':
-				return settings.value[service.serverUrlField];
+			case 'local':
+				return 'on-device';
 		}
 	}
 
@@ -34,9 +59,10 @@
 		TRANSCRIPTION_SERVICES.filter((service) => service.type === 'api'),
 	);
 
-	const serverServices = $derived(
-		TRANSCRIPTION_SERVICES.filter((service) => service.type === 'server'),
+	const localServices = $derived(
+		TRANSCRIPTION_SERVICES.filter((service) => service.type === 'local'),
 	);
+
 
 	const combobox = useCombobox();
 </script>
@@ -137,16 +163,29 @@
 					</Command.Group>
 				{/each}
 
-				{#each serverServices as service (service.id)}
+
+{#each localServices as service (service.id)}
 					{@const isSelected =
 						settings.value['transcription.selectedTranscriptionService'] ===
 						service.id}
-					{@const isConfigured = isTranscriptionServiceConfigured(service)}
 
-					<Command.Group heading={service.name}>
+					<Command.Group heading="On-Device">
 						<Command.Item
 							value={service.id}
 							onSelect={() => {
+								if (!isLocalModelSupported) {
+									toast.error('macOS 15 required', {
+										description: 'Qwen3-ASR requires macOS 15 (Sequoia) or later.',
+									});
+									combobox.closeAndFocusTrigger();
+									return;
+								}
+								if (!isLocalModelDownloaded) {
+									settings.updateKey('transcription.selectedTranscriptionService', service.id);
+									goto('/settings/transcription');
+									combobox.closeAndFocusTrigger();
+									return;
+								}
 								settings.updateKey('transcription.selectedTranscriptionService', service.id);
 								combobox.closeAndFocusTrigger();
 							}}
@@ -159,9 +198,19 @@
 							/>
 							<div class="flex flex-col min-w-0">
 								{@render renderServiceDisplay(service)}
-								{#if !isConfigured}
-									<span class="text-sm text-amber-600 ml-6">
-										Server URL required
+								{#if !isLocalModelSupported}
+									<span class="text-xs text-amber-600 ml-6">
+										Requires macOS 15 (Sequoia) or later
+									</span>
+								{:else if isLocalModelDownloaded}
+									<span class="text-xs text-muted-foreground ml-6">
+										Apple Silicon · macOS 15+ · no API key
+									</span>
+								{:else}
+									{@const qwenModel = QWEN3_ASR_MODELS.find((m) => m.id === settings.value['transcription.qwen3asr.modelId']) ?? QWEN3_ASR_MODELS[0]}
+									<span class="text-xs text-amber-600 ml-6 flex items-center gap-1">
+										<DownloadIcon class="size-3" />
+										Model download required ({qwenModel.size})
 									</span>
 								{/if}
 							</div>
