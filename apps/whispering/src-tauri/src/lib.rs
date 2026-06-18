@@ -385,7 +385,11 @@ pub async fn run() {
         .manage(AppData::new());
 
     #[cfg(target_os = "macos")]
-    { builder = builder.manage(QwenASRState(std::sync::Arc::new(std::sync::Mutex::new(None)))); }
+    {
+        // Kill orphaned daemons from previous crash/force-quit before registering state.
+        let _ = std::process::Command::new("pkill").args(["-f", "qwen3-asr-cli"]).output();
+        builder = builder.manage(QwenASRState(std::sync::Arc::new(std::sync::Mutex::new(None))));
+    }
 
     #[cfg(desktop)]
     {
