@@ -9,6 +9,8 @@ import { Err, Ok, type Result, tryAsync } from 'wellcrafted/result';
 
 export type Qwen3ASRService = ReturnType<typeof createQwen3ASRService>;
 
+let cachedMacOSMajorVersion: number | null = null;
+
 export type Qwen3ASRModelStatus = 'downloaded' | 'not_downloaded';
 
 export const QWEN3_ASR_MODELS = [
@@ -134,8 +136,10 @@ export function createQwen3ASRService() {
 			options: { outputLanguage: string; modelId: Qwen3ASRModelId },
 		): Promise<Result<string, NoteFluxError>> {
 			try {
-				const ver = await osVersion();
-				if (parseInt(ver.split('.')[0], 10) < 15) {
+				if (cachedMacOSMajorVersion === null) {
+					cachedMacOSMajorVersion = parseInt((await osVersion()).split('.')[0], 10);
+				}
+				if (cachedMacOSMajorVersion < 15) {
 					return NoteFluxErr({
 						title: '⚙️ macOS 15+ required',
 						description:
