@@ -133,6 +133,30 @@ export function createQwen3ASRService() {
 			audioBlob: Blob,
 			options: { outputLanguage: string; modelId: Qwen3ASRModelId },
 		): Promise<Result<string, NoteFluxError>> {
+			try {
+				const ver = await osVersion();
+				if (parseInt(ver.split('.')[0], 10) < 15) {
+					return NoteFluxErr({
+						title: '⚙️ macOS 15+ required',
+						description:
+							'Qwen3-ASR uses MLX Metal shaders that require macOS 15 (Sequoia) or newer. Switch to a cloud transcription service in Settings.',
+					});
+				}
+			} catch {}
+
+			try {
+				const status = await invoke<Qwen3ASRModelStatus>('qwen3_asr_model_status', {
+					modelId: options.modelId,
+				});
+				if (status !== 'downloaded') {
+					return NoteFluxErr({
+						title: '📥 Model not downloaded',
+						description:
+							'The Qwen3-ASR model is not downloaded yet. Go to Settings → Transcription to download it first.',
+					});
+				}
+			} catch {}
+
 			const audioPath = await join(await tempDir(), `qwen3asr_${Date.now()}.wav`);
 
 			const { error: writeError } = await tryAsync({
