@@ -139,7 +139,12 @@ export function createQwen3ASRService() {
 					return NoteFluxErr({
 						title: '⚙️ macOS 15+ required',
 						description:
-							'Qwen3-ASR uses MLX Metal shaders that require macOS 15 (Sequoia) or newer. Switch to a cloud transcription service in Settings.',
+							'Qwen3-ASR requires macOS 15 (Sequoia) or newer. Switch to a cloud transcription service.',
+						action: {
+							href: '/settings/transcription',
+							label: 'Open Settings',
+							type: 'link',
+						},
 					});
 				}
 			} catch {}
@@ -152,7 +157,12 @@ export function createQwen3ASRService() {
 					return NoteFluxErr({
 						title: '📥 Model not downloaded',
 						description:
-							'The Qwen3-ASR model is not downloaded yet. Go to Settings → Transcription to download it first.',
+							'The Qwen3-ASR model needs to be downloaded before use.',
+						action: {
+							href: '/settings/transcription',
+							label: 'Download Model',
+							type: 'link',
+						},
 					});
 				}
 			} catch {}
