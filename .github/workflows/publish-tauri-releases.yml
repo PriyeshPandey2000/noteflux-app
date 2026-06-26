@@ -93,17 +93,17 @@ jobs:
             ${{ runner.os }}-spm-
 
       # Build the Qwen3-ASR Swift CLI sidecar binary (macOS only)
+      # x86_64: Qwen3-ASR requires Apple Silicon (MLX), so compile a stub that exits with an error.
+      # aarch64: Build the real CLI from source.
       - name: Build Qwen3-ASR CLI sidecar
         if: matrix.platform == 'macos-15'
         run: |
-          cd apps/whispering/src-tauri/qwen3-asr-cli
-          mkdir -p ../binaries
+          mkdir -p apps/whispering/src-tauri/binaries
           if [[ "${{ matrix.args }}" == *"x86_64"* ]]; then
-            swift build -c release --arch x86_64
-            cp .build/release/QwenASRCLI ../binaries/qwen3-asr-cli-x86_64-apple-darwin
+            echo 'import Foundation; fputs("Qwen3-ASR requires Apple Silicon (arm64).\n", stderr); exit(1)' > /tmp/stub.swift
+            swiftc -target x86_64-apple-macosx11.0 /tmp/stub.swift -o apps/whispering/src-tauri/binaries/qwen3-asr-cli-x86_64-apple-darwin
           else
-            swift build -c release
-            cp .build/release/QwenASRCLI ../binaries/qwen3-asr-cli-aarch64-apple-darwin
+            cd apps/whispering/src-tauri/qwen3-asr-cli && bash build.sh
           fi
 
       # Install all JavaScript dependencies
