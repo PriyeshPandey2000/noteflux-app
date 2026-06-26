@@ -22,11 +22,11 @@ jobs:
       matrix:
         include:
           # macOS Apple Silicon (M1, M2, M3, etc.)
-          - platform: 'macos-latest'
+          - platform: 'macos-15'
             args: '--target aarch64-apple-darwin'
           
           # macOS Intel-based
-          - platform: 'macos-latest'
+          - platform: 'macos-15'
             args: '--target x86_64-apple-darwin'
           
           # Linux (Ubuntu)
@@ -73,7 +73,7 @@ jobs:
         with:
           # For macOS: specify both Intel and ARM targets
           # For other platforms: empty string (uses default target)
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.platform == 'macos-15' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       # Cache Rust dependencies for faster builds
       - name: Rust cache
@@ -84,7 +84,7 @@ jobs:
 
       # Cache Swift Package Manager dependencies (macOS only — qwen3-asr-cli is macOS-only)
       - name: Cache Swift Package Manager dependencies
-        if: matrix.platform == 'macos-latest'
+        if: matrix.platform == 'macos-15'
         uses: actions/cache@v4
         with:
           path: apps/whispering/src-tauri/qwen3-asr-cli/.build
@@ -94,7 +94,7 @@ jobs:
 
       # Build the Qwen3-ASR Swift CLI sidecar binary (macOS only)
       - name: Build Qwen3-ASR CLI sidecar
-        if: matrix.platform == 'macos-latest'
+        if: matrix.platform == 'macos-15'
         run: |
           cd apps/whispering/src-tauri/qwen3-asr-cli
           mkdir -p ../binaries
