@@ -10,11 +10,9 @@
 .env
 .env.local
 
-# Qwen3-ASR sidecar binary (built locally via qwen3-asr-cli/build.sh)
+# Qwen3-ASR sidecar binaries (built in CI via qwen3-asr-cli/build.sh)
 binaries/qwen3-asr-cli-aarch64-apple-darwin
+binaries/qwen3-asr-cli-x86_64-apple-darwin
 
 # Qwen3-ASR Swift build artifacts
 qwen3-asr-cli/.build/
-
-# MLX Metal shader library (extracted from mlx-swift 0.31.4 Cmlx.xcframework)
-default.metallib

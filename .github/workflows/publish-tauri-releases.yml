@@ -82,6 +82,30 @@ jobs:
           # Point to the Rust project directory
           workspaces: './apps/whispering/src-tauri -> target'
 
+      # Cache Swift Package Manager dependencies (macOS only — qwen3-asr-cli is macOS-only)
+      - name: Cache Swift Package Manager dependencies
+        if: matrix.platform == 'macos-latest'
+        uses: actions/cache@v4
+        with:
+          path: apps/whispering/src-tauri/qwen3-asr-cli/.build
+          key: ${{ runner.os }}-spm-${{ hashFiles('apps/whispering/src-tauri/qwen3-asr-cli/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      # Build the Qwen3-ASR Swift CLI sidecar binary (macOS only)
+      - name: Build Qwen3-ASR CLI sidecar
+        if: matrix.platform == 'macos-latest'
+        run: |
+          cd apps/whispering/src-tauri/qwen3-asr-cli
+          mkdir -p ../binaries
+          if [[ "${{ matrix.args }}" == *"x86_64"* ]]; then
+            swift build -c release --arch x86_64
+            cp .build/release/QwenASRCLI ../binaries/qwen3-asr-cli-x86_64-apple-darwin
+          else
+            swift build -c release
+            cp .build/release/QwenASRCLI ../binaries/qwen3-asr-cli-aarch64-apple-darwin
+          fi
+
       # Install all JavaScript dependencies
       - name: install frontend dependencies
         run: bun install
