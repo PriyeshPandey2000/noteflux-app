@@ -9,6 +9,9 @@ import { Err, Ok, type Result, tryAsync } from 'wellcrafted/result';
 
 export type Qwen3ASRService = ReturnType<typeof createQwen3ASRService>;
 
+let cachedMacOSMajorVersion: number | null = null;
+const verifiedDownloadedModels = new Set<string>();
+
 export type Qwen3ASRModelStatus = 'downloaded' | 'not_downloaded';
 
 export const QWEN3_ASR_MODELS = [
@@ -93,7 +96,7 @@ export function createQwen3ASRService() {
 		 * Deletes the cached model weights from disk and shuts down the daemon.
 		 */
 		async deleteModel(modelId: Qwen3ASRModelId): Promise<Result<void, NoteFluxError>> {
-			return tryAsync({
+			const result = await tryAsync({
 				mapErr: (error) =>
 					NoteFluxErr({
 						title: '🗑️ Model delete failed',
@@ -105,6 +108,8 @@ export function createQwen3ASRService() {
 					}),
 				try: () => invoke<void>('delete_qwen3_asr_model', { modelId }),
 			});
+			if (result.data !== undefined) verifiedDownloadedModels.delete(modelId);
+			return result;
 		},
 
 		/**
@@ -133,6 +138,44 @@ export function createQwen3ASRService() {
 			audioBlob: Blob,
 			options: { outputLanguage: string; modelId: Qwen3ASRModelId },
 		): Promise<Result<string, NoteFluxError>> {
+			try {
+				if (cachedMacOSMajorVersion === null) {
+					cachedMacOSMajorVersion = parseInt((await osVersion()).split('.')[0], 10);
+				}
+				if (cachedMacOSMajorVersion < 15) {
+					return NoteFluxErr({
+						title: '⚙️ macOS 15+ required',
+						description:
+							'Qwen3-ASR requires macOS 15 (Sequoia) or newer. Switch to a cloud transcription service.',
+						action: {
+							href: '/settings/transcription',
+							label: 'Open Settings',
+							type: 'link',
+						},
+					});
+				}
+			} catch {}
+
+			if (!verifiedDownloadedModels.has(options.modelId)) {
+				try {
+					const status = await invoke<Qwen3ASRModelStatus>('qwen3_asr_model_status', {
+						modelId: options.modelId,
+					});
+					if (status !== 'downloaded') {
+						return NoteFluxErr({
+							title: '📥 Model not downloaded',
+							description: 'The Qwen3-ASR model needs to be downloaded before use.',
+							action: {
+								href: '/settings/transcription',
+								label: 'Download Model',
+								type: 'link',
+							},
+						});
+					}
+					verifiedDownloadedModels.add(options.modelId);
+				} catch {}
+			}
+
 			const audioPath = await join(await tempDir(), `qwen3asr_${Date.now()}.wav`);
 
 			const { error: writeError } = await tryAsync({

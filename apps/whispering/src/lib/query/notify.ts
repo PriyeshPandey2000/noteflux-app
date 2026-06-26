@@ -19,8 +19,13 @@ const createNotifyMutation = (
 		) => {
 			const fullOptions: UnifiedNotificationOptions = { ...options, variant };
 
-			// Check if notifications are disabled (except for critical notifications like updates)
-			const isCritical = fullOptions.title?.includes('Update') || fullOptions.persist;
+			// Errors and warnings always show — they indicate something went wrong and require user awareness.
+			// Success/info/loading respect the notifications.enabled setting (ambient noise).
+			const isCritical =
+				variant === 'error' ||
+				variant === 'warning' ||
+				fullOptions.title?.includes('Update') ||
+				fullOptions.persist;
 			if (!settings.value['notifications.enabled'] && !isCritical) {
 				// Still log in dev mode even if notifications are disabled
 				if (dev) {
