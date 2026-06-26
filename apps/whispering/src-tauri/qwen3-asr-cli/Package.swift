@@ -13,7 +13,8 @@ let package = Package(
             dependencies: [
                 .product(name: "Qwen3ASR", package: "speech-swift"),
             ],
-            path: "Sources/QwenASRCLI"
+            path: "Sources/QwenASRCLI",
+            swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]
 )
