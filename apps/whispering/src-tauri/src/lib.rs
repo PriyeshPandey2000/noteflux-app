@@ -470,6 +470,35 @@ pub async fn run() {
 
     let mut app = builder
         .setup(|app| {
+            // Prevent macOS App Nap so the process stays responsive after idle.
+            // Without this, macOS throttles the event loop after ~3 minutes,
+            // causing a noticeable delay on the first Fn press after a pause.
+            #[cfg(target_os = "macos")]
+            {
+                use objc::class;
+                unsafe {
+                    let process_info: *mut objc::runtime::Object =
+                        msg_send![class!(NSProcessInfo), processInfo];
+                    let reason_cstr = std::ffi::CString::new(
+                        "Must respond instantly to global shortcut"
+                    ).unwrap();
+                    let reason: *mut objc::runtime::Object = msg_send![
+                        class!(NSString),
+                        stringWithUTF8String: reason_cstr.as_ptr()
+                    ];
+                    // NSActivityUserInitiatedAllowingIdleSystemSleep = 0x00FFFFFF
+                    // Prevents App Nap without blocking system sleep (lid close works normally).
+                    let _activity: *mut objc::runtime::Object = msg_send![
+                        process_info,
+                        beginActivityWithOptions: 0x00FFFFFFu64
+                        reason: reason
+                    ];
+                    // Intentionally leaked — activity token must live for the app lifetime.
+                    // Dropping it would re-enable App Nap.
+                    std::mem::forget(_activity);
+                }
+            }
+
             println!("[FnShortcut] Initializing Fn shortcut manager...");
 
             // Initialize Fn shortcut manager based on platform
