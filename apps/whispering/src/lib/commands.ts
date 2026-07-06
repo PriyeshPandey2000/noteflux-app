@@ -85,8 +85,11 @@ export const commandCallbacks = commands.reduce<CommandCallbacks>(
 
 // Track local state for instant feedback without backend roundtrip
 let isRecordingOrStarting = false;
-// Track pending start operation to ensure we don't try to stop before start finishes
-let pendingStartPromise: Promise<any> | null = null;
+// Track pending start operation to ensure we don't try to stop before start finishes.
+// Note: .execute() never throws — errors come back as { error } in the Result.
+let pendingStartPromise: ReturnType<
+	typeof rpc.commands.startManualRecording.execute
+> | null = null;
 
 // Global shortcut callbacks - these pass 'global-shortcut' as the initiation method
 export const globalCommandCallbacks: CommandCallbacks = {
@@ -99,15 +102,13 @@ export const globalCommandCallbacks: CommandCallbacks = {
 			// SAFETY: If we are still starting (e.g. quick tap), wait for start to finish first
 			// This prevents the "stop before start" race condition
 			if (pendingStartPromise) {
-				try {
-					await pendingStartPromise;
-				} catch (error) {
-					// If start failed, we can't stop a non-existent recording
-					console.error('Start failed, cannot stop:', error);
-					pendingStartPromise = null;
+				const { error: startError } = await pendingStartPromise;
+				pendingStartPromise = null;
+				if (startError) {
+					// Start failed — there is no recording to stop
+					console.error('Start failed, cannot stop:', startError);
 					return;
 				}
-				pendingStartPromise = null;
 			}
 
 			// Now safely stop the recording
@@ -122,18 +123,17 @@ export const globalCommandCallbacks: CommandCallbacks = {
 				initiatedVia: 'global-shortcut',
 			});
 
-			try {
-				await pendingStartPromise;
-			} catch (error) {
-				// If start fails, revert our local state since we aren't actually recording
+			const { error } = await pendingStartPromise;
+			if (error) {
+				// Start failed (auth, gate, mic error) — revert local state so the
+				// next press starts fresh instead of being eaten by a no-op stop
 				console.error('Start manual recording failed:', error);
 				isRecordingOrStarting = false;
-			} finally {
+				pendingStartPromise = null;
+			} else if (isRecordingOrStarting) {
 				// Clear promise ref if we finished without a stop call intercepting it
 				// (The stop logic might have already set this to null, which is fine)
-				if (isRecordingOrStarting) {
-					pendingStartPromise = null;
-				}
+				pendingStartPromise = null;
 			}
 		}
 	},

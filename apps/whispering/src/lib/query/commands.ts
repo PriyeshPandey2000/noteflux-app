@@ -1,7 +1,7 @@
 import { fromTaggedErr, fromTaggedError, NoteFluxErr } from '$lib/result';
 import type { SelectionContext } from '$lib/services/clipboard/types';
 import * as services from '$lib/services';
-import { checkAnonymousGate } from '$lib/services/anonymous-gate';
+import { checkAnonymousGate, refreshAnonymousGateCache } from '$lib/services/anonymous-gate';
 import { analytics } from '$lib/services/posthog';
 import { auth } from '$lib/stores/auth.svelte';
 import { settings } from '$lib/stores/settings.svelte';
@@ -93,27 +93,43 @@ const startManualRecording = defineMutation({
 	resultMutationFn: async ({ initiatedVia = 'local' }: { initiatedVia?: 'global-shortcut' | 'local' } = {}) => {
 		console.log('🎙️ [COMMAND] startManualRecording called with initiatedVia:', initiatedVia);
 
-		// Capture whether window is focused at recording start
-		// This will be used later during delivery to determine if we should keep window visible
-		if (window.__TAURI_INTERNALS__) {
-			try {
-				const { getCurrentWindow } = await import('@tauri-apps/api/window');
-				wasWindowFocusedAtRecordingStart = await getCurrentWindow().isFocused();
-			} catch (error) {
-				console.error('[COMMAND] Failed to check window focus:', error);
-				wasWindowFocusedAtRecordingStart = false;
-			}
-		} else {
-			wasWindowFocusedAtRecordingStart = false;
-		}
+		// Kick off focus + selection capture immediately (at press time) but do NOT
+		// block on them — the mic start below runs concurrently. They're awaited
+		// after the recorder has started.
+		const isDesktop = !!window.__TAURI_INTERNALS__;
+		const isGlobalShortcut = initiatedVia === 'global-shortcut';
 
-		// Capture selected text + surrounding context at recording start (global shortcut + desktop only)
-		// Stored so delivery can send it to LLM for inline editing
-		if (initiatedVia === 'global-shortcut' && window.__TAURI_INTERNALS__) {
-			selectionContextAtRecordingStart = await services.clipboard.getSelectionWithContext();
-		} else {
-			selectionContextAtRecordingStart = null;
-		}
+		const focusPromise: Promise<boolean> = isDesktop
+			? (async () => {
+					try {
+						const { getCurrentWindow } = await import('@tauri-apps/api/window');
+						return await getCurrentWindow().isFocused();
+					} catch {
+						return false;
+					}
+				})()
+			: Promise.resolve(false);
+
+		const selectionPromise: Promise<SelectionContext | null> = (() => {
+			if (!isDesktop || !isGlobalShortcut) return Promise.resolve(null);
+			if (onboardingStore.isOpen && onboardingStore.currentStep === 'inline-edit') {
+				// DOM selection is read synchronously right now, at press time
+				const el = document.activeElement as HTMLTextAreaElement | null;
+				if (
+					el &&
+					(el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') &&
+					el.selectionStart !== el.selectionEnd
+				) {
+					return Promise.resolve({
+						selectedText: el.value.slice(el.selectionStart!, el.selectionEnd!),
+						contextBefore: el.value.slice(0, el.selectionStart!),
+						contextAfter: el.value.slice(el.selectionEnd!),
+					});
+				}
+				return Promise.resolve(null);
+			}
+			return services.clipboard.getSelectionWithContext().catch(() => null);
+		})();
 
 		// Check authentication first (anonymous users have session from onboarding start)
 		const isAuthenticated = await checkAuthAndShowDialog();
@@ -217,6 +233,11 @@ const startManualRecording = defineMutation({
 		recordingInitiatedVia = initiatedVia;
 		console.info('Recording started');
 		sound.playSoundIfEnabled.execute('manual-start');
+
+		// Mic is already live — settle the press-time captures (they've been running
+		// concurrently with the recorder start above)
+		wasWindowFocusedAtRecordingStart = await focusPromise;
+		selectionContextAtRecordingStart = await selectionPromise;
 
 		// Track recording started in PostHog
 		analytics.trackRecordingStarted('manual');
@@ -798,7 +819,7 @@ async function processRecordingPipeline({
 		// Track text delivery
 		analytics.trackTextDelivered('clipboard');
 
-		// Hide the recording overlay after delivery is complete
+		refreshAnonymousGateCache();
 		await hideRecordingOverlay();
 		return;
 	}
@@ -880,6 +901,6 @@ async function processRecordingPipeline({
 	// Track text delivery for transformed text
 	analytics.trackTextDelivered('clipboard');
 
-	// Hide the recording overlay after delivery is complete
+	refreshAnonymousGateCache();
 	await hideRecordingOverlay();
 }
