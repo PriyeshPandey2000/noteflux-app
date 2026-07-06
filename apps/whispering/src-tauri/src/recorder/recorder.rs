@@ -82,8 +82,9 @@ impl Drop for StreamHolder {
 /// Simplified recorder state
 pub struct RecorderState {
     stream_holder: Option<StreamHolder>,
-    writer: Option<Arc<Mutex<WavWriter>>>,
+    writer: Arc<Mutex<Option<WavWriter>>>,
     is_recording: Arc<AtomicBool>,
+    current_device: Option<String>,
     sample_rate: u32,
     channels: u16,
     file_path: Option<PathBuf>,
@@ -93,8 +94,9 @@ impl RecorderState {
     pub fn new() -> Self {
         Self {
             stream_holder: None,
-            writer: None,
+            writer: Arc::new(Mutex::new(None)),
             is_recording: Arc::new(AtomicBool::new(false)),
+            current_device: None,
             sample_rate: 0,
             channels: 0,
             file_path: None,
@@ -113,7 +115,9 @@ impl RecorderState {
         Ok(devices)
     }
 
-    /// Initialize recording session - creates stream and WAV writer
+    /// Initialize recording session.
+    /// Reuses the existing CPAL stream if the device hasn't changed — only swaps
+    /// the WavWriter. Rebuilds the stream from scratch on first call or device change.
     pub fn init_session(
         &mut self,
         device_name: String,
@@ -121,68 +125,78 @@ impl RecorderState {
         recording_id: String,
         preferred_sample_rate: Option<u32>,
     ) -> Result<()> {
-        // Clean up any existing session
-        self.close_session()?;
-
-        // Create file path
         let file_path = output_folder.join(format!("{}.wav", recording_id));
 
-        // Find the device
-        let host = cpal::default_host();
-        let device = find_device(&host, &device_name)?;
+        let can_reuse = self.stream_holder.is_some()
+            && self.current_device.as_deref() == Some(&device_name);
 
-        // Get optimal config for voice with optional preferred sample rate
-        let config = get_optimal_config(&device, preferred_sample_rate)?;
-        let sample_format = config.sample_format();
-        let sample_rate = config.sample_rate().0;
-        let channels = config.channels();
+        if !can_reuse {
+            // Expensive path: build a new stream
+            self.close_session()?;
 
-        // Create WAV writer
-        let writer = WavWriter::new(file_path.clone(), sample_rate, channels)
+            let host = cpal::default_host();
+            let device = find_device(&host, &device_name)?;
+            let config = get_optimal_config(&device, preferred_sample_rate)?;
+            let sample_format = config.sample_format();
+            let sample_rate = config.sample_rate().0;
+            let channels = config.channels();
+
+            let stream_config = cpal::StreamConfig {
+                channels,
+                sample_rate: cpal::SampleRate(sample_rate),
+                buffer_size: cpal::BufferSize::Fixed(256),
+            };
+
+            self.is_recording = Arc::new(AtomicBool::new(false));
+            let is_recording = self.is_recording.clone();
+            let is_recording_clone = is_recording.clone();
+            let writer = self.writer.clone();
+
+            let stream_holder = StreamHolder::new(
+                move || match sample_format {
+                    SampleFormat::F32 => {
+                        build_stream_f32(&device, &stream_config, is_recording_clone, writer)
+                    }
+                    SampleFormat::I16 => {
+                        build_stream_i16(&device, &stream_config, is_recording_clone, writer)
+                    }
+                    SampleFormat::U16 => {
+                        build_stream_u16(&device, &stream_config, is_recording_clone, writer)
+                    }
+                    _ => Err("Unsupported sample format".to_string()),
+                },
+                is_recording,
+            )?;
+
+            self.stream_holder = Some(stream_holder);
+            self.sample_rate = sample_rate;
+            self.channels = channels;
+            self.current_device = Some(device_name);
+
+            info!(
+                "Recording stream built: {} Hz, {} channels",
+                self.sample_rate, self.channels
+            );
+        }
+
+        // Cheap path (always): swap in a fresh WavWriter for this recording
+        let new_writer = WavWriter::new(file_path.clone(), self.sample_rate, self.channels)
             .map_err(|e| format!("Failed to create WAV file: {}", e))?;
-        let writer = Arc::new(Mutex::new(writer));
 
-        // Create stream config
-        let stream_config = cpal::StreamConfig {
-            channels,
-            sample_rate: cpal::SampleRate(sample_rate),
-            buffer_size: cpal::BufferSize::Default,
-        };
+        {
+            let mut w = self
+                .writer
+                .lock()
+                .map_err(|e| format!("Lock error: {}", e))?;
+            *w = Some(new_writer);
+        }
 
-        // Create fresh recording flag
-        self.is_recording = Arc::new(AtomicBool::new(false));
-        let is_recording = self.is_recording.clone();
-
-        // Create the stream holder with a closure that builds the stream
-        let writer_clone = writer.clone();
-        let is_recording_clone = is_recording.clone();
-
-        let stream_holder = StreamHolder::new(
-            move || match sample_format {
-                SampleFormat::F32 => {
-                    build_stream_f32(&device, &stream_config, is_recording_clone, writer_clone)
-                }
-                SampleFormat::I16 => {
-                    build_stream_i16(&device, &stream_config, is_recording_clone, writer_clone)
-                }
-                SampleFormat::U16 => {
-                    build_stream_u16(&device, &stream_config, is_recording_clone, writer_clone)
-                }
-                _ => Err("Unsupported sample format".to_string()),
-            },
-            is_recording,
-        )?;
-
-        // Store everything
-        self.stream_holder = Some(stream_holder);
-        self.writer = Some(writer);
-        self.sample_rate = sample_rate;
-        self.channels = channels;
+        self.is_recording.store(false, Ordering::Release);
         self.file_path = Some(file_path);
 
         info!(
-            "Recording session initialized: {} Hz, {} channels, file: {:?}",
-            sample_rate, channels, self.file_path
+            "Recording session ready: file: {:?} (stream reused: {})",
+            self.file_path, can_reuse
         );
 
         Ok(())
@@ -200,21 +214,25 @@ impl RecorderState {
         Ok(())
     }
 
-    /// Stop recording - return file info
+    /// Stop recording - finalize WAV, leave stream alive for next Fn press
     pub fn stop_recording(&mut self) -> Result<AudioRecording> {
-        // Stop recording flag first
         self.is_recording.store(false, Ordering::Release);
 
-        // Finalize the WAV file and get metadata
-        let (sample_rate, channels, duration) = if let Some(writer) = &self.writer {
-            let mut w = writer
+        let (sample_rate, channels, duration) = {
+            let mut w = self
+                .writer
                 .lock()
-                .map_err(|e| format!("Failed to lock writer: {}", e))?;
-            w.finalize()
-                .map_err(|e| format!("Failed to finalize WAV: {}", e))?;
-            w.get_metadata()
-        } else {
-            (self.sample_rate, self.channels, 0.0)
+                .map_err(|e| format!("Lock error: {}", e))?;
+            if let Some(ref mut writer) = *w {
+                writer
+                    .finalize()
+                    .map_err(|e| format!("Failed to finalize WAV: {}", e))?;
+                let meta = writer.get_metadata();
+                *w = None;
+                meta
+            } else {
+                (self.sample_rate, self.channels, 0.0)
+            }
         };
 
         let file_path = self
@@ -225,7 +243,7 @@ impl RecorderState {
         info!("Recording stopped: {:.2}s, file: {:?}", duration, file_path);
 
         Ok(AudioRecording {
-            audio_data: Vec::new(), // Empty for file-based recording
+            audio_data: Vec::new(),
             sample_rate,
             channels,
             duration_seconds: duration,
@@ -233,44 +251,50 @@ impl RecorderState {
         })
     }
 
-    /// Cancel recording - stop and delete the file
+    /// Cancel recording - clear writer and delete file, leave stream alive
     pub fn cancel_recording(&mut self) -> Result<()> {
-        // Stop recording
         self.is_recording.store(false, Ordering::Release);
 
-        // Delete the file if it exists
-        if let Some(file_path) = &self.file_path {
-            std::fs::remove_file(file_path).ok(); // Ignore errors
-            debug!("Deleted recording file: {:?}", file_path);
+        {
+            let mut w = self
+                .writer
+                .lock()
+                .map_err(|e| format!("Lock error: {}", e))?;
+            *w = None; // drops WavWriter (Drop finalizes headers), then file is deleted below
         }
 
-        // Clear the session
-        self.close_session()?;
+        if let Some(file_path) = &self.file_path {
+            std::fs::remove_file(file_path).ok();
+            debug!("Deleted recording file: {:?}", file_path);
+        }
+        self.file_path = None;
 
         Ok(())
     }
 
-    /// Close the recording session
+    /// Close the recording session - kills stream. Called on device change or app quit.
     pub fn close_session(&mut self) -> Result<()> {
-        // Stop recording if active
         self.is_recording.store(false, Ordering::Release);
 
-        // Stop and drop the stream holder
         if let Some(mut holder) = self.stream_holder.take() {
             holder.stop();
         }
 
-        // Finalize and drop the writer
-        if let Some(writer) = self.writer.take() {
-            if let Ok(mut w) = writer.lock() {
-                let _ = w.finalize(); // Ignore errors during cleanup
+        {
+            let mut w = self
+                .writer
+                .lock()
+                .map_err(|e| format!("Lock error: {}", e))?;
+            if let Some(ref mut writer) = *w {
+                let _ = writer.finalize();
             }
+            *w = None;
         }
 
-        // Clear state
         self.file_path = None;
         self.sample_rate = 0;
         self.channels = 0;
+        self.current_device = None;
 
         debug!("Recording session closed");
         Ok(())
@@ -292,14 +316,12 @@ impl RecorderState {
 
 /// Find a recording device by name
 fn find_device(host: &cpal::Host, device_name: &str) -> Result<Device> {
-    // Handle "default" device
     if device_name.to_lowercase() == "default" {
         return host
             .default_input_device()
             .ok_or_else(|| "No default input device available".to_string());
     }
 
-    // Find specific device
     let devices: Vec<_> = host.input_devices().map_err(|e| e.to_string())?.collect();
 
     for device in devices {
@@ -318,7 +340,6 @@ fn get_optimal_config(
     device: &Device,
     preferred_sample_rate: Option<u32>,
 ) -> Result<cpal::SupportedStreamConfig> {
-    // Use preferred sample rate or default to 16kHz for voice
     let target_sample_rate = preferred_sample_rate.unwrap_or(16000);
 
     let configs: Vec<_> = device
@@ -330,7 +351,6 @@ fn get_optimal_config(
         return Err("No supported input configurations".to_string());
     }
 
-    // Try to find mono config with target sample rate
     for config in &configs {
         if config.channels() == 1 {
             let min_rate = config.min_sample_rate().0;
@@ -341,7 +361,6 @@ fn get_optimal_config(
         }
     }
 
-    // Try stereo with target sample rate if mono not available
     for config in &configs {
         let min_rate = config.min_sample_rate().0;
         let max_rate = config.max_sample_rate().0;
@@ -350,17 +369,14 @@ fn get_optimal_config(
         }
     }
 
-    // If target rate not supported, try to find closest rate
     let mut best_config = None;
     let mut best_diff = u32::MAX;
 
     for config in &configs {
-        // Prefer mono
         if config.channels() == 1 {
             let min_rate = config.min_sample_rate().0;
             let max_rate = config.max_sample_rate().0;
 
-            // Find closest supported rate
             let closest_rate = if target_sample_rate < min_rate {
                 min_rate
             } else if target_sample_rate > max_rate {
@@ -377,7 +393,6 @@ fn get_optimal_config(
         }
     }
 
-    // Return best config or fall back to default
     best_config
         .or_else(|| device.default_input_config().ok())
         .ok_or_else(|| "Failed to find suitable audio configuration".to_string())
@@ -388,7 +403,7 @@ fn build_stream_f32(
     device: &Device,
     config: &cpal::StreamConfig,
     is_recording: Arc<AtomicBool>,
-    writer: Arc<Mutex<WavWriter>>,
+    writer: Arc<Mutex<Option<WavWriter>>>,
 ) -> Result<Stream> {
     let err_fn = |err| error!("Audio stream error: {}", err);
 
@@ -398,7 +413,9 @@ fn build_stream_f32(
             move |data: &[f32], _: &_| {
                 if is_recording.load(Ordering::Acquire) {
                     if let Ok(mut w) = writer.lock() {
-                        let _ = w.write_samples_f32(data);
+                        if let Some(ref mut w) = *w {
+                            let _ = w.write_samples_f32(data);
+                        }
                     }
                 }
             },
@@ -407,7 +424,6 @@ fn build_stream_f32(
         )
         .map_err(|e| format!("Failed to build stream: {}", e))?;
 
-    // Start the stream immediately
     stream
         .play()
         .map_err(|e| format!("Failed to start stream: {}", e))?;
@@ -420,7 +436,7 @@ fn build_stream_i16(
     device: &Device,
     config: &cpal::StreamConfig,
     is_recording: Arc<AtomicBool>,
-    writer: Arc<Mutex<WavWriter>>,
+    writer: Arc<Mutex<Option<WavWriter>>>,
 ) -> Result<Stream> {
     let err_fn = |err| error!("Audio stream error: {}", err);
 
@@ -430,7 +446,9 @@ fn build_stream_i16(
             move |data: &[i16], _: &_| {
                 if is_recording.load(Ordering::Acquire) {
                     if let Ok(mut w) = writer.lock() {
-                        let _ = w.write_samples_i16(data);
+                        if let Some(ref mut w) = *w {
+                            let _ = w.write_samples_i16(data);
+                        }
                     }
                 }
             },
@@ -439,7 +457,6 @@ fn build_stream_i16(
         )
         .map_err(|e| format!("Failed to build stream: {}", e))?;
 
-    // Start the stream immediately
     stream
         .play()
         .map_err(|e| format!("Failed to start stream: {}", e))?;
@@ -452,7 +469,7 @@ fn build_stream_u16(
     device: &Device,
     config: &cpal::StreamConfig,
     is_recording: Arc<AtomicBool>,
-    writer: Arc<Mutex<WavWriter>>,
+    writer: Arc<Mutex<Option<WavWriter>>>,
 ) -> Result<Stream> {
     let err_fn = |err| error!("Audio stream error: {}", err);
 
@@ -462,7 +479,9 @@ fn build_stream_u16(
             move |data: &[u16], _: &_| {
                 if is_recording.load(Ordering::Acquire) {
                     if let Ok(mut w) = writer.lock() {
-                        let _ = w.write_samples_u16(data);
+                        if let Some(ref mut w) = *w {
+                            let _ = w.write_samples_u16(data);
+                        }
                     }
                 }
             },
@@ -471,7 +490,6 @@ fn build_stream_u16(
         )
         .map_err(|e| format!("Failed to build stream: {}", e))?;
 
-    // Start the stream immediately
     stream
         .play()
         .map_err(|e| format!("Failed to start stream: {}", e))?;
