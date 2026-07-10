@@ -833,14 +833,17 @@ fn qwen_ensure_daemon(
 
     let mut daemon = QwenASRDaemon { child, stdin, reader: line_rx, model_id: model_id.to_string() };
 
-    // Wait for "READY" with a 60s timeout — generous enough for slow first loads
-    // (Metal kernel compilation) but prevents hanging forever on a stuck sidecar.
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    // Wait for "READY" with a 5-minute timeout.
+    // First run on a new machine requires MLX to JIT-compile Metal GPU kernels from
+    // scratch (the pre-built metallib only covers the build machine's GPU generation).
+    // That compilation can take 2-4 minutes on a cold cache. Subsequent runs are fast
+    // because Metal caches compiled shaders in ~/Library/Caches/com.apple.metal/.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(300);
     loop {
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());
         if remaining.is_zero() {
             daemon.child.kill().ok();
-            return Err("Daemon startup timed out (60s) — sidecar may have hung during model load".to_string());
+            return Err("Qwen3-ASR took too long to load (>5 min). Try again — Metal shaders should be cached now.".to_string());
         }
         match daemon.reader.recv_timeout(remaining) {
             Ok(line) if line == "READY" => break,
@@ -849,9 +852,13 @@ fn qwen_ensure_daemon(
                 daemon.child.kill().ok();
                 return Err(format!("Sidecar startup error: {}", line));
             }
-            Err(_) => {
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
                 daemon.child.kill().ok();
-                return Err("Daemon startup timed out (60s)".to_string());
+                return Err("Qwen3-ASR sidecar crashed during model load. Check Console.app for details.".to_string());
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                daemon.child.kill().ok();
+                return Err("Qwen3-ASR took too long to load (>5 min). Try again — Metal shaders should be cached now.".to_string());
             }
         }
     }
