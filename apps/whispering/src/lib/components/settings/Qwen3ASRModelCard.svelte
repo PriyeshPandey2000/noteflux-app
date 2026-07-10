@@ -24,6 +24,7 @@
 		| { step: 'not_supported' }
 		| { step: 'not_downloaded' }
 		| { step: 'downloading'; percent: number }
+		| { step: 'warming_up' }
 		| { step: 'downloaded' }
 		| { step: 'deleting' };
 
@@ -74,11 +75,18 @@
 			return;
 		}
 
+		modelStates[modelId] = { step: 'warming_up' };
+
+		try {
+			await services.transcriptions.qwen3asr.preload(modelId);
+		} catch {
+			// Preload failed but model is on disk — user can still try recording
+		}
+
 		modelStates[modelId] = { step: 'downloaded' };
-		toast.success('Model downloaded', {
-			description: 'Qwen3-ASR is ready for on-device transcription.',
+		toast.success('Model ready', {
+			description: 'Qwen3-ASR is loaded and ready for on-device transcription.',
 		});
-		services.transcriptions.qwen3asr.preload(modelId);
 	}
 
 	async function deleteModel(modelId: Qwen3ASRModelId) {
@@ -165,6 +173,16 @@
 								></div>
 							</div>
 							<p class="text-xs text-muted-foreground">Keep the app open until download finishes.</p>
+						</div>
+					{:else if state.step === 'warming_up'}
+						<div class="space-y-2">
+							<div class="flex items-center gap-2 text-sm text-muted-foreground">
+								<Loader2Icon class="size-4 animate-spin shrink-0" />
+								<span>Loading model into memory<span class="text-xs ml-1 text-muted-foreground/70">(first run only — compiling GPU shaders)</span></span>
+							</div>
+							<p class="text-xs text-muted-foreground">
+								This takes 2–4 minutes once. All future loads are instant. Keep the app open.
+							</p>
 						</div>
 					{:else if state.step === 'downloaded'}
 						<div class="space-y-2">

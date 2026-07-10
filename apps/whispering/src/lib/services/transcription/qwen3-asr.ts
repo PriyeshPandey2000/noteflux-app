@@ -122,16 +122,13 @@ export function createQwen3ASRService() {
 
 		/**
 		 * Warms up the daemon for a given model so the first transcription is instant.
-		 * Fire-and-forget; errors are ignored.
+		 * Returns a promise that resolves when the daemon is ready (or rejects on error).
 		 */
-		preload(modelId: Qwen3ASRModelId): void {
-			invoke<Qwen3ASRModelStatus>('qwen3_asr_model_status', { modelId })
-				.then((status) => {
-					if (status === 'downloaded') {
-						return invoke('preload_qwen3_asr', { modelId });
-					}
-				})
-				.catch(() => {});
+		async preload(modelId: Qwen3ASRModelId): Promise<void> {
+			const status = await invoke<Qwen3ASRModelStatus>('qwen3_asr_model_status', { modelId });
+			if (status === 'downloaded') {
+				await invoke('preload_qwen3_asr', { modelId });
+			}
 		},
 
 		async transcribe(
