@@ -193,8 +193,7 @@ jobs:
           # Full release notes for GitHub release page
           releaseBody: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
           
-          # Create as draft so you can review before publishing
-          releaseDraft: true
+          releaseDraft: false
           
           # Set to true for beta/RC releases
           prerelease: false

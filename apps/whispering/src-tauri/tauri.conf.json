@@ -47,7 +47,7 @@
 		"updater": {
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRCRjNDMkJGMzdGRUM4RTYKUldUbXlQNDN2OEx6Uzl6T1h0MTdJWkRQTG91eTZzalJwVHhaY290eG9pcmF3cGRDSEFubWU2clIK",
 			"endpoints": [
-				"https://github.com/PriyeshPandey2000/whisper-stt/releases/latest/download/latest.json"
+				"https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/latest.json"
 			]
 		}
 	},
