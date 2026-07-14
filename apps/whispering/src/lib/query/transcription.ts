@@ -306,7 +306,8 @@ async function transcribeBlob(
 						temperature: settings.value['transcription.temperature'],
 					});
 				case 'Qwen3ASR': {
-					if (isQwen3WarmingUp()) {
+					const qwenModelId = settings.value['transcription.qwen3asr.modelId'] as import('$lib/services/transcription/qwen3-asr').Qwen3ASRModelId;
+					if (isQwen3WarmingUp(qwenModelId)) {
 						toast.info('Setting up local model (first run only)', {
 							description: 'Transcription will begin automatically once ready. This takes 2–4 minutes.',
 							duration: 30000,
@@ -314,7 +315,7 @@ async function transcribeBlob(
 					}
 					return await services.transcriptions.qwen3asr.transcribe(blob, {
 						outputLanguage: settings.value['transcription.outputLanguage'],
-						modelId: settings.value['transcription.qwen3asr.modelId'] as import('$lib/services/transcription/qwen3-asr').Qwen3ASRModelId,
+						modelId: qwenModelId,
 					});
 				}
 				// case 'OpenAI':

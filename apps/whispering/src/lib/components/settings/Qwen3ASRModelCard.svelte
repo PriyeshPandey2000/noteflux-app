@@ -79,14 +79,16 @@
 
 		try {
 			await services.transcriptions.qwen3asr.preload(modelId);
-		} catch {
-			// Preload failed but model is on disk — user can still try recording
+			modelStates[modelId] = { step: 'downloaded' };
+			toast.success('Model ready', {
+				description: 'Qwen3-ASR is loaded and ready for on-device transcription.',
+			});
+		} catch (e) {
+			modelStates[modelId] = { step: 'downloaded' };
+			toast.warning('Model downloaded but failed to load', {
+				description: 'Try pressing Fn to record — it will retry automatically.',
+			});
 		}
-
-		modelStates[modelId] = { step: 'downloaded' };
-		toast.success('Model ready', {
-			description: 'Qwen3-ASR is loaded and ready for on-device transcription.',
-		});
 	}
 
 	async function deleteModel(modelId: Qwen3ASRModelId) {
