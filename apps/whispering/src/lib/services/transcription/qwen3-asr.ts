@@ -11,6 +11,11 @@ export type Qwen3ASRService = ReturnType<typeof createQwen3ASRService>;
 
 let cachedMacOSMajorVersion: number | null = null;
 const verifiedDownloadedModels = new Set<string>();
+let warmingUp = false;
+
+export function isQwen3WarmingUp(): boolean {
+	return warmingUp;
+}
 
 export type Qwen3ASRModelStatus = 'downloaded' | 'not_downloaded';
 
@@ -127,7 +132,12 @@ export function createQwen3ASRService() {
 		async preload(modelId: Qwen3ASRModelId): Promise<void> {
 			const status = await invoke<Qwen3ASRModelStatus>('qwen3_asr_model_status', { modelId });
 			if (status === 'downloaded') {
-				await invoke('preload_qwen3_asr', { modelId });
+				warmingUp = true;
+				try {
+					await invoke('preload_qwen3_asr', { modelId });
+				} finally {
+					warmingUp = false;
+				}
 			}
 		},
 

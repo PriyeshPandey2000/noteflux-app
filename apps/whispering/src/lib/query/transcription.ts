@@ -2,10 +2,13 @@ import type { Recording } from '$lib/services/db';
 
 import { NoteFluxErr, type NoteFluxError } from '$lib/result';
 import * as services from '$lib/services';
+import { isQwen3WarmingUp } from '$lib/services/transcription/qwen3-asr';
 import { settings } from '$lib/stores/settings.svelte';
 import { applyDictionary } from '$lib/utils/dictionary';
 import { getGroqApiKey } from '$lib/utils/embedded-keys';
 import { Err, Ok, partitionResults, type Result } from 'wellcrafted/result';
+
+import { toast } from 'svelte-sonner';
 
 import { rpc } from './';
 import { defineMutation, queryClient } from './_client';
@@ -302,11 +305,18 @@ async function transcribeBlob(
 						prompt: settings.value['transcription.prompt'],
 						temperature: settings.value['transcription.temperature'],
 					});
-				case 'Qwen3ASR':
+				case 'Qwen3ASR': {
+					if (isQwen3WarmingUp()) {
+						toast.info('Setting up local model (first run only)', {
+							description: 'Transcription will begin automatically once ready. This takes 2–4 minutes.',
+							duration: 30000,
+						});
+					}
 					return await services.transcriptions.qwen3asr.transcribe(blob, {
 						outputLanguage: settings.value['transcription.outputLanguage'],
 						modelId: settings.value['transcription.qwen3asr.modelId'] as import('$lib/services/transcription/qwen3-asr').Qwen3ASRModelId,
 					});
+				}
 				// case 'OpenAI':
 				// 	return await services.transcriptions.openai.transcribe(blob, {
 				// 		apiKey: settings.value['apiKeys.openai'],
