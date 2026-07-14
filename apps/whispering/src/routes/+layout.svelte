@@ -26,7 +26,7 @@
 			}
 			services.transcriptions.qwen3asr.preload(
 				settings.value['transcription.qwen3asr.modelId'] as import('$lib/services/transcription/qwen3-asr').Qwen3ASRModelId,
-			);
+			).catch(() => {});
 		} else {
 			services.transcriptions.qwen3asr.shutdown();
 		}
