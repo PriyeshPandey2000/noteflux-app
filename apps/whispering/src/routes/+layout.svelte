@@ -26,7 +26,7 @@
 			}
 			services.transcriptions.qwen3asr.preload(
 				settings.value['transcription.qwen3asr.modelId'] as import('$lib/services/transcription/qwen3-asr').Qwen3ASRModelId,
-			).catch(() => {});
+			).catch((e) => console.error('[qwen3-asr] background warmup failed:', e));
 		} else {
 			services.transcriptions.qwen3asr.shutdown();
 		}
