@@ -87,7 +87,9 @@ export function createQwen3ASRService() {
 						description:
 							error instanceof Error
 								? error.message
-								: 'Could not download the model. Check your internet connection and try again.',
+								: typeof error === 'string'
+									? error
+									: 'Could not download the model. Check your internet connection and try again.',
 						action: { error, type: 'more-details' },
 					}),
 				try: () => invoke<void>('download_qwen3_asr_model', { modelId }),
