@@ -151,7 +151,7 @@ fn create_system_tray(app: &tauri::App) -> Result<(), String> {
         .map_err(|e| format!("Failed to create menu: {}", e))?;
     
     // Create tray icon (original green circle without dark background)
-    let tray_icon_bytes = include_bytes!("../../recorder-state-icons/tray_icon.png");
+    let tray_icon_bytes = include_bytes!("../recorder-state-icons/tray_icon.png");
     let tray_image = tauri::image::Image::from_bytes(tray_icon_bytes)
         .map_err(|e| format!("Failed to load tray icon: {}", e))?;
     let _tray = TrayIconBuilder::with_id("main-tray")
