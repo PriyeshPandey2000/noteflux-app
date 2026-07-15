@@ -145,7 +145,12 @@ func loadAudio(from path: String) throws -> (samples: [Float], sampleRate: Int) 
 Task {
     // Keep realStdoutFd outside do{} so catch{} can write the error back to Rust.
     let realStdoutFd = dup(STDOUT_FILENO)
-    freopen("/dev/null", "w", stdout)
+    // Route the model's stdout chatter to stderr (not /dev/null) during load, so the
+    // READY/OK/ERR protocol channel (realStdoutFd) stays clean while any load failure
+    // stays visible. MLX's C error handler prints to stdout then exit(-1) — bypassing
+    // our Swift catch{} entirely — so /dev/null would silently swallow the real error.
+    // Sending it to stderr (which Rust inherits) surfaces it in Console.app instead.
+    dup2(STDERR_FILENO, STDOUT_FILENO)
 
     func writeLine(_ s: String) {
         var line = s + "\n"
