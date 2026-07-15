@@ -150,9 +150,12 @@ fn create_system_tray(app: &tauri::App) -> Result<(), String> {
     let menu = Menu::with_items(app, &[&show_hide_item, &quit_item])
         .map_err(|e| format!("Failed to create menu: {}", e))?;
     
-    // Create tray icon (using existing icon from bundle)
+    // Create tray icon (original green circle without dark background)
+    let tray_icon_bytes = include_bytes!("../../recorder-state-icons/tray_icon.png");
+    let tray_image = tauri::image::Image::from_bytes(tray_icon_bytes)
+        .map_err(|e| format!("Failed to load tray icon: {}", e))?;
     let _tray = TrayIconBuilder::with_id("main-tray")
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(tray_image)
         .menu(&menu)
         .show_menu_on_left_click(false) // Don't show menu on left click
         .build(app)
