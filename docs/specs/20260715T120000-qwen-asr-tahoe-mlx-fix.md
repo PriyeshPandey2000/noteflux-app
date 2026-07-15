@@ -43,3 +43,21 @@ v0.0.23: Added `com.apple.security.cs.allow-jit` entitlement. Was a hypothesis (
 v0.0.24: Fixed actual root cause. MLX embeds Metal kernel source as C++ raw strings in `mlx-generated/*.cpp`. At runtime, MLX JIT-compiles these into GPU kernels. Metal Toolchain 32023 (shipped with Xcode 26 / macOS 26 Tahoe) moved bare SIMD types (`uint2`, `float2`, `half2`, etc.) to require `using namespace metal;` qualification. 29 of 47 mlx-generated files were missing this declaration, causing JIT compilation to fail with a Swift `fatalError` → `_exit(-1)` = exit 255 (no crash report generated).
 
 Fix: `build.sh` now runs `swift package resolve` first (to fetch sources), then patches all affected `.cpp` files by inserting `using namespace metal;` right after each `R"preamble(` opening. Idempotent: skips files that already have the declaration. Compatible with all Apple Silicon (M1/M2/M3/M4) — the namespace declaration is valid on all Metal toolchain versions.
+
+## ACTUAL ROOT CAUSE (v0.0.26) — everything above v0.0.26 was chasing the wrong error
+
+The crash was reproduced locally on the user's M4/Tahoe machine (the same environment as the failure) instead of shipping blind to CI. The daemon redirects `stdout` to `/dev/null` before loading the model (`main.swift`), which was swallowing MLX's real error. MLX prints its fatal error to `stdout`, not `stderr`, so with the redirect it exited 255 silently. Temporarily disabling the redirect and rebuilding surfaced the truth:
+
+```
+MLX error: Failed to load the default metallib. library not found ... at .../mlx-c/mlx/c/memory.cpp:24
+```
+
+It was never a Metal Toolchain / JIT / `using namespace metal;` problem — the bundled metallib is precompiled AIR and MLX never JIT-compiles those preamble strings when it can load the metallib. The `vec<>`/namespace theory, the `allow-jit` entitlement, and the `mlx-generated` source patch were all red herrings.
+
+The real bug: MLX searches for `default.metallib` in a fixed set of locations (`device.cpp` `load_default_library`): colocated with the running binary, in a SwiftPM `mlx-swift_Cmlx.bundle`, or as a relative `default.metallib` resolved against the process working directory. The metallib is bundled by Tauri into `Contents/Resources/`, but the sidecar binary runs from `Contents/MacOS/` — none of MLX's colocated searches look in `Contents/Resources/`, so it fell through every path and threw "library not found".
+
+The dev's `MLX_METAL_PATH` env var (passed from Rust) was dead code — MLX reads no such variable.
+
+Fix: spawn the sidecar with its working directory set to the metallib's folder (`cmd.current_dir(dir)` in `qwen_ensure_daemon`), so MLX's relative-path fallback resolves `default.metallib` against `Contents/Resources/` where the file already lives. Verified locally: daemon reaches `READY` and loads weights. Also reverted the useless `build.sh` source patch and corrected the wrong "JIT-compile from scratch / metallib only covers the build machine's GPU generation" comment in `lib.rs` — an AIR metallib is GPU-family-agnostic and works on M1–M4.
+
+Also `main.swift:148` note for the future: the `freopen("/dev/null", ...)` redirect hides MLX load errors. If a load failure ever needs debugging again, redirect stdout to stderr instead of `/dev/null` so MLX's error is visible while keeping the protocol channel (the saved fd) clean.

@@ -802,8 +802,15 @@ fn qwen_ensure_daemon(
        .arg("--model")
        .arg(model_id);
 
+    // MLX searches for "default.metallib" relative to the process working directory
+    // as its final fallback. The metallib is bundled in Resources (next to the app,
+    // not next to this sidecar binary in MacOS/), so run the sidecar from that dir so
+    // MLX finds it. Without this, model load fails with "Failed to load the default
+    // metallib. library not found".
     if !metallib_path.is_empty() {
-        cmd.env("MLX_METAL_PATH", metallib_path);
+        if let Some(dir) = std::path::Path::new(metallib_path).parent() {
+            cmd.current_dir(dir);
+        }
     }
 
     let mut child = cmd
@@ -837,10 +844,10 @@ fn qwen_ensure_daemon(
     let mut daemon = QwenASRDaemon { child, stdin, reader: line_rx, model_id: model_id.to_string() };
 
     // Wait for "READY" with a 5-minute timeout.
-    // First run on a new machine requires MLX to JIT-compile Metal GPU kernels from
-    // scratch (the pre-built metallib only covers the build machine's GPU generation).
-    // That compilation can take 2-4 minutes on a cold cache. Subsequent runs are fast
-    // because Metal caches compiled shaders in ~/Library/Caches/com.apple.metal/.
+    // The bundled metallib is GPU-family-agnostic AIR, so no source JIT happens, but
+    // the first load on a machine still lets Metal compile AIR to native ISA and cache
+    // it in ~/Library/Caches/com.apple.metal/. That can take a bit on a cold cache;
+    // subsequent runs are fast.
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(300);
     loop {
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());
