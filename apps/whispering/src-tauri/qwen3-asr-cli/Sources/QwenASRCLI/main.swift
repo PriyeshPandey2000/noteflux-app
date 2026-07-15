@@ -143,11 +143,18 @@ func loadAudio(from path: String) throws -> (samples: [Float], sampleRate: Int) 
 // Each output line: "OK:<transcript>" or "ERR:<message>".
 // This avoids reloading weights (~3-5s) on every transcription call.
 Task {
-    do {
-        // Silence stdout during model load so progress logs don't pollute the protocol.
-        let realStdoutFd = dup(STDOUT_FILENO)
-        freopen("/dev/null", "w", stdout)
+    // Keep realStdoutFd outside do{} so catch{} can write the error back to Rust.
+    let realStdoutFd = dup(STDOUT_FILENO)
+    freopen("/dev/null", "w", stdout)
 
+    func writeLine(_ s: String) {
+        var line = s + "\n"
+        line.withUTF8 { ptr in
+            _ = Darwin.write(realStdoutFd, ptr.baseAddress!, ptr.count)
+        }
+    }
+
+    do {
         // offlineMode: weights are guaranteed downloaded before daemon starts
         // (app gates on --status), so never ping HuggingFace — daemon must
         // start even with no internet.
@@ -156,13 +163,6 @@ Task {
         // Restore stdout and signal readiness to Rust.
         fflush(stdout)
         dup2(realStdoutFd, STDOUT_FILENO)
-
-        func writeLine(_ s: String) {
-            var line = s + "\n"
-            line.withUTF8 { ptr in
-                _ = Darwin.write(realStdoutFd, ptr.baseAddress!, ptr.count)
-            }
-        }
 
         writeLine("READY")
 
@@ -185,6 +185,8 @@ Task {
 
         exit(0)
     } catch {
+        // Write error to stdout so Rust surfaces the real message instead of "sidecar crashed".
+        writeLine("LOAD_ERROR:" + error.localizedDescription)
         fputs("error: \(error.localizedDescription)\n", stderr)
         exit(1)
     }

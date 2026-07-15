@@ -851,6 +851,11 @@ fn qwen_ensure_daemon(
         match daemon.reader.recv_timeout(remaining) {
             Ok(line) if line == "READY" => break,
             Ok(line) if line.is_empty() => continue,
+            Ok(line) if line.starts_with("LOAD_ERROR:") => {
+                daemon.child.kill().ok();
+                let msg = line["LOAD_ERROR:".len()..].trim();
+                return Err(format!("Qwen3-ASR failed to load model: {}", msg));
+            }
             Ok(line) => {
                 daemon.child.kill().ok();
                 return Err(format!("Sidecar startup error: {}", line));

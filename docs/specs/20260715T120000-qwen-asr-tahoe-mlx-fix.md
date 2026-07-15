@@ -23,8 +23,13 @@ Done via `swift package update` in `apps/whispering/src-tauri/qwen3-asr-cli/`.
 - [x] Verify mlx-swift bumped to 0.31.6 and speech-swift to latest main
 - [x] Bump version to 0.0.21 in tauri.conf.json
 - [x] Commit and create PR
-- [ ] Tag v0.0.21 and push after PR is merged
+- [x] Tag v0.0.21 and push after PR is merged
+- [x] Fix realStdoutFd scoping bug in main.swift (catch{} can now write LOAD_ERROR to stdout)
+- [x] Handle LOAD_ERROR: protocol in lib.rs to surface real Swift error to user
+- [x] Bump version to 0.0.22
 
 ## Review
 
-Updated Package.resolved with mlx-swift 0.31.6 (latest, July 2, 2026) and speech-swift at main HEAD (July 14, 2026). Version bumped to 0.0.21. No code changes — purely a dependency update. The CI (macos-26 runner) will build fresh with the updated xcframeworks that correctly handle M4 GPU on Tahoe.
+v0.0.21: Updated Package.resolved with mlx-swift 0.31.6 and speech-swift at main HEAD. mlx-swift 0.31.4 had hardcoded GPU detection; 0.31.6 delegates to MLX C++ core which properly recognizes M4 on Tahoe.
+
+v0.0.22 (in-progress): Fixed silent crash reporting. Previously `realStdoutFd` was declared inside `do{}`, making it inaccessible in `catch{}`. Swift errors went to inherited stderr (invisible under qwen3-asr-cli in Console.app) and Rust saw only a pipe disconnect, reporting the generic "sidecar crashed" message. Fix: move `realStdoutFd` and `writeLine()` outside `do{}`, write `LOAD_ERROR:<msg>` to stdout in `catch{}`. Rust now shows the actual Swift error message. This will reveal whether the crash is a Metal JIT issue, missing metallib, or something else entirely.
