@@ -21,13 +21,18 @@ jobs:
       fail-fast: false  # Continue building other platforms even if one fails
       matrix:
         include:
-          # macOS Apple Silicon (M1, M2, M3, etc.)
-          - platform: 'macos-15'
+          # macOS Apple Silicon (M1/M2/M3/M4/M4+)
+          # macos-26 runner: compiles Metal shaders with Metal Toolchain 32023,
+          # producing a Tahoe-native default.metallib users can load directly.
+          # MACOSX_DEPLOYMENT_TARGET=15.0 keeps the binary runnable on Sequoia.
+          - platform: 'macos-26'
             args: '--target aarch64-apple-darwin'
+            macos_deployment_target: '15.0'
           
-          # macOS Intel-based
+          # macOS Intel — cross-compiled on Apple Silicon (macos-15 is ARM runner)
           - platform: 'macos-15'
             args: '--target x86_64-apple-darwin'
+            macos_deployment_target: '15.0'
           
           # Linux (Ubuntu)
           - platform: 'ubuntu-22.04'
@@ -73,7 +78,7 @@ jobs:
         with:
           # For macOS: specify both Intel and ARM targets
           # For other platforms: empty string (uses default target)
-          targets: ${{ matrix.platform == 'macos-15' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ startsWith(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       # Cache Rust dependencies for faster builds
       - name: Rust cache
@@ -84,19 +89,22 @@ jobs:
 
       # Cache Swift Package Manager dependencies (macOS only — qwen3-asr-cli is macOS-only)
       - name: Cache Swift Package Manager dependencies
-        if: matrix.platform == 'macos-15'
+        if: startsWith(matrix.platform, 'macos')
         uses: actions/cache@v4
         with:
           path: apps/whispering/src-tauri/qwen3-asr-cli/.build
-          key: ${{ runner.os }}-spm-${{ hashFiles('apps/whispering/src-tauri/qwen3-asr-cli/Package.resolved') }}
+          key: ${{ matrix.platform }}-spm-${{ hashFiles('apps/whispering/src-tauri/qwen3-asr-cli/Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-spm-
+            ${{ matrix.platform }}-spm-
 
       # Build the Qwen3-ASR Swift CLI sidecar binary (macOS only)
       # x86_64: Qwen3-ASR requires Apple Silicon (MLX), so compile a stub that exits with an error.
-      # aarch64: Build the real CLI from source.
+      # aarch64: Build the real CLI from source. Run on macos-26 so Metal shaders are compiled
+      # with Metal Toolchain 32023 (Tahoe-native), letting Tahoe users load the metallib directly.
       - name: Build Qwen3-ASR CLI sidecar
-        if: matrix.platform == 'macos-15'
+        if: startsWith(matrix.platform, 'macos')
+        env:
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos_deployment_target }}
         run: |
           mkdir -p apps/whispering/src-tauri/binaries
           if [[ "${{ matrix.args }}" == *"x86_64"* ]]; then
@@ -169,6 +177,10 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           
+          # macOS minimum deployment target — keeps binary runnable on Sequoia (15.0)
+          # even when built on a Tahoe (macos-26) runner
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos_deployment_target }}
+
           # macOS code signing and notarization
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
