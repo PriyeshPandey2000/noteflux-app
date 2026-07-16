@@ -571,7 +571,11 @@ pub async fn run() {
                 let state: tauri::State<QwenASRState> = handler.state();
                 let arc = state.0.clone();
                 drop(state);
-                if let Some(mut daemon) = arc.lock().ok().and_then(|mut g| g.take()) {
+                let daemon = match arc.lock() {
+                    Ok(mut g) => g.take(),
+                    Err(e) => e.into_inner().take(),
+                };
+                if let Some(mut daemon) = daemon {
                     let _ = daemon.child.kill();
                     let _ = daemon.child.wait();
                 }
