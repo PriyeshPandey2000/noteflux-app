@@ -563,6 +563,19 @@ pub async fn run() {
     
     app.run(|handler, event| match event {
         tauri::RunEvent::Exit { .. } => {
+            // Kill the qwen daemon before exit. std::process::exit() (called by
+            // handler.exit()) bypasses Rust destructors, so without this the daemon
+            // becomes an orphan holding 2-3GB of wired Metal memory after the app closes.
+            #[cfg(target_os = "macos")]
+            {
+                let state: tauri::State<QwenASRState> = handler.state();
+                let arc = state.0.clone();
+                drop(state);
+                if let Some(mut daemon) = arc.lock().ok().and_then(|mut g| g.take()) {
+                    let _ = daemon.child.kill();
+                    let _ = daemon.child.wait();
+                }
+            }
             let _ = handler.track_event("app_exited", None);
             handler.flush_events_blocking();
         }
