@@ -181,7 +181,11 @@ Task {
 
             do {
                 let (samples, sampleRate) = try loadAudio(from: audioPath)
-                let text = model.transcribe(audio: samples, sampleRate: sampleRate, language: language)
+                // longInputNoRepeatNgramSize: 0 keeps the greedy fast path (double-buffered
+                // asyncEval) active for recordings >15s. The default of 3 auto-escalates to
+                // generateSlow, which does a blocking CPU-GPU sync per token and has no overlap.
+                let options = Qwen3DecodingOptions(language: language, longInputNoRepeatNgramSize: 0)
+                let text = model.transcribe(audio: samples, sampleRate: sampleRate, options: options)
                 writeLine("OK:" + text.trimmingCharacters(in: .whitespacesAndNewlines))
             } catch {
                 writeLine("ERR:" + error.localizedDescription)
