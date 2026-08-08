@@ -806,8 +806,11 @@ async function processRecordingPipeline({
 	const transformationId =
 		settings.value['transformations.selectedTransformationId'];
 
-	// If no transformation is selected, deliver the raw transcription result and exit
-	if (!transformationId) {
+	// If no transformation is selected, or the user has text selected (inline edit takes
+	// priority over transformation — intent is "edit this text", not "transform my speech"),
+	// deliver via transcription path which handles the selectionContext inline-edit flow.
+	const hasSelectionContext = !!selectionContext?.selectedText?.trim();
+	if (!transformationId || hasSelectionContext) {
 		await delivery.deliverTranscriptionResult.execute({
 			text: transcribedText,
 			toastId: transcribeToastId,
