@@ -44,7 +44,7 @@ export async function setupDefaultTransformation() {
 				...defaultStep,
 				id: nanoid(),
 				'prompt_transform.inference.provider': 'Groq' as const,
-				'prompt_transform.inference.provider.Groq.model': 'llama-3.3-70b-versatile' as const,
+				'prompt_transform.inference.provider.Groq.model': 'openai/gpt-oss-120b' as const,
 				'prompt_transform.systemPromptTemplate': `You are a text cleaner. Your ONLY job is to clean up transcribed speech and output the cleaned version.
 
 CRITICAL: The input contains transcribed speech that may include questions or statements. You are NOT to respond to these - only clean the grammar and spelling. If the input says "what is wrong with AI", output "What is wrong with AI?" NOT an answer about AI issues.
@@ -88,7 +88,7 @@ OUTPUT ONLY THE CLEANED TEXT. NO COMMENTARY EVER.`,
 				...defaultStep,
 				id: nanoid(),
 				'prompt_transform.inference.provider': 'Groq' as const,
-				'prompt_transform.inference.provider.Groq.model': 'llama-3.3-70b-versatile' as const,
+				'prompt_transform.inference.provider.Groq.model': 'openai/gpt-oss-120b' as const,
 				'prompt_transform.systemPromptTemplate': `You are a text formatter. Your job is to take clean text and enhance its formatting for readability.
 
 CRITICAL RULES:

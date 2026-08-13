@@ -118,6 +118,8 @@ const LLM_COSTS_PER_MILLION_TOKENS: Record<string, { input: number; output: numb
   'groq:llama-3.1-8b-instant':             { input: 0.05,  output: 0.08 },
   'groq:llama3-8b-8192':                   { input: 0.05,  output: 0.08 },
   'groq:llama3-70b-8192':                  { input: 0.59,  output: 0.79 },
+  'groq:openai/gpt-oss-120b':              { input: 0.15,  output: 0.60 },
+  'groq:openai/gpt-oss-20b':               { input: 0.075, output: 0.30 },
   'openai:gpt-4o':                         { input: 2.50,  output: 10.00 },
   'openai:gpt-4o-mini':                    { input: 0.15,  output: 0.60 },
   'openai:gpt-3.5-turbo':                  { input: 0.50,  output: 1.50 },

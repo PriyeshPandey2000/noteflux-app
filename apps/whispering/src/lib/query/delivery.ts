@@ -191,7 +191,7 @@ export const delivery = {
 				const { data: rawEditedText, error: editError } =
 					await services.completions.groq.complete({
 						apiKey,
-						model: 'llama-3.3-70b-versatile',
+						model: 'openai/gpt-oss-120b',
 						systemPrompt:
 							'You are a text replacement engine. Your output is ONLY the replacement text — nothing else.\n\nStrict rules:\n- No preamble. No "Here is...", "Sure!", "The edited text:", or any opener.\n- No surrounding quotes.\n- No code fences unless the input itself is code.\n- Use context_before and context_after (if provided) to match surrounding punctuation, capitalisation, and style — but only output the replacement for selected_text.\n- Preserve original formatting, whitespace, and line breaks unless the instruction requires changing them.\n- Preserve original language unless the instruction is to translate.\n- If the text needs no change, return the original text exactly.',
 						userPrompt,
@@ -210,7 +210,7 @@ export const delivery = {
 				trackLlmUsage({
 					feature: 'inline-edit',
 					provider: 'groq',
-					model: 'llama-3.3-70b-versatile',
+					model: 'openai/gpt-oss-120b',
 					inputTokens: rawEditedText.inputTokens,
 					outputTokens: rawEditedText.outputTokens,
 				});
