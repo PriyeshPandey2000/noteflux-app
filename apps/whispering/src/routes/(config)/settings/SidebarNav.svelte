@@ -17,6 +17,7 @@
 			activePathPrefix: '/settings/shortcuts',
 			href: '/settings/shortcuts/global', // Direct link to global shortcuts (local shortcuts disabled)
 		},
+		{ title: 'Glance', href: '/settings/glance' },
 		// { title: 'Privacy & Analytics', href: '/settings/analytics' },
 	] satisfies {
 		/**

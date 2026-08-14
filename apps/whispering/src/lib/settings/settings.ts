@@ -95,6 +95,11 @@ export const settingsSchema = z.object({
 	// Notifications settings
 	'notifications.enabled': z.boolean().default(false),
 
+	// Glance settings — off by default; when on, lets NoteFlux see which app
+	// is frontmost (and later, screen content) to give better answers.
+	// Nothing is ever saved to disk.
+	'glance.enabled': z.boolean().default(false),
+
 	// Onboarding settings
 	'onboarding.hasSeenWelcome': z.boolean().default(false),
 	'onboarding.pasteTestCompleted': z.boolean().default(false),
