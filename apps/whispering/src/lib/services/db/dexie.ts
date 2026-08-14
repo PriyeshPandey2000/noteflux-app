@@ -286,7 +286,49 @@ class NoteFluxDatabase extends Dexie {
 				});
 			});
 
-		// V6: Change the "subtitle" field to "description"
+		// V6: Remap deprecated Groq model IDs (shut down 2026-08-16) stored on
+		// existing transformation steps to their replacements
+		this.version(0.6)
+			.stores({
+				recordings: '&id, timestamp, createdAt, updatedAt',
+				transformationRuns: '&id, transformationId, recordingId, startedAt',
+				transformations: '&id, createdAt, updatedAt',
+			})
+			.upgrade(async (tx) => {
+				await wrapUpgradeWithErrorHandling({
+					tx,
+					upgrade: async (tx) => {
+						const DEPRECATED_GROQ_MODELS: Record<
+							string,
+							Transformation['steps'][number]['prompt_transform.inference.provider.Groq.model']
+						> = {
+							'llama-3.1-8b-instant': 'openai/gpt-oss-20b',
+							'llama-3.3-70b-versatile': 'openai/gpt-oss-120b',
+						};
+
+						await Dexie.waitFor(
+							tx
+								.table<Transformation>('transformations')
+								.toCollection()
+								.modify((transformation) => {
+									for (const step of transformation.steps) {
+										const currentModel =
+											step['prompt_transform.inference.provider.Groq.model'];
+										const replacement =
+											DEPRECATED_GROQ_MODELS[currentModel];
+										if (replacement) {
+											step['prompt_transform.inference.provider.Groq.model'] =
+												replacement;
+										}
+									}
+								}),
+						);
+					},
+					version: 0.6,
+				});
+			});
+
+		// V7: Change the "subtitle" field to "description"
 		// this.version(5)
 		// 	.stores({
 		// 		recordings: '&id, timestamp, createdAt, updatedAt',
