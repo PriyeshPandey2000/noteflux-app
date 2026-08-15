@@ -7,16 +7,15 @@ import { settings } from '$lib/stores/settings.svelte';
 import type { ShortcutTriggerState } from './services/_shortcut-trigger-state';
 
 // Only checks which app is frontmost when the user has explicitly opted
-// into Glance — the app must never fetch this without that consent.
+// into Glance — the app must never fetch this without that consent, and
+// never logs the result (app identity is privacy-sensitive).
 // get_frontmost_app is only registered on macOS, so skip elsewhere rather
 // than firing an invoke that's guaranteed to fail.
-function logFrontmostApp() {
+function captureFrontmostApp() {
 	if (!settings.value['glance.enabled']) return;
 	if (services.os.type() !== 'macos') return;
 
-	invoke('get_frontmost_app')
-		.then((info) => console.log('[FrontmostApp]', info))
-		.catch((error) => console.log('[FrontmostApp] error:', error));
+	invoke('get_frontmost_app').catch(() => {});
 }
 
 type SatisfiedCommand = {
@@ -132,7 +131,7 @@ export const globalCommandCallbacks: CommandCallbacks = {
 			await rpc.commands.stopManualRecording.execute(undefined);
 		} else {
 			// --- START LOGIC (Press) ---
-			logFrontmostApp();
+			captureFrontmostApp();
 			// Immediately mark as active so next call (Release) knows to stop
 			isRecordingOrStarting = true;
 
@@ -156,7 +155,7 @@ export const globalCommandCallbacks: CommandCallbacks = {
 		}
 	},
 	toggleManualRecording: () => {
-		logFrontmostApp();
+		captureFrontmostApp();
 		return rpc.commands.toggleManualRecording.execute({
 			initiatedVia: 'global-shortcut',
 		});

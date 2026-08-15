@@ -4,10 +4,6 @@
 	import * as Card from '$lib/ui/card';
 	import { Label } from '$lib/ui/label';
 	import { Switch } from '$lib/ui/switch';
-
-	function handleGlanceToggle(checked: boolean) {
-		settings.updateKey('glance.enabled', checked);
-	}
 </script>
 
 <div class="space-y-8">
@@ -26,7 +22,7 @@
 			{/if}
 		</div>
 		<p class="text-sm text-muted-foreground max-w-2xl">
-			Let NoteFlux see which app you're in so it can give better answers. Nothing is ever saved.
+			Early foundation for app-aware features. Right now it only detects which app you're in — it doesn't change NoteFlux's behavior yet. Nothing is ever saved.
 		</p>
 	</div>
 
@@ -36,16 +32,16 @@
 			<div class="flex items-start justify-between gap-4">
 				<div class="space-y-2 flex-1">
 					<Label for="glance-toggle" class="text-base font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-						Use app context for better accuracy
+						Detect which app you're using
 					</Label>
 					<p class="text-sm text-muted-foreground leading-relaxed">
-						When you press Fn, NoteFlux checks which app is frontmost to tailor its response — for example, a more formal tone in Mail, code-aware output in an editor.
+						When you press Fn, NoteFlux checks which app is frontmost. This doesn't change your results yet — it's groundwork for app-aware features coming later, like a more formal tone in Mail or code-aware output in an editor.
 					</p>
 				</div>
 				<Switch
 					id="glance-toggle"
 					checked={settings.value['glance.enabled']}
-					onCheckedChange={handleGlanceToggle}
+					onCheckedChange={(checked) => settings.updateKey('glance.enabled', checked)}
 					class="shrink-0"
 				/>
 			</div>
