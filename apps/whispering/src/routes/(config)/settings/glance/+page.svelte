@@ -86,7 +86,7 @@
 					</li>
 					<li class="flex items-start gap-2">
 						<span class="text-amber-500 mt-1">•</span>
-						<span>Nothing is uploaded unless you're actively asking a question</span>
+						<span>Nothing leaves your device — checked locally, never sent anywhere</span>
 					</li>
 					<li class="flex items-start gap-2">
 						<span class="text-amber-500 mt-1">•</span>
