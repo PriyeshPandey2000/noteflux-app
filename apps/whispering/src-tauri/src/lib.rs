@@ -5,6 +5,9 @@ mod accessibility;
 #[cfg(target_os = "macos")]
 mod microphone;
 
+#[cfg(target_os = "macos")]
+mod frontmost_app;
+
 // Keyboard handling module (Fn key support)
 mod keyboard;
 
@@ -14,6 +17,9 @@ use accessibility::{get_selection_with_context, is_macos_accessibility_enabled, 
 
 #[cfg(target_os = "macos")]
 use microphone::{is_macos_microphone_enabled, request_macos_microphone_permission};
+
+#[cfg(target_os = "macos")]
+use frontmost_app::get_frontmost_app;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}};
 use tauri_plugin_aptabase::EventTracker;
@@ -420,6 +426,7 @@ pub async fn run() {
         get_selection_with_context,
         is_macos_microphone_enabled,
         request_macos_microphone_permission,
+        get_frontmost_app,
         // Audio recorder commands
         get_current_recording_id,
         enumerate_recording_devices,

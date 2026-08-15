@@ -1,6 +1,22 @@
+import { invoke } from '@tauri-apps/api/core';
+
+import * as services from '$lib/services';
 import { rpc } from '$lib/query';
+import { settings } from '$lib/stores/settings.svelte';
 
 import type { ShortcutTriggerState } from './services/_shortcut-trigger-state';
+
+// Only checks which app is frontmost when the user has explicitly opted
+// into Glance — the app must never fetch this without that consent, and
+// never logs the result (app identity is privacy-sensitive).
+// get_frontmost_app is only registered on macOS, so skip elsewhere rather
+// than firing an invoke that's guaranteed to fail.
+function captureFrontmostApp() {
+	if (!settings.value['glance.enabled']) return;
+	if (services.os.type() !== 'macos') return;
+
+	invoke('get_frontmost_app').catch(() => {});
+}
 
 type SatisfiedCommand = {
 	callback: () => void;
@@ -115,6 +131,7 @@ export const globalCommandCallbacks: CommandCallbacks = {
 			await rpc.commands.stopManualRecording.execute(undefined);
 		} else {
 			// --- START LOGIC (Press) ---
+			captureFrontmostApp();
 			// Immediately mark as active so next call (Release) knows to stop
 			isRecordingOrStarting = true;
 
@@ -137,10 +154,12 @@ export const globalCommandCallbacks: CommandCallbacks = {
 			}
 		}
 	},
-	toggleManualRecording: () =>
-		rpc.commands.toggleManualRecording.execute({
+	toggleManualRecording: () => {
+		captureFrontmostApp();
+		return rpc.commands.toggleManualRecording.execute({
 			initiatedVia: 'global-shortcut',
-		}),
+		});
+	},
 	cancelManualRecording: () => {
 		// Reset local state when cancelling
 		isRecordingOrStarting = false;
