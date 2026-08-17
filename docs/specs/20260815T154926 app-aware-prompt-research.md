@@ -216,7 +216,7 @@ Source: https://github.com/OpenWhispr/openwhispr (MIT — reusable, still writin
 
 ## Consolidated takeaways for our own design
 
-1. **No LLM classification, confirmed 4-for-4** — of the sources that resolve app→behavior at all (VoiceInk, amical, opentypeless, FluidVoice), none ever call an LLM to classify. Fully settles the earlier question.
+1. **No LLM classification, 4-for-4** — of the sources that resolve app→behavior at all (VoiceInk, amical, opentypeless, FluidVoice), none ever call an LLM to classify. Four projects is real evidence against needing it, not proof no shipping product anywhere does it differently — good enough to make the call, not a closed question in an absolute sense.
 2. **Built-in vs. user-configured is a real, unsettled fork** — amical/opentypeless ship automatic categories out of the box; VoiceInk/FluidVoice require the user to build the mapping themselves. Not a case where one is clearly "more correct" — a genuine product decision for us to make, not something this research resolves on its own.
 3. **Match on name as fallback to bundle ID** — every source that ships a static table independently hit the generic-Electron-bundle-ID problem (Cursor's `com.todesktop...` came up in both VoiceInk's and our own data).
 4. **Browsers resolved by URL, not app identity** — VoiceInk and amical both do this independently; solves the "browser is too ambiguous" problem we flagged as unsolvable earlier.
