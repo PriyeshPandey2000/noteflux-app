@@ -249,7 +249,8 @@ ${APP_CATEGORY_PROMPT_FRAGMENTS[appCategory]}`;
 							userPrompt: `<transcript>${text}</transcript>`,
 						});
 
-					if (!cleanupError) {
+					const normalizedCleanedText = cleanedText?.text.trim();
+					if (!cleanupError && normalizedCleanedText) {
 						trackLlmUsage({
 							feature: 'dictation-cleanup',
 							provider: 'groq',
@@ -257,10 +258,11 @@ ${APP_CATEGORY_PROMPT_FRAGMENTS[appCategory]}`;
 							inputTokens: cleanedText.inputTokens,
 							outputTokens: cleanedText.outputTokens,
 						});
-						finalText = cleanedText.text.trim();
+						finalText = normalizedCleanedText;
 					}
-					// On error: silently keep finalText = text (raw transcription).
-					// Cleanup is an enhancement — it must never block or degrade delivery.
+					// On error, or a whitespace-only/empty result, silently keep
+					// finalText = text (raw transcription). Cleanup is an enhancement —
+					// it must never block, empty out, or otherwise degrade delivery.
 				}
 			}
 

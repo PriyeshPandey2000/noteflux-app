@@ -22,7 +22,7 @@
 			{/if}
 		</div>
 		<p class="text-sm text-muted-foreground max-w-2xl">
-			Detects which app you're in and adjusts dictation tone to match — casual in chat apps, professional in email, code-safe in editors. App detection is fully local. Nothing is ever saved.
+			Detects which app you're in and adjusts dictation tone to match — casual in chat apps, professional in email, code-safe in editors. App detection is fully local, and nothing Glance detects is ever saved. This page covers Glance only — other features like inline-edit have their own separate data handling.
 		</p>
 	</div>
 
@@ -86,7 +86,7 @@
 					</li>
 					<li class="flex items-start gap-2">
 						<span class="text-amber-500 mt-1">•</span>
-						<span>When an app is recognized, your dictated text is sent to Groq for cleanup — the same provider already used for inline-edit and transformations</span>
+						<span>When Glance is on, nothing is selected, the app is recognized, and a Groq API key is set, your dictated text (not the app name) is sent to Groq for cleanup — the same provider already used for inline-edit and transformations</span>
 					</li>
 					<li class="flex items-start gap-2">
 						<span class="text-amber-500 mt-1">•</span>

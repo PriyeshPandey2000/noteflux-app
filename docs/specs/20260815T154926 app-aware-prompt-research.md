@@ -17,7 +17,7 @@ Broad search across every open-source voice-dictation/AI-writing-assistant repo 
 - **Automatic classification** (amical, opentypeless): ships a built-in category table, works out of the box with zero user setup, static + safe fallback, no LLM call.
 - **Manual user-configured binding** (VoiceInk, FluidVoice): no shipped category table at all — the user creates their own named prompt profiles/modes and manually assigns apps to them. Also no LLM call, but the mapping only exists once a user builds it.
 
-Both camps agree on the one thing that actually matters for our earlier design question: **nobody uses an LLM call to auto-classify an app into a category.** That part holds 5-for-5. Whether the *mapping itself* ships built-in or is fully user-configured is the real remaining decision — not settled by this research, a genuine product choice.
+Both camps agree on the one thing that actually matters for our earlier design question: **nobody uses an LLM call to auto-classify an app into a category.** That part holds 4-for-4 across every source that resolves app→behavior at all (VoiceInk, amical, opentypeless, FluidVoice — Handy has no app detection, OpenWhispr has none for categories, so neither counts toward this comparison). Whether the *mapping itself* ships built-in or is fully user-configured is the real remaining decision — not settled by this research, a genuine product choice.
 
 ---
 
@@ -58,7 +58,7 @@ Browsers resolved via actual open URL + regex per category (same pattern as Voic
 
 **Prompt text** — one shared system prompt with per-category **rule fragments** spliced in (`APP_TYPE_RULES`) plus per-category **few-shot examples** (`APP_TYPE_EXAMPLES`), rather than fully separate prompts:
 
-```
+```text
 email rules:
 - If the input contains a greeting, body, or closing, separate them with blank lines
 - Maintain a professional tone appropriate for business communication
@@ -216,7 +216,7 @@ Source: https://github.com/OpenWhispr/openwhispr (MIT — reusable, still writin
 
 ## Consolidated takeaways for our own design
 
-1. **No LLM classification, confirmed 5-for-5** — every source, whether automatic or manual, resolves app→behavior without ever calling an LLM to classify. Fully settles the earlier question.
+1. **No LLM classification, confirmed 4-for-4** — of the sources that resolve app→behavior at all (VoiceInk, amical, opentypeless, FluidVoice), none ever call an LLM to classify. Fully settles the earlier question.
 2. **Built-in vs. user-configured is a real, unsettled fork** — amical/opentypeless ship automatic categories out of the box; VoiceInk/FluidVoice require the user to build the mapping themselves. Not a case where one is clearly "more correct" — a genuine product decision for us to make, not something this research resolves on its own.
 3. **Match on name as fallback to bundle ID** — every source that ships a static table independently hit the generic-Electron-bundle-ID problem (Cursor's `com.todesktop...` came up in both VoiceInk's and our own data).
 4. **Browsers resolved by URL, not app identity** — VoiceInk and amical both do this independently; solves the "browser is too ambiguous" problem we flagged as unsolvable earlier.

@@ -568,6 +568,7 @@ export const commands = {
 					manualRecordingStartTime = null;
 					recordingInitiatedVia = null;
 					selectionContextAtRecordingStart = null;
+					appCategoryAtRecordingStart = null;
 					notify.success.execute({
 						title: '✅ All Done!',
 						description: 'Recording cancelled successfully',
