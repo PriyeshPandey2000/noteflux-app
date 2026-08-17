@@ -1,6 +1,8 @@
 import { fromTaggedErr, fromTaggedError, NoteFluxErr } from '$lib/result';
+import type { AppCategory } from '$lib/constants/app-categories';
 import type { SelectionContext } from '$lib/services/clipboard/types';
 import * as services from '$lib/services';
+import { resolveAppCategory } from '$lib/constants/app-categories';
 import { checkAnonymousGate, refreshAnonymousGateCache } from '$lib/services/anonymous-gate';
 import { analytics } from '$lib/services/posthog';
 import { auth } from '$lib/stores/auth.svelte';
@@ -53,6 +55,10 @@ let wasWindowFocusedAtRecordingStart: boolean = false;
 // Track text selected (with surrounding context) in focused app when recording started
 // Used to send selected text + context + spoken instruction to LLM for inline editing
 let selectionContextAtRecordingStart: SelectionContext | null = null;
+
+// Track which app was frontmost when recording started (Glance, opt-in).
+// Used to splice an app-category prompt fragment into the inline-edit call.
+let appCategoryAtRecordingStart: AppCategory | null = null;
 
 // Track VAD recording state for debouncing and initiation context
 let vadInitiatedVia: 'global-shortcut' | 'local' | null = null;
@@ -129,6 +135,17 @@ const startManualRecording = defineMutation({
 				return Promise.resolve(null);
 			}
 			return services.clipboard.getSelectionWithContext().catch(() => null);
+		})();
+
+		const appCategoryPromise: Promise<AppCategory | null> = (() => {
+			if (!isDesktop) return Promise.resolve(null);
+			if (!settings.value['glance.enabled']) return Promise.resolve(null);
+			if (services.os.type() !== 'macos') return Promise.resolve(null);
+			return invoke<{ bundle_id: string | null; name: string | null }>(
+				'get_frontmost_app',
+			)
+				.then((info) => resolveAppCategory(info.name))
+				.catch(() => null);
 		})();
 
 		// Check authentication first (anonymous users have session from onboarding start)
@@ -238,6 +255,7 @@ const startManualRecording = defineMutation({
 		// concurrently with the recorder start above)
 		wasWindowFocusedAtRecordingStart = await focusPromise;
 		selectionContextAtRecordingStart = await selectionPromise;
+		appCategoryAtRecordingStart = await appCategoryPromise;
 
 		// Track recording started in PostHog
 		analytics.trackRecordingStarted('manual');
@@ -276,12 +294,14 @@ const stopManualRecording = defineMutation({
 		let duration: number | undefined;
 		const initiatedVia = recordingInitiatedVia || 'local';
 		const selectionContext = selectionContextAtRecordingStart;
+		const appCategory = appCategoryAtRecordingStart;
 		if (manualRecordingStartTime) {
 			duration = Date.now() - manualRecordingStartTime;
 			manualRecordingStartTime = null; // Reset for next recording
 		}
 		recordingInitiatedVia = null; // Reset for next recording
 		selectionContextAtRecordingStart = null; // Reset for next recording
+		appCategoryAtRecordingStart = null; // Reset for next recording
 
 		rpc.analytics.logEvent.execute({
 			blob_size: blob.size,
@@ -300,6 +320,7 @@ const stopManualRecording = defineMutation({
 				toastId,
 				initiatedVia,
 				selectionContext,
+				appCategory,
 			});
 		} catch (error) {
 			// Ensure overlay is hidden even if pipeline fails unexpectedly
@@ -712,6 +733,7 @@ async function processRecordingPipeline({
 	toastId,
 	initiatedVia = 'local',
 	selectionContext = null,
+	appCategory = null,
 }: {
 	blob: Blob;
 	completionDescription: string;
@@ -719,6 +741,7 @@ async function processRecordingPipeline({
 	toastId: string;
 	initiatedVia?: 'global-shortcut' | 'local';
 	selectionContext?: SelectionContext | null;
+	appCategory?: AppCategory | null;
 }) {
 	const now = new Date().toISOString();
 	const newRecordingId = nanoid();
@@ -817,6 +840,7 @@ async function processRecordingPipeline({
 			initiatedVia,
 			wasWindowFocusedAtStart: wasWindowFocusedAtRecordingStart,
 			selectionContext,
+			appCategory,
 		});
 
 		// Track text delivery
