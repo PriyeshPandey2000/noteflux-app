@@ -48,6 +48,11 @@ let transcriptionStartTime: null | number = null;
 // Track how the current recording was initiated
 let recordingInitiatedVia: 'global-shortcut' | 'local' | null = null;
 
+// Bumped on every start and every cancel. Lets a late-resolving press-time
+// capture (selection, app category) recognize it belongs to a session that's
+// no longer current, so it doesn't write stale data over a newer recording.
+let recordingSessionToken = 0;
+
 // Track whether window was focused when recording started
 // Used to determine if we should keep window visible during delivery
 let wasWindowFocusedAtRecordingStart: boolean = false;
@@ -98,6 +103,12 @@ const startManualRecording = defineMutation({
 	mutationKey: ['commands', 'startManualRecording'] as const,
 	resultMutationFn: async ({ initiatedVia = 'local' }: { initiatedVia?: 'global-shortcut' | 'local' } = {}) => {
 		console.log('🎙️ [COMMAND] startManualRecording called with initiatedVia:', initiatedVia);
+
+		// This session's token — if a cancel (or a newer start) bumps
+		// recordingSessionToken before this session's captures resolve, the
+		// guard below skips writing them, so a canceled/superseded session
+		// can't clobber a later one's state.
+		const sessionToken = ++recordingSessionToken;
 
 		// Kick off focus + selection capture immediately (at press time) but do NOT
 		// block on them — the mic start below runs concurrently. They're awaited
@@ -253,9 +264,17 @@ const startManualRecording = defineMutation({
 
 		// Mic is already live — settle the press-time captures (they've been running
 		// concurrently with the recorder start above)
-		wasWindowFocusedAtRecordingStart = await focusPromise;
-		selectionContextAtRecordingStart = await selectionPromise;
-		appCategoryAtRecordingStart = await appCategoryPromise;
+		const resolvedFocus = await focusPromise;
+		const resolvedSelectionContext = await selectionPromise;
+		const resolvedAppCategory = await appCategoryPromise;
+
+		// Only write if this session is still current — a cancel or a newer
+		// start could have bumped the token while these were resolving.
+		if (sessionToken === recordingSessionToken) {
+			wasWindowFocusedAtRecordingStart = resolvedFocus;
+			selectionContextAtRecordingStart = resolvedSelectionContext;
+			appCategoryAtRecordingStart = resolvedAppCategory;
+		}
 
 		// Track recording started in PostHog
 		analytics.trackRecordingStarted('manual');
@@ -569,6 +588,9 @@ export const commands = {
 					recordingInitiatedVia = null;
 					selectionContextAtRecordingStart = null;
 					appCategoryAtRecordingStart = null;
+					// Invalidate this session's token so a still-in-flight
+					// startManualRecording capture can't write stale data after cancel.
+					recordingSessionToken++;
 					notify.success.execute({
 						title: '✅ All Done!',
 						description: 'Recording cancelled successfully',
