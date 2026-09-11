@@ -60,13 +60,24 @@
 				Sign Out
 			</Button>
 		</div>
-	{:else}
+	{:else if subscription.isKnown}
 		<div class="flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
 			<div class="flex gap-2">
-				<Button onclick={() => subscription.openCheckout('monthly')} size="sm" title="Subscribe monthly">
+				<Button
+					onclick={() => subscription.openCheckout('monthly')}
+					size="sm"
+					title="Subscribe monthly"
+					disabled={subscription.isCheckoutInFlight}
+				>
 					Subscribe Monthly
 				</Button>
-				<Button onclick={() => subscription.openCheckout('yearly')} size="sm" variant="outline" title="Subscribe yearly">
+				<Button
+					onclick={() => subscription.openCheckout('yearly')}
+					size="sm"
+					variant="outline"
+					title="Subscribe yearly"
+					disabled={subscription.isCheckoutInFlight}
+				>
 					Subscribe Yearly
 				</Button>
 			</div>
@@ -74,6 +85,10 @@
 				Sign Out
 			</Button>
 		</div>
+	{:else}
+		<Button onclick={handleSignOut} size="sm" variant="outline">
+			Sign Out
+		</Button>
 	{/if}
 {:else}
 	<div class="flex flex-col items-center gap-4 p-4 border rounded-lg bg-muted/20">

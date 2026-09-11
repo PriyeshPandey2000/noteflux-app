@@ -1,5 +1,6 @@
 import { rpc } from '$lib/query';
 import { settings } from '$lib/stores/settings.svelte';
+import { isAlwaysOnTopSuspended } from '$lib/stores/alwaysOnTop.svelte';
 import { createQuery } from '@tanstack/svelte-query';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
@@ -17,6 +18,14 @@ export function syncWindowAlwaysOnTopWithRecorderState() {
 	$effect(() => {
 		const setAlwaysOnTop = (value: boolean) =>
 			getCurrentWindow().setAlwaysOnTop(value);
+
+		// Temporarily suspended while a checkout (or similar) needs the browser
+		// visible; the policy is re-applied once focus returns to the window.
+		if (isAlwaysOnTopSuspended()) {
+			setAlwaysOnTop(false);
+			return;
+		}
+
 		switch (settings.value['system.alwaysOnTop']) {
 			case 'Always':
 				setAlwaysOnTop(true);
