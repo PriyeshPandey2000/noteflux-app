@@ -31,7 +31,7 @@
 </script>
 
 <Dialog.Root bind:open={proPricingDialog.isOpen}>
-	<Dialog.Content class="max-w-2xl">
+	<Dialog.Content class="max-w-3xl">
 		<Dialog.Header>
 			<Dialog.Title>Upgrade to Pro</Dialog.Title>
 			<Dialog.Description>Start free. Upgrade when you need more.</Dialog.Description>
@@ -67,9 +67,9 @@
 			</div>
 		</div>
 
-		<div class="grid gap-4 sm:grid-cols-2">
+		<div class="grid gap-6 sm:grid-cols-2">
 			<!-- Starter -->
-			<div class="rounded-2xl border p-5">
+			<div class="flex flex-col rounded-3xl border border-white/10 bg-[#0a0a0a] p-6">
 				<h3 class="text-lg font-bold">Starter</h3>
 				<p class="text-sm text-muted-foreground">Your current plan</p>
 
@@ -80,24 +80,35 @@
 
 				<ul class="mt-5 space-y-3">
 					{#each FREE_FEATURES as feature (feature)}
-						<li class="flex items-center gap-2.5 border-t pt-3 text-sm">
+						<li class="flex items-center gap-2.5 border-t border-white/10 pt-3 text-sm">
 							<CheckIcon class="size-4 shrink-0 text-muted-foreground" />
 							{feature}
 						</li>
 					{/each}
 				</ul>
+
+				<!-- mt-auto pins this to the card's bottom instead of leaving dead
+				     space below it when the grid stretches this card to match Pro's
+				     height. -->
+				<div class="mt-auto pt-5">
+					<div
+						class="flex w-full items-center justify-center rounded-full border border-white/10 py-2.5 text-sm font-semibold text-muted-foreground"
+					>
+						Current plan
+					</div>
+				</div>
 			</div>
 
 			<!-- Pro -->
 			<div
-				class="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.03] p-5"
+				class="relative flex flex-col overflow-hidden rounded-3xl border border-emerald-500/30 bg-[#0a0f0a] p-6"
 			>
 				<div
 					class="pointer-events-none absolute inset-0"
-					style="background: radial-gradient(120% 100% at 50% 100%, rgba(34,197,94,0.18) 0%, rgba(34,197,94,0.06) 45%, transparent 75%);"
+					style="background: radial-gradient(120% 100% at 50% 100%, rgba(34,197,94,0.25) 0%, rgba(34,197,94,0.08) 45%, transparent 75%);"
 				></div>
 
-				<div class="relative">
+				<div class="relative flex flex-1 flex-col">
 					<h3
 						class="text-lg font-bold bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent"
 					>
@@ -122,30 +133,32 @@
 						{/each}
 					</ul>
 
-					<button
-						type="button"
-						onclick={handleGetPro}
-						disabled={subscription.isCheckoutInFlight || !subscription.isKnown || subscription.isPro}
-						class={cn(
-							'mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 cursor-pointer',
-							(subscription.isCheckoutInFlight || !subscription.isKnown || subscription.isPro) &&
-								'opacity-50 cursor-default'
-						)}
-					>
-						{#if subscription.isCheckoutInFlight}
-							<Loader class="size-4 animate-spin" />
-							Opening checkout…
-						{:else if !subscription.isKnown}
-							<Loader class="size-4 animate-spin" />
-							Checking account status…
-						{:else if subscription.isPro}
-							<ZapIcon class="size-4" />
-							You're already Pro
-						{:else}
-							<ZapIcon class="size-4" />
-							Get Pro
-						{/if}
-					</button>
+					<div class="mt-auto pt-5">
+						<button
+							type="button"
+							onclick={handleGetPro}
+							disabled={subscription.isCheckoutInFlight || !subscription.isKnown || subscription.isPro}
+							class={cn(
+								'flex w-full items-center justify-center gap-2 rounded-full bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 cursor-pointer',
+								(subscription.isCheckoutInFlight || !subscription.isKnown || subscription.isPro) &&
+									'opacity-50 cursor-default'
+							)}
+						>
+							{#if subscription.isCheckoutInFlight}
+								<Loader class="size-4 animate-spin" />
+								Opening checkout…
+							{:else if !subscription.isKnown}
+								<Loader class="size-4 animate-spin" />
+								Checking account status…
+							{:else if subscription.isPro}
+								<ZapIcon class="size-4" />
+								You're already Pro
+							{:else}
+								<ZapIcon class="size-4" />
+								Get Pro
+							{/if}
+						</button>
+					</div>
 				</div>
 			</div>
 		</div>

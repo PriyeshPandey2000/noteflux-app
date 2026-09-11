@@ -44,6 +44,7 @@ let subscriptionState = $state<SubscriptionStatus>(FREE_SUBSCRIPTION);
 let isKnown = $state(false);
 let checkoutInFlight = $state(false);
 let refreshInFlight = false;
+let isConfirmingCheckout = $state(false);
 
 async function refresh() {
   const user = auth.user;
@@ -114,6 +115,40 @@ if (typeof window !== 'undefined') {
   });
 }
 
+// Fired by auth-service.ts when the noteflux://checkout-success deep link
+// arrives (the website's checkout success page opens this instead of a
+// bare noteflux:// link). success=true is only a redirect hint, not proof —
+// the real subscription_tier write only ever happens via the verified
+// webhook, which can land seconds to several minutes after this fires
+// depending on the payment method (e.g. UPI settles slower than cards). So
+// instead of trusting the deep link, this just checks more eagerly: every
+// 3s for ~2 minutes instead of waiting for the next window focus. isPro
+// itself is never set from this — only ever from a real fetch result.
+async function confirmCheckoutReturn() {
+  if (isConfirmingCheckout) return;
+  isConfirmingCheckout = true;
+  try {
+    const maxAttempts = 40;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await refresh();
+      if (subscriptionState.tier === 'pro' && subscriptionState.isActive) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+    // Didn't confirm within the window — stay quiet. The regular
+    // focus-triggered refresh() above will keep picking it up.
+  } finally {
+    isConfirmingCheckout = false;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('noteflux-checkout-success', () => {
+    void confirmCheckoutReturn();
+  });
+}
+
 export const subscription = {
   get state() {
     return subscriptionState;
@@ -135,6 +170,10 @@ export const subscription = {
 
   get isCheckoutInFlight() {
     return checkoutInFlight;
+  },
+
+  get isConfirmingCheckout() {
+    return isConfirmingCheckout;
   },
 
   get currentPeriodEnd() {

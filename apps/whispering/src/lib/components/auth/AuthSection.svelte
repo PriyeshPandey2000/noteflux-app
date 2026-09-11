@@ -5,7 +5,7 @@
 	import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
 	import { signupRequiredDialog } from '$lib/stores/signup-required-dialog.svelte';
 	import { subscription } from '$lib/stores/subscription.svelte';
-	import { ZapIcon } from '@lucide/svelte';
+	import { Loader, ZapIcon } from '@lucide/svelte';
 
 	// AuthSection component loaded
 
@@ -60,6 +60,16 @@
 			<span class="flex items-center gap-1.5 text-sm font-semibold">
 				<ZapIcon class="size-4 text-emerald-400" />
 				<span class="bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">Pro</span>
+			</span>
+			<Button onclick={handleSignOut} size="sm" variant="outline">
+				Sign Out
+			</Button>
+		</div>
+	{:else if subscription.isConfirmingCheckout}
+		<div class="flex items-center gap-3">
+			<span class="flex items-center gap-1.5 text-sm font-semibold text-emerald-400">
+				<Loader class="size-4 animate-spin" />
+				Confirming payment… (~2-3 min)
 			</span>
 			<Button onclick={handleSignOut} size="sm" variant="outline">
 				Sign Out
