@@ -3,6 +3,8 @@
 	import FeedbackDialog from '$lib/components/feedback/FeedbackDialog.svelte';
 	import { DiscordIcon } from '$lib/components/icons';
 	import NoteFluxButton from '$lib/components/NoteFluxButton.svelte';
+	import { auth } from '$lib/stores/auth.svelte';
+	import { subscription } from '$lib/stores/subscription.svelte';
 	import { cn } from '$lib/ui/utils';
 	import {
 		BugIcon,
@@ -13,6 +15,7 @@
 		SettingsIcon,
 		SunIcon,
 		MoonIcon,
+		ZapIcon,
 	} from '@lucide/svelte';
 	import { toggleMode } from 'mode-watcher';
 
@@ -20,6 +23,12 @@
 
 	let isCollapsed = $state(false);
 	let feedbackDialogOpen = $state(false);
+
+	const canSubscribe = $derived(
+		auth.isAuthenticated && !auth.isAnonymous && !subscription.isPro
+	);
+
+	const subscribePlans = ['monthly', 'yearly'] as const;
 
 	const navItems = [
 		{
@@ -126,6 +135,23 @@
 
 	<!-- Footer -->
 	<div class={cn('p-3 border-t border-purple-100/50 dark:border-stone-800 space-y-1', isCollapsed ? 'items-center flex flex-col' : '')}>
+		{#if canSubscribe}
+			{#each subscribePlans as plan (plan)}
+				<button
+					type="button"
+					onclick={() => subscription.openCheckout(plan)}
+					title={isCollapsed ? `Subscribe ${plan}` : undefined}
+					aria-label={`Subscribe ${plan}`}
+					class={cn(
+						'flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-purple-700 dark:text-purple-400 rounded-md hover:bg-[#f3e8ff] dark:hover:bg-[#292524] hover:text-purple-900 dark:hover:text-stone-100 transition-colors overflow-hidden whitespace-nowrap text-left cursor-pointer',
+						isCollapsed ? 'justify-center px-2 w-full' : 'w-full'
+					)}
+				>
+					<ZapIcon class="size-5 shrink-0" />
+					<span class={cn('transition-opacity duration-300', isCollapsed ? 'opacity-0 w-0 hidden' : 'opacity-100')}>{plan === 'monthly' ? 'Pro Monthly' : 'Pro Yearly'}</span>
+				</button>
+			{/each}
+		{/if}
 		{#each footerItems as item}
 			{@const Icon = item.icon}
 			{#if item.type === 'anchor'}
