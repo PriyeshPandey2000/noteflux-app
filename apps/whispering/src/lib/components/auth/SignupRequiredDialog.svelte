@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { auth } from '$lib/stores/auth.svelte';
+	import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
 	import { signupRequiredDialog } from '$lib/stores/signup-required-dialog.svelte';
 	import { Button } from '$lib/ui/button';
 	import * as Dialog from '$lib/ui/dialog';
@@ -43,14 +44,22 @@
 	// Auto-close dialog when user successfully authenticates and is no longer anonymous
 	$effect(() => {
 		if (signupRequiredDialog.isOpen && auth.isAuthenticated && !auth.isAnonymous) {
-			// Check if onboarding was open before closing the dialog
+			// Check state before closing the dialog resets it
 			const shouldReopenOnboarding = signupRequiredDialog.wasOnboardingOpen;
+			const shouldOpenProPaywall = signupRequiredDialog.reason === 'pro';
 
 			signupRequiredDialog.close();
 
-			// If user was in onboarding flow, reopen it at the usage guide step
-			if (shouldReopenOnboarding) {
-				// Small delay to let the signup dialog close smoothly
+			if (shouldOpenProPaywall) {
+				// They tapped "Get Pro" while anonymous — continue straight into
+				// the paywall now that they have a real account instead of
+				// leaving them back where they started.
+				setTimeout(() => {
+					proPricingDialog.open();
+				}, 300);
+			} else if (shouldReopenOnboarding) {
+				// If user was in onboarding flow, reopen it at the usage guide step.
+				// Small delay to let the signup dialog close smoothly.
 				setTimeout(async () => {
 					const { onboardingStore } = await import('$lib/stores/onboarding.svelte');
 					const { goto } = await import('$app/navigation');
@@ -70,20 +79,31 @@
 	<Dialog.Content
 		class="max-w-md z-[9999]"
 		onInteractOutside={(e) => {
-			// Prevent closing by clicking outside - user must sign up
-			e.preventDefault();
+			// Usage-limit signup is mandatory to keep recording; the Pro variant
+			// is just an upsell, so let it be dismissed normally.
+			if (signupRequiredDialog.reason === 'usage-limit') {
+				e.preventDefault();
+			}
 		}}
 		onEscapeKeydown={(e) => {
-			// Prevent closing with escape key - user must sign up
-			e.preventDefault();
+			if (signupRequiredDialog.reason === 'usage-limit') {
+				e.preventDefault();
+			}
 		}}
-		showCloseButton={false}
+		showCloseButton={signupRequiredDialog.reason === 'pro'}
 	>
 		<Dialog.Header>
-			<Dialog.Title>Sign up to continue recording</Dialog.Title>
-			<Dialog.Description>
-				Please sign up to keep using the app.
-			</Dialog.Description>
+			{#if signupRequiredDialog.reason === 'pro'}
+				<Dialog.Title>Sign up to unlock Pro</Dialog.Title>
+				<Dialog.Description>
+					Create a free account to continue to checkout.
+				</Dialog.Description>
+			{:else}
+				<Dialog.Title>Sign up to continue recording</Dialog.Title>
+				<Dialog.Description>
+					Please sign up to keep using the app.
+				</Dialog.Description>
+			{/if}
 		</Dialog.Header>
 
 		<div class="flex flex-col gap-2 mt-4">

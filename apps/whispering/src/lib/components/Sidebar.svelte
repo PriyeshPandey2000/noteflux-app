@@ -4,6 +4,8 @@
 	import { DiscordIcon } from '$lib/components/icons';
 	import NoteFluxButton from '$lib/components/NoteFluxButton.svelte';
 	import { auth } from '$lib/stores/auth.svelte';
+	import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
+	import { signupRequiredDialog } from '$lib/stores/signup-required-dialog.svelte';
 	import { subscription } from '$lib/stores/subscription.svelte';
 	import { cn } from '$lib/ui/utils';
 	import {
@@ -24,14 +26,20 @@
 	let isCollapsed = $state(false);
 	let feedbackDialogOpen = $state(false);
 
+	// Shown for anonymous users too — clicking it opens the sign-up gate
+	// first (see onGetProClick) instead of hiding entirely, so there's
+	// always a visible path to Pro.
 	const canSubscribe = $derived(
-		auth.isAuthenticated &&
-			!auth.isAnonymous &&
-			subscription.isKnown &&
-			!subscription.isPro
+		auth.isAuthenticated && subscription.isKnown && !subscription.isPro
 	);
 
-	const subscribePlans = ['monthly', 'yearly'] as const;
+	function onGetProClick() {
+		if (auth.isAnonymous) {
+			signupRequiredDialog.open(false, 'pro');
+		} else {
+			proPricingDialog.open();
+		}
+	}
 
 	const navItems = [
 		{
@@ -138,24 +146,45 @@
 
 	<!-- Footer -->
 	<div class={cn('p-3 border-t border-purple-100/50 dark:border-stone-800 space-y-1', isCollapsed ? 'items-center flex flex-col' : '')}>
-		{#if canSubscribe}
-			{#each subscribePlans as plan (plan)}
-				<button
-					type="button"
-					onclick={() => subscription.openCheckout(plan)}
-					disabled={subscription.isCheckoutInFlight}
-					title={isCollapsed ? `Subscribe ${plan}` : undefined}
-					aria-label={`Subscribe ${plan}`}
+		{#if subscription.isKnown && subscription.isPro}
+			<div
+				title={isCollapsed ? 'Pro' : undefined}
+				class={cn(
+					'flex items-center gap-3 px-3 py-2.5 text-sm rounded-md border border-emerald-500/30 bg-emerald-500/5 overflow-hidden whitespace-nowrap',
+					isCollapsed ? 'justify-center px-2 w-full' : 'w-full'
+				)}
+			>
+				<ZapIcon class="size-5 shrink-0 text-emerald-400" />
+				<span
 					class={cn(
-						'flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-purple-700 dark:text-purple-400 rounded-md hover:bg-[#f3e8ff] dark:hover:bg-[#292524] hover:text-purple-900 dark:hover:text-stone-100 transition-colors overflow-hidden whitespace-nowrap text-left cursor-pointer',
-						isCollapsed ? 'justify-center px-2 w-full' : 'w-full',
-						subscription.isCheckoutInFlight && 'opacity-50 cursor-default'
+						'font-semibold bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent transition-opacity duration-300',
+						isCollapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'
 					)}
 				>
-					<ZapIcon class="size-5 shrink-0" />
-					<span class={cn('transition-opacity duration-300', isCollapsed ? 'opacity-0 w-0 hidden' : 'opacity-100')}>{plan === 'monthly' ? 'Pro Monthly' : 'Pro Yearly'}</span>
-				</button>
-			{/each}
+					Pro
+				</span>
+			</div>
+		{:else if canSubscribe}
+			<button
+				type="button"
+				onclick={onGetProClick}
+				title={isCollapsed ? 'Get Pro' : undefined}
+				aria-label="Get Pro"
+				class={cn(
+					'flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-md border border-emerald-500/30 hover:bg-emerald-500/10 transition-colors overflow-hidden whitespace-nowrap text-left cursor-pointer',
+					isCollapsed ? 'justify-center px-2 w-full' : 'w-full'
+				)}
+			>
+				<ZapIcon class="size-5 shrink-0 text-emerald-400" />
+				<span
+					class={cn(
+						'bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent transition-opacity duration-300',
+						isCollapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'
+					)}
+				>
+					Get Pro
+				</span>
+			</button>
 		{/if}
 		{#each footerItems as item}
 			{@const Icon = item.icon}
