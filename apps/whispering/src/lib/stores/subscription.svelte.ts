@@ -145,24 +145,28 @@ export const subscription = {
     await refresh();
   },
 
-  async openCheckout(plan: SubscriptionPlan) {
+  // Returns whether checkout actually opened, so callers (e.g. the pricing
+  // dialog) know whether it's safe to close — closing on a no-op would lose
+  // the user's plan selection and retry action.
+  async openCheckout(plan: SubscriptionPlan): Promise<boolean> {
     // Only allow checkout once free status is confirmed, and never twice at once.
     if (checkoutInFlight || !isKnown || subscriptionState.tier !== 'free') {
-      return;
+      return false;
     }
 
     const accessToken = auth.state.session?.access_token;
     if (!accessToken) {
-      return;
+      return false;
     }
 
     checkoutInFlight = true;
     try {
       const checkoutUrl = await createCheckoutSession(accessToken, plan);
       if (!checkoutUrl) {
-        return;
+        return false;
       }
       await openCheckoutUrl(checkoutUrl);
+      return true;
     } finally {
       checkoutInFlight = false;
     }

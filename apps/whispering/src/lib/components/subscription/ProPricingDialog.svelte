@@ -23,8 +23,10 @@
 	];
 
 	async function handleGetPro() {
-		await subscription.openCheckout(billing);
-		proPricingDialog.close();
+		const opened = await subscription.openCheckout(billing);
+		if (opened) {
+			proPricingDialog.close();
+		}
 	}
 </script>
 

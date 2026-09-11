@@ -6,19 +6,30 @@
 	import { Button } from '$lib/ui/button';
 	import * as Dialog from '$lib/ui/dialog';
 
+	// Blocks dismissal while true, so a window-focus blip during the external
+	// OAuth flow (e.g. browser handoff) can't close the dialog and clear the
+	// pending 'pro' continuation before authentication settles.
+	let isAuthenticating = $state(false);
+
 	async function handleSignUp() {
+		isAuthenticating = true;
 		try {
 			await auth.signUp();
 		} catch (error) {
 			console.error('Sign up failed:', error);
+		} finally {
+			isAuthenticating = false;
 		}
 	}
 
 	async function handleSignIn() {
+		isAuthenticating = true;
 		try {
 			await auth.signIn();
 		} catch (error) {
 			console.error('Sign in failed:', error);
+		} finally {
+			isAuthenticating = false;
 		}
 	}
 
@@ -86,17 +97,19 @@
 		class="max-w-md z-[9999]"
 		onInteractOutside={(e) => {
 			// Usage-limit signup is mandatory to keep recording; the Pro variant
-			// is just an upsell, so let it be dismissed normally.
-			if (signupRequiredDialog.reason === 'usage-limit') {
+			// is just an upsell, so let it be dismissed normally — except while
+			// an auth attempt is actually in flight, so it can't be knocked closed
+			// mid-flow and lose the pending Pro continuation.
+			if (signupRequiredDialog.reason === 'usage-limit' || isAuthenticating) {
 				e.preventDefault();
 			}
 		}}
 		onEscapeKeydown={(e) => {
-			if (signupRequiredDialog.reason === 'usage-limit') {
+			if (signupRequiredDialog.reason === 'usage-limit' || isAuthenticating) {
 				e.preventDefault();
 			}
 		}}
-		showCloseButton={signupRequiredDialog.reason === 'pro'}
+		showCloseButton={signupRequiredDialog.reason === 'pro' && !isAuthenticating}
 	>
 		<Dialog.Header>
 			{#if signupRequiredDialog.reason === 'pro'}

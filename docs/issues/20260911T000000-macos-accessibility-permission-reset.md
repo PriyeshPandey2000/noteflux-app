@@ -37,21 +37,25 @@ ago get thrown back into it after every single release.
   manual GitHub-Releases redownload breaks it. Confirmed happening even via
   "Restart Now," ruling this out.
 
-### Actual root cause
-A real, independently-documented, **unresolved macOS platform bug**, not
+### Working hypothesis (root cause not confirmed by Apple)
+The best current explanation, based on independently-documented reports of
+the identical symptom elsewhere — not a confirmed mechanism, and not
 specific to this codebase:
 - Apple's own developer forums
-  ([thread 99868](https://developer.apple.com/forums/thread/99868), open
-  since 2020, no Apple response): multiple developers report the identical
-  pattern — `AXIsProcessTrustedWithOptions` reads `true` right after
-  granting, then `false` right after the process restarts, with the app
-  silently dropped from the Accessibility list.
-- Confirmed on real, unrelated, popular shipped apps via Apple Community
-  support threads: **Karabiner-Elements, BetterSnapTool, Typinator, Magnet,
-  Shottr** all have users reporting the same "permissions reset, have to
-  re-grant" complaint. Apple support's own answer to one of these:
-  *"might be due to the API being used by these applications, may be
-  resolved in future updates"* — i.e., a known, unfixed platform issue.
+  ([thread 99868](https://developer.apple.com/forums/thread/99868), opened
+  April 2018 with continued activity through at least April 2020, no Apple
+  response on root cause): multiple developers report the identical pattern
+  — `AXIsProcessTrustedWithOptions` reads `true` right after granting, then
+  `false` right after the process restarts, with the app silently dropped
+  from the Accessibility list.
+- Anecdotally reported on other popular shipped apps — **Karabiner-Elements,
+  BetterSnapTool, Typinator, Magnet, Shottr** — via Apple Community support
+  threads with the same "permissions reset, have to re-grant" complaint, and
+  an Apple support reply on one of those threads suggesting it "might be due
+  to the API being used by these applications, may be resolved in future
+  updates." These reports aren't linked here and haven't been independently
+  re-verified — treat as corroborating anecdote, not proof, until direct
+  sources are captured.
 - Mechanism (best current understanding, not 100% Apple-confirmed): TCC's
   internal grant state doesn't always finish "settling" before a fast
   process restart re-queries it, and/or TCC's Accessibility entries can bind
@@ -125,14 +129,22 @@ of long-lived process instead of an ASR model.
   competitive research" below.** A plain spawned child process is not
   strong enough; the real-world proven pattern needs full Login Item
   registration.
-- Read its stdout stream continuously in a background task; forward parsed
-  events into whatever currently consumes `handle_flags_changed`/
-  `handle_key_down`'s output.
+- Because the helper is an independently launchd-managed `SMAppService`
+  agent, not a child process the main app spawns, the main app can't rely on
+  an inherited stdin/stdout pipe for IPC. It needs a persistent transport
+  instead — a Unix domain socket, matching Karabiner-Core-Service's actual
+  mechanism (see Karabiner section below) — with the main app connecting as
+  a client, a defined reconnect strategy for when the helper restarts or the
+  main app relaunches, and a way to reset in-flight key state (e.g. a stuck
+  "Fn down") after a reconnect.
 - `is_macos_accessibility_enabled` Tauri command becomes a thin proxy that
-  asks the helper instead of calling the AX API directly in-process.
-- Supervise: restart the helper if it crashes/exits unexpectedly; surface a
-  clear error state if it can't be spawned at all (missing binary, corrupted
-  install) rather than silently failing.
+  asks the helper over that socket instead of calling the AX API directly
+  in-process.
+- Supervise: launchd restarts the `SMAppService` agent itself if it crashes,
+  so "supervision" here means detecting a dropped socket connection and
+  reconnecting, plus surfacing a clear error state if registration/approval
+  never succeeds (missing binary, corrupted install, user never approved the
+  Login Item) rather than silently failing.
 
 **3. Build/CI change — the part that actually delivers the stability benefit**
 - The helper must be built and signed **once**, then the identical compiled
@@ -145,9 +157,10 @@ of long-lived process instead of an ASR model.
 - Concretely: build + sign the helper once, store that exact signed artifact
   somewhere durable (a pinned GitHub release asset, or checked into a
   private artifact store), and have every future release's CI step *copy*
-  that file into the bundle instead of recompiling it. Only rebuild+resign
-  it as a deliberate, rare, manual action if the helper's own logic needs to
-  change.
+  that file into the app bundle's `Contents/Library/LoginItems/` directory
+  (the location `SMAppService` requires — see "Updated conclusion after
+  critique" below) instead of recompiling it. Only rebuild+resign it as a
+  deliberate, rare, manual action if the helper's own logic needs to change.
 
 ### Failure modes to design for
 - Helper binary missing or fails to spawn on first run → app should degrade
@@ -231,22 +244,35 @@ reduce complaints enough in practice.
 > only build this sidecar architecture if telemetry shows the cheap
 > mitigations are failing to shield the user from the friction.
 
-## Updated conclusion after critique
+## Updated conclusion after critique (partially superseded — see "Correction after competitive research" below)
 
-The critique's correction is real and changes the design: the helper cannot
-live inside `Contents/Helpers/` or anywhere under the `.app` bundle that
-Tauri's updater replaces wholesale — it must be **installed once to a
-location outside the bundle** (e.g.
-`~/Library/Application Support/NoteFlux/accessibility-helper`), with the
-main app copying/updating it there only on a deliberate version bump of the
-helper itself, never as a side effect of a normal app update. The
-`externalBin`/`qwen3-asr-cli`-style sidecar pattern is still the right model
-for *how the main app spawns and talks to it* — the fix is *where the binary
-physically lives on disk*, not the IPC mechanism.
+The first critique's inode/path concern is real: the helper cannot live
+inside `Contents/Helpers/` or anywhere under the `.app` bundle that Tauri's
+updater replaces wholesale via a raw spawned-child-process model, where
+identity is tracked by raw file path/inode. That part of the correction
+stands.
+
+What doesn't stand, once the design commits to `SMAppService` (see
+"Competitive research" below): `SMAppService` login items, agents, and
+daemons are registered from — and expected to keep running from — a helper
+embedded inside the app bundle (e.g. `Contents/Library/LoginItems/`), not an
+arbitrary external directory like `~/Library/Application Support/NoteFlux/`.
+Apple's own `SMAppService` documentation requires the embedded location; an
+externally installed binary isn't a supported registration target.
+`SMAppService` tracks identity by the helper's bundle identifier and Team ID
+signing, not raw file path/inode, which is *why* it survives the exact
+bundle-replacement event that breaks a plain spawned child process — the fix
+isn't "move it outside the bundle," it's "register it with the API that
+doesn't care about path/inode in the first place." The
+`externalBin`/`qwen3-asr-cli`-style spawn-and-pipe-stdout sidecar pattern
+also isn't the right IPC model once the helper is an independently
+launchd-managed process rather than a child the main app spawns — see the
+IPC correction in "Main app changes" above.
 
 Sequencing agreed: ship the cheap mitigations first (retry-with-delay,
-decouple re-grant prompt from full onboarding). Only build this sidecar
-architecture if that's insufficient in practice.
+decouple re-grant prompt from full onboarding). Only build the
+`SMAppService`-based helper architecture (detailed in "Correction after
+competitive research" below) if that's insufficient in practice.
 
 ## Second Reviewer Critique — new edge cases if this is ever built (verbatim)
 
@@ -305,13 +331,23 @@ apps confirmed to still have this exact bug, unresolved:
 
 **One app confirmed to have actually engineered around it: Karabiner-Elements.**
 Ground truth from their official docs/DEVELOPMENT.md, not a blog guess:
-Accessibility trust is held by a component called **`Karabiner-Core-Service`**,
-which is registered as a proper **launchd user agent via `SMAppService`**,
-approved once under System Settings → General → Login Items & Extensions.
-Once approved as a Login Item, it's managed by the OS itself — persistent,
-independent of whether the main GUI app is even running — and the main
-Karabiner-Elements app updates freely without ever touching this agent's
-binary or its Login Item registration.
+Karabiner-Elements splits this across two components, not one — do **not**
+treat "Karabiner-Core-Service" as a single Login Item agent or a direct
+stand-in for our helper:
+- **`Karabiner-Core-Service`**: registered via `SMAppService.daemon`, runs
+  with root privileges, requires explicit one-time user approval under
+  System Settings → General → Login Items & Extensions. It exists for
+  privileged work (seizing HID devices) that our helper doesn't need to do.
+- **`Karabiner-Console-User-Server`**: a separate console-user-session
+  `LaunchAgent`, running at user (not root) privilege, scoped to
+  session-bound work. This is the closer analog to what our helper needs —
+  Accessibility trust and `CGEventTap` are both user-session APIs, not
+  privileged ones.
+
+Both are managed by launchd once registered — persistent, independent of
+whether the main GUI app is even running — and the main Karabiner-Elements
+app updates freely without ever touching either component's binary or
+registration.
 
 ### Correction after competitive research
 The original proposal above said the helper "doesn't need to survive
@@ -319,15 +355,24 @@ independent of the main app via a macOS Login Item / `SMAppService`, since
 the hotkey listener only needs to be alive while the app itself is running."
 Karabiner's real, working, shipped precedent contradicts this — the thing
 that actually stays stable across updates in the wild is a **properly
-`SMAppService`-registered Login Item agent**, not a plain child process
-spawned and killed by the main app. If this is ever built, it should follow
-Karabiner's actual pattern:
-- Helper installed once, outside the `.app` bundle (per the inode/path
-  correction already captured above).
-- Registered as a real macOS Login Item via `SMAppService`, requiring a
-  one-time separate user approval (System Settings → General → Login Items
-  & Extensions) in addition to the Accessibility grant itself.
-- Runs independent of the main app's lifecycle, managed by launchd.
+`SMAppService`-registered agent**, not a plain child process spawned and
+killed by the main app. Since our helper only needs Accessibility trust (a
+user-session API, like `Karabiner-Console-User-Server`'s scope) and not
+root-level device seizing, it should use `SMAppService.agent`, not
+`SMAppService.daemon` — which requires the heavier admin-approval flow
+Karabiner reserves for `Karabiner-Core-Service`. If this is ever built, it
+should follow Karabiner's actual pattern:
+- Helper embedded inside the `.app` bundle at the location `SMAppService`
+  requires (e.g. `Contents/Library/LoginItems/`) — see the corrected
+  location discussion above; the earlier "install outside the bundle" theory
+  doesn't hold once the design commits to `SMAppService`.
+- Registered as a real macOS Login Item agent via `SMAppService.agent`,
+  requiring a one-time separate user approval (System Settings → General →
+  Login Items & Extensions) in addition to the Accessibility grant itself.
+- Runs independent of the main app's lifecycle, managed by launchd, and
+  communicates with the main app over a persistent IPC transport (a Unix
+  domain socket, matching Karabiner's own mechanism) rather than inherited
+  stdio — see the IPC correction in "Main app changes" above.
 
 This is more work than the original "just a spawned child process" version
 — it adds Login Item registration, a second user-facing approval step, and
