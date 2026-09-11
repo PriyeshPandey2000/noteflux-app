@@ -10,6 +10,7 @@
 
 	import AppShell from './+layout/AppShell.svelte';
 	import SignupRequiredDialog from '$lib/components/auth/SignupRequiredDialog.svelte';
+	import ProPricingDialog from '$lib/components/subscription/ProPricingDialog.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { QWEN3_ASR_SUPPORTED_LANGUAGES } from '$lib/constants/languages';
 
@@ -89,6 +90,7 @@
 		{@render children()}
 	</AppShell>
 	<SignupRequiredDialog />
+	<ProPricingDialog />
 </QueryClientProvider>
 
 <!-- <SvelteQueryDevtools client={queryClient} buttonPosition="bottom-left" /> -->

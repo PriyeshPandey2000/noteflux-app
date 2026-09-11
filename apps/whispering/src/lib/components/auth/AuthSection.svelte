@@ -2,11 +2,21 @@
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/ui/button';
 	import { auth } from '$lib/stores/auth.svelte';
+	import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
+	import { signupRequiredDialog } from '$lib/stores/signup-required-dialog.svelte';
 	import { subscription } from '$lib/stores/subscription.svelte';
 	import { ZapIcon } from '@lucide/svelte';
-	
+
 	// AuthSection component loaded
-	
+
+	function onGetProClick() {
+		if (auth.isAnonymous) {
+			signupRequiredDialog.open(false, 'pro');
+		} else {
+			proPricingDialog.open();
+		}
+	}
+
 	async function handleSignIn() {
 		try {
 			await auth.signIn();
@@ -45,42 +55,31 @@
 		</div>
 	</div>
 {:else if auth.isAuthenticated}
-	{#if auth.isAnonymous}
-		<!-- Sign out button without border -->
-		<Button onclick={handleSignOut} size="sm" variant="outline">
-			Sign Out
-		</Button>
-	{:else if subscription.isPro}
+	{#if subscription.isPro}
 		<div class="flex items-center gap-3">
-			<span class="flex items-center gap-1.5 text-sm font-medium text-purple-700 dark:text-purple-400">
-				<ZapIcon class="size-4" />
-				Pro
+			<span class="flex items-center gap-1.5 text-sm font-semibold">
+				<ZapIcon class="size-4 text-emerald-400" />
+				<span class="bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">Pro</span>
 			</span>
 			<Button onclick={handleSignOut} size="sm" variant="outline">
 				Sign Out
 			</Button>
 		</div>
-	{:else if subscription.isKnown}
+	{:else if auth.isAnonymous || subscription.isKnown}
+		<!-- Shown for anonymous users too, so there's always a visible path to
+		     Pro — clicking it while anonymous opens the sign-up gate first. -->
 		<div class="flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
-			<div class="flex gap-2">
-				<Button
-					onclick={() => subscription.openCheckout('monthly')}
-					size="sm"
-					title="Subscribe monthly"
-					disabled={subscription.isCheckoutInFlight}
-				>
-					Subscribe Monthly
-				</Button>
-				<Button
-					onclick={() => subscription.openCheckout('yearly')}
-					size="sm"
-					variant="outline"
-					title="Subscribe yearly"
-					disabled={subscription.isCheckoutInFlight}
-				>
-					Subscribe Yearly
-				</Button>
-			</div>
+			<button
+				type="button"
+				onclick={onGetProClick}
+				title="Get Pro"
+				class="flex items-center gap-1.5 rounded-md border border-emerald-500/30 px-3 py-1.5 text-sm font-semibold hover:bg-emerald-500/10 transition-colors cursor-pointer"
+			>
+				<ZapIcon class="size-4 text-emerald-400" />
+				<span class="bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">
+					Get Pro
+				</span>
+			</button>
 			<Button onclick={handleSignOut} size="sm" variant="ghost">
 				Sign Out
 			</Button>
