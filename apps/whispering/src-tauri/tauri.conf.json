@@ -9,8 +9,14 @@
 		"active": true,
 		"category": "Productivity",
 		"targets": "all",
-		"resources": ["recording-overlay.html", "default.metallib", "../../../LICENSE"],
-		"externalBin": ["binaries/qwen3-asr-cli"],
+		"resources": [
+			"recording-overlay.html",
+			"default.metallib",
+			"../../../LICENSE"
+		],
+		"externalBin": [
+			"binaries/qwen3-asr-cli"
+		],
 		"icon": [
 			"icons/32x32.png",
 			"icons/128x128.png",
@@ -36,12 +42,14 @@
 		}
 	},
 	"productName": "NoteFlux",
-	"version": "0.0.26",
+	"version": "0.0.27",
 	"identifier": "com.priyeshpandey.noteflux",
 	"plugins": {
 		"deep-link": {
 			"desktop": {
-				"schemes": ["noteflux"]
+				"schemes": [
+					"noteflux"
+				]
 			}
 		},
 		"updater": {
