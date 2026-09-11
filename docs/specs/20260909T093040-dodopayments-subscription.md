@@ -146,6 +146,35 @@ Polar's plan had the desktop `openCheckout()` open `noteflux.app/checkout` in th
 
 **Still required for the E2E test:** deploy the website, set the DODO/Supabase env vars in Vercel, create the Dodo webhook endpoint (`https://noteflux.app/api/webhooks/dodo`, all `subscription.*` events) and copy its secret, then test the desktop subscribe flow with the 100%-off code (real checkout, $0 charge, webhook flips `users.subscription_tier` to `pro`).
 
+## Known Gap Discovered Later (2026-09-12, not fixed yet)
+
+This spec wired up `subscription.isPro` (status fetch, store, checkout,
+paywall UI) but never audited **which actual features check it**. Found one
+real, undocumented gap while auditing the payment flow end to end:
+
+`total_usage_limit`-based lifetime cap never checks `subscription.isPro`.
+- `src/lib/services/usage-tracking.ts` (`checkUsageLimitAndBlockStatus()`,
+  ~lines 267-337) reads `total_minutes`/`limit_minutes` (default **2000
+  minutes lifetime**)/`is_blocked` from `total_usage_limit`. No reference to
+  `subscription` anywhere in the file.
+- `src/lib/query/transcription.ts` (`transcribeBlob`, ~lines 151-268) calls
+  this check for every authenticated user and blocks transcription with a
+  "⚠️ Usage limit reached" dialog once `isOverLimit`/`is_blocked` — Pro or
+  free, no distinction.
+
+Result: a paying Pro subscriber who crosses 2000 lifetime transcription
+minutes gets blocked exactly like a free user, despite the product's own
+pricing copy advertising "Unlimited voice recordings" as the Pro feature.
+The anonymous 5-minute gate (`anonymous-gate.ts`) is unaffected and already
+correctly skips non-anonymous accounts — this is a separate check.
+
+**Not fixed yet** — touches the live transcription path, bigger blast
+radius than the payment-UI fixes done alongside this audit, so it's holding
+for explicit confirmation before changing. Fix shape: bypass
+`checkUsageLimitAndBlockStatus()`'s block when `subscription.isPro` is true,
+at both call sites in `transcription.ts`. Also logged in `noteflux--`'s
+`polish-payment-flow.md`.
+
 ## Reference: DodoPayments key differences from Polar
 
 | Concern | Polar (old) | DodoPayments (new) |

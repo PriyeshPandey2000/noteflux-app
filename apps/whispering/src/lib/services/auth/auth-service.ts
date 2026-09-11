@@ -69,6 +69,13 @@ class AuthService {
               this.handleAuthCallback(url);
               break;
             }
+            if (url.startsWith('noteflux://checkout-success')) {
+              // Decoupled via a DOM event (rather than importing the
+              // subscription store here) to avoid a circular import —
+              // subscription.svelte.ts already imports authService.
+              window.dispatchEvent(new CustomEvent('noteflux-checkout-success'));
+              break;
+            }
           }
         });
       } catch (error) {
