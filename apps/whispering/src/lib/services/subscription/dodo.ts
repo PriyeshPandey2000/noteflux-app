@@ -1,3 +1,5 @@
+import { setAlwaysOnTopSuspended } from '$lib/stores/alwaysOnTop.svelte';
+
 export type SubscriptionTier = 'free' | 'pro';
 export type SubscriptionPlan = 'monthly' | 'yearly';
 
@@ -13,7 +15,7 @@ const NOTEFLUX_API_URL = 'https://noteflux.app';
 export async function fetchSubscriptionStatus(
   userId: string,
   accessToken: string
-): Promise<SubscriptionStatus> {
+): Promise<SubscriptionStatus | null> {
   try {
     const response = await fetch(
       `${NOTEFLUX_API_URL}/api/subscription?user_id=${encodeURIComponent(userId)}`,
@@ -25,7 +27,7 @@ export async function fetchSubscriptionStatus(
     );
 
     if (!response.ok) {
-      return { tier: 'free', isActive: false, subscriptionId: null, currentPeriodEnd: null };
+      return null;
     }
 
     const data = await response.json();
@@ -38,7 +40,7 @@ export async function fetchSubscriptionStatus(
     };
   } catch (error) {
     console.error('Failed to check subscription status:', error);
-    return { tier: 'free', isActive: false, subscriptionId: null, currentPeriodEnd: null };
+    return null;
   }
 }
 
@@ -73,6 +75,8 @@ export async function openCheckoutUrl(checkoutUrl: string): Promise<void> {
   // Use Tauri opener if in desktop app
   if ((window as any).__TAURI_INTERNALS__) {
     try {
+      // Suspend the persistent always-on-top policy so the browser is visible.
+      setAlwaysOnTopSuspended(true);
       // Disable always-on-top so browser is visible
       try {
         const { getCurrentWindow } = await import('@tauri-apps/api/window');

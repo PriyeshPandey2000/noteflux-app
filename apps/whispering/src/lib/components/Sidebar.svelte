@@ -25,7 +25,10 @@
 	let feedbackDialogOpen = $state(false);
 
 	const canSubscribe = $derived(
-		auth.isAuthenticated && !auth.isAnonymous && !subscription.isPro
+		auth.isAuthenticated &&
+			!auth.isAnonymous &&
+			subscription.isKnown &&
+			!subscription.isPro
 	);
 
 	const subscribePlans = ['monthly', 'yearly'] as const;
@@ -140,11 +143,13 @@
 				<button
 					type="button"
 					onclick={() => subscription.openCheckout(plan)}
+					disabled={subscription.isCheckoutInFlight}
 					title={isCollapsed ? `Subscribe ${plan}` : undefined}
 					aria-label={`Subscribe ${plan}`}
 					class={cn(
 						'flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-purple-700 dark:text-purple-400 rounded-md hover:bg-[#f3e8ff] dark:hover:bg-[#292524] hover:text-purple-900 dark:hover:text-stone-100 transition-colors overflow-hidden whitespace-nowrap text-left cursor-pointer',
-						isCollapsed ? 'justify-center px-2 w-full' : 'w-full'
+						isCollapsed ? 'justify-center px-2 w-full' : 'w-full',
+						subscription.isCheckoutInFlight && 'opacity-50 cursor-default'
 					)}
 				>
 					<ZapIcon class="size-5 shrink-0" />
