@@ -1,6 +1,6 @@
 [package]
 name = "noteflux"
-version = "0.0.11"
+version = "0.0.25"
 description = "A Tauri App"
 authors = ["you"]
 repository = "https://github.com/epicenter-so/epicenter"
