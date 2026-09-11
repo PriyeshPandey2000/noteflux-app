@@ -123,15 +123,22 @@
 					<button
 						type="button"
 						onclick={handleGetPro}
-						disabled={subscription.isCheckoutInFlight}
+						disabled={subscription.isCheckoutInFlight || !subscription.isKnown || subscription.isPro}
 						class={cn(
 							'mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 cursor-pointer',
-							subscription.isCheckoutInFlight && 'opacity-50 cursor-default'
+							(subscription.isCheckoutInFlight || !subscription.isKnown || subscription.isPro) &&
+								'opacity-50 cursor-default'
 						)}
 					>
 						{#if subscription.isCheckoutInFlight}
 							<Loader class="size-4 animate-spin" />
 							Opening checkout…
+						{:else if !subscription.isKnown}
+							<Loader class="size-4 animate-spin" />
+							Checking account status…
+						{:else if subscription.isPro}
+							<ZapIcon class="size-4" />
+							You're already Pro
 						{:else}
 							<ZapIcon class="size-4" />
 							Get Pro

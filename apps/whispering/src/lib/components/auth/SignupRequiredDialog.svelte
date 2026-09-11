@@ -2,6 +2,7 @@
 	import { auth } from '$lib/stores/auth.svelte';
 	import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
 	import { signupRequiredDialog } from '$lib/stores/signup-required-dialog.svelte';
+	import { subscription } from '$lib/stores/subscription.svelte';
 	import { Button } from '$lib/ui/button';
 	import * as Dialog from '$lib/ui/dialog';
 
@@ -51,12 +52,17 @@
 			signupRequiredDialog.close();
 
 			if (shouldOpenProPaywall) {
-				// They tapped "Get Pro" while anonymous — continue straight into
-				// the paywall now that they have a real account instead of
-				// leaving them back where they started.
-				setTimeout(() => {
-					proPricingDialog.open();
-				}, 300);
+				// They tapped "Get Pro" while anonymous. If they signed into an
+				// existing account (not a fresh signup), that account could
+				// already be Pro — confirm status before opening the paywall
+				// instead of racing a fixed delay against the async refresh,
+				// so an existing Pro user is never shown a "buy Pro" screen.
+				(async () => {
+					await subscription.checkSubscription();
+					if (!subscription.isPro) {
+						proPricingDialog.open();
+					}
+				})();
 			} else if (shouldReopenOnboarding) {
 				// If user was in onboarding flow, reopen it at the usage guide step.
 				// Small delay to let the signup dialog close smoothly.
