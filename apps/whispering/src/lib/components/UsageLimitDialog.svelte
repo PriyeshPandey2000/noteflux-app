@@ -49,10 +49,10 @@
 		</div>
 
 		<Dialog.Footer class="flex gap-2">
-			<Button variant="outline" onclick={() => (open = false)}>
+			<Button variant="outline" size="sm" onclick={() => (open = false)}>
 				Close
 			</Button>
-			<Button onclick={handleReportUsage} class="flex items-center gap-2">
+			<Button onclick={handleReportUsage} size="sm" class="flex items-center gap-2">
 				<BugIcon class="size-4" />
 				Report Usage Request
 			</Button>

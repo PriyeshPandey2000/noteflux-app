@@ -14,6 +14,7 @@ const FREE_SUBSCRIPTION: SubscriptionStatus = {
   isActive: false,
   subscriptionId: null,
   currentPeriodEnd: null,
+  trialEndsAt: null,
 };
 
 const CACHE_PREFIX = 'noteflux_subscription_cache_v1:';
@@ -172,6 +173,29 @@ export const subscription = {
 
   get isPro() {
     return isKnown && subscriptionState.tier === 'pro' && subscriptionState.isActive;
+  },
+
+  // Deliberately separate from isPro — a trial grants the same feature access
+  // without ever touching subscription_tier/subscription_id, so it can't
+  // collide with the real webhook's stale-update guard, and the "Get Pro"
+  // button can stay clickable during a trial instead of thinking they're
+  // already a paying subscriber. See docs/specs/20260916T160000-pro-trial-and-feature-gating.md.
+  get isTrialActive() {
+    const trialEndsAt = subscriptionState.trialEndsAt;
+    return trialEndsAt !== null && Date.now() < new Date(trialEndsAt).getTime();
+  },
+
+  get trialDaysLeft() {
+    const trialEndsAt = subscriptionState.trialEndsAt;
+    if (trialEndsAt === null) return 0;
+    const msLeft = new Date(trialEndsAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+  },
+
+  // The one every feature gate should check — real subscription OR active
+  // trial. isPro alone would make free-during-trial users see "no access."
+  get hasProAccess() {
+    return this.isPro || this.isTrialActive;
   },
 
   get isCheckoutInFlight() {

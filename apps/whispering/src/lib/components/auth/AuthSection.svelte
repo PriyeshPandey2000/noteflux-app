@@ -5,7 +5,8 @@
 	import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
 	import { signupRequiredDialog } from '$lib/stores/signup-required-dialog.svelte';
 	import { subscription } from '$lib/stores/subscription.svelte';
-	import { Loader, ZapIcon } from '@lucide/svelte';
+	import { cn } from '$lib/ui/utils';
+	import { Loader } from '@lucide/svelte';
 
 	// AuthSection component loaded
 
@@ -57,10 +58,7 @@
 {:else if auth.isAuthenticated}
 	{#if subscription.isPro}
 		<div class="flex items-center gap-3">
-			<span class="flex items-center gap-1.5 text-sm font-semibold">
-				<ZapIcon class="size-4 text-emerald-400" />
-				<span class="bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">Pro</span>
-			</span>
+			<span class="text-sm font-semibold tracking-wide bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">Pro</span>
 			<Button onclick={handleSignOut} size="sm" variant="outline">
 				Sign Out
 			</Button>
@@ -75,6 +73,30 @@
 				Sign Out
 			</Button>
 		</div>
+	{:else if subscription.isKnown && subscription.isTrialActive}
+		<div class="flex items-center gap-3">
+			<button
+				type="button"
+				onclick={onGetProClick}
+				title="Pro trial"
+				class={cn(
+					'flex items-center rounded-md border px-3 py-1.5 text-sm font-semibold tracking-wide transition-colors cursor-pointer',
+					subscription.trialDaysLeft <= 1
+						? 'border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10'
+						: 'border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10'
+				)}
+			>
+				<span class="bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">
+					Pro trial
+				</span>
+				<span class={cn('ml-1.5 text-xs font-normal', subscription.trialDaysLeft <= 1 ? 'text-amber-400' : 'text-muted-foreground')}>
+					{subscription.trialDaysLeft <= 1 ? 'ends tomorrow' : `${subscription.trialDaysLeft} days left`}
+				</span>
+			</button>
+			<Button onclick={handleSignOut} size="sm" variant="outline">
+				Sign Out
+			</Button>
+		</div>
 	{:else if auth.isAnonymous || subscription.isKnown}
 		<!-- Shown for anonymous users too, so there's always a visible path to
 		     Pro — clicking it while anonymous opens the sign-up gate first. -->
@@ -83,9 +105,8 @@
 				type="button"
 				onclick={onGetProClick}
 				title="Get Pro"
-				class="flex items-center gap-1.5 rounded-md border border-emerald-500/30 px-3 py-1.5 text-sm font-semibold hover:bg-emerald-500/10 transition-colors cursor-pointer"
+				class="flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-1.5 text-sm font-semibold tracking-wide hover:bg-emerald-500/10 transition-colors cursor-pointer"
 			>
-				<ZapIcon class="size-4 text-emerald-400" />
 				<span class="bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">
 					Get Pro
 				</span>

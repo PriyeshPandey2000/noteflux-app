@@ -8,6 +8,7 @@ import { settings } from '$lib/stores/settings.svelte';
 import { authRequiredDialog } from '$lib/stores/auth-required-dialog.svelte';
 import { onboardingStore } from '$lib/stores/onboarding.svelte';
 import { signupRequiredDialog } from '$lib/stores/signup-required-dialog.svelte';
+import { subscription } from '$lib/stores/subscription.svelte';
 import { invoke } from '@tauri-apps/api/core';
 import { nanoid } from 'nanoid/non-secure';
 import { Err, Ok } from 'wellcrafted/result';
@@ -810,7 +811,12 @@ async function processRecordingPipeline({
 	// priority over transformation — intent is "edit this text", not "transform my speech"),
 	// deliver via transcription path which handles the selectionContext inline-edit flow.
 	const hasSelectionContext = !!selectionContext?.selectedText?.trim();
-	if (!transformationId || hasSelectionContext) {
+	// Transformations (default and custom alike) require Pro or an active
+	// trial — they run an LLM call on every single transcription, same cost
+	// shape as cloud transcription. Falls back to raw delivery silently, no
+	// dialog/toast, since this fires automatically on every transcription.
+	// See docs/specs/20260916T160000-pro-trial-and-feature-gating.md.
+	if (!transformationId || hasSelectionContext || !subscription.hasProAccess) {
 		await delivery.deliverTranscriptionResult.execute({
 			text: transcribedText,
 			toastId: transcribeToastId,
