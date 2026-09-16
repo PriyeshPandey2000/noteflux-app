@@ -95,6 +95,24 @@ Badge styling: same bordered-pill shape as the existing Pro/Get-Pro states (no i
 
 ---
 
+---
+
+## Milestone 8 — Website: trial state actually shown in the UI (follow-up, separate session)
+
+**Files:** `noteflux--/lib/services/dodo.ts`, `noteflux--/app/pricing/page.tsx`, `noteflux--/components/pricing/pricing-cards.tsx`, `noteflux--/components/header-auth.tsx`
+
+Milestone 2 exposed `trialEndsAt` through `getSubscriptionStatus()`, but nothing on the website actually *read* it — `/pricing`'s `PricingCards` only ever took an `isPro` boolean, and `header-auth.tsx` (the nav shown on every page) had zero subscription-status indication at all: a Pro subscriber, a mid-trial user, and a plain free user all saw an identical header. Verified this gap directly against the actual current code (not assumed) before fixing.
+
+Added a shared `deriveTrialState()` helper next to `SubscriptionStatus` in `lib/services/dodo.ts` (same `isTrialActive`/`trialDaysLeft` math as `whisper-2`'s `subscription.svelte.ts`, kept in one place instead of duplicated across the two website call sites).
+
+`PricingCards` now takes `isTrialActive`/`trialDaysLeft` props. Deliberately did **not** replace the "Get Pro" button with a disabled/different state during a trial — same reasoning as the spec doc's Milestone 1 (a trial user must still be able to subscribe early). Instead, a small "Pro trial — X days left" line renders above the unchanged, still-fully-functional "Get Pro" button, switching to amber "ends tomorrow" on the last day.
+
+`header-auth.tsx` now fetches `getSubscriptionStatus()` for the logged-in user and shows the same 3-state badge (Pro / trial countdown / nothing) next to "Hello, {email}!" — mirrors the desktop Sidebar/AuthSection pattern, but this is the *only* surface on the website showing status outside `/pricing` itself, so it was the bigger gap of the two.
+
+Verified: `tsc --noEmit` clean, `/pricing` and `/` both load without error in a local dev smoke test.
+
+---
+
 ## What's explicitly not done — see "Still to do" in the spec doc for the full list
 
 The short version: (1) the actual Supabase `ALTER TABLE` to add `trial_ends_at` hasn't been run — no safe programmatic path was available (no `pg` package, no direct Postgres connection string in either repo's `.env`, and a production schema change isn't something to script around blindly), so the exact SQL is documented in the spec doc for manual execution; (2) the four purchase-during-trial scenarios are specced but not yet manually tested end-to-end; (3) `TransformationSelector.svelte`'s lock-icon UI polish; (4) a quiet backend abuse ceiling on trial cloud usage.
