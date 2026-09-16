@@ -1,5 +1,6 @@
 import type { Recording } from '$lib/services/db';
 
+import { TRANSCRIPTION_SERVICES } from '$lib/constants/transcription/service-config';
 import { NoteFluxErr, type NoteFluxError } from '$lib/result';
 import * as services from '$lib/services';
 import { isQwen3WarmingUp } from '$lib/services/transcription/qwen3-asr';
@@ -153,35 +154,49 @@ async function transcribeBlob(
 ): Promise<Result<string, NoteFluxError>> {
 	// Increment transcription count
 	transcriptionCount++;
-	
+
+	const selectedService = settings.value['transcription.selectedTranscriptionService'];
+	// Local models (Qwen3-ASR, future on-device options) run entirely on the
+	// user's own device and cost nothing per minute, unlike the metered cloud
+	// path (Groq) — so the lifetime usage cap below only ever applies to
+	// cloud transcription, for every tier. Any service registered with
+	// `type: 'local'` in service-config.ts is exempt automatically.
+	const isLocalService =
+		TRANSCRIPTION_SERVICES.find((service) => service.id === selectedService)
+			?.type === 'local';
+
 	try {
 		const { supabase } = await import('$lib/services/auth/supabase-client');
 		const { data: { user } } = await supabase.auth.getUser();
 		
 		if (user) {
-			// First, check if this user needs frequent checking (lightweight query)
-			const { data: checkData } = await supabase
-				.from('total_usage_limit')
-				.select('needs_frequent_checks, is_blocked, total_minutes, limit_minutes')
-				.eq('user_id', user.id)
-				.single();
-			
-			// If user needs frequent checks, verify their blocked status on every transcription
-			if (checkData?.needs_frequent_checks) {
-				if (checkData.is_blocked) {
-					// Still blocked, show dialog
-					await showBlockedDialog(checkData.total_minutes, checkData.limit_minutes);
-					
-					return NoteFluxErr({
-						title: '⚠️ Account blocked',
-						description: 'Your account has been temporarily blocked. Contact support for assistance.',
-					});
-				} else {
-					// Admin unblocked them - immediately reset frequent checks flag
-					await supabase
-						.from('total_usage_limit')
-						.update({ needs_frequent_checks: false })
-						.eq('user_id', user.id);
+			// Usage-limit checks only ever apply to metered cloud transcription —
+			// skip the lookup entirely for local models, for every tier.
+			if (!isLocalService) {
+				// First, check if this user needs frequent checking (lightweight query)
+				const { data: checkData } = await supabase
+					.from('total_usage_limit')
+					.select('needs_frequent_checks, is_blocked, total_minutes, limit_minutes')
+					.eq('user_id', user.id)
+					.single();
+
+				// If user needs frequent checks, verify their blocked status on every transcription
+				if (checkData?.needs_frequent_checks) {
+					if (checkData.is_blocked) {
+						// Still blocked, show dialog
+						await showBlockedDialog(checkData.total_minutes, checkData.limit_minutes);
+
+						return NoteFluxErr({
+							title: '⚠️ Account blocked',
+							description: 'Your account has been temporarily blocked. Contact support for assistance.',
+						});
+					} else {
+						// Admin unblocked them - immediately reset frequent checks flag
+						await supabase
+							.from('total_usage_limit')
+							.update({ needs_frequent_checks: false })
+							.eq('user_id', user.id);
+					}
 				}
 			}
 		} else {
@@ -242,9 +257,11 @@ async function transcribeBlob(
 		});
 	}
 	
-	// Normal periodic check for usage limits (every 3rd transcription)  
-	const shouldDoFullCheck = transcriptionCount % CHECK_LIMIT_EVERY === 0;
-	
+	// Normal periodic check for usage limits (every 3rd transcription).
+	// Skipped entirely for local models — see isLocalService above.
+	const shouldDoFullCheck =
+		!isLocalService && transcriptionCount % CHECK_LIMIT_EVERY === 0;
+
 	if (shouldDoFullCheck) {
 		try {
 			// Import usage tracking dynamically to avoid circular imports
@@ -266,9 +283,6 @@ async function transcribeBlob(
 			// Don't block transcription if limit check fails
 		}
 	}
-
-	const selectedService =
-		settings.value['transcription.selectedTranscriptionService'];
 
 	// Log transcription request
 	const startTime = Date.now();
