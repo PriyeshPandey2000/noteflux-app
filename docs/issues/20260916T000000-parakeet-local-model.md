@@ -12,10 +12,10 @@
 
 - `nvidia/parakeet-tdt-0.6b-v2` (MLX: `mlx-community/parakeet-tdt-0.6b-v2`) — **English** option
 - `nvidia/parakeet-tdt-0.6b-v3` (MLX: `mlx-community/parakeet-tdt-0.6b-v3`) — **Multilingual** option, 25 European languages with automatic detection, no extra prompting required
-- Both are 2.47GB, same speed class — the only difference is language coverage, not size or latency
-- Real apps already ship v3 in production: **VoiceInk, MacWhisper, Spokenly, and Handy**. (Source: web search, September 2026 — [mlx-community/parakeet-tdt-0.6b-v3 on Hugging Face](https://huggingface.co/mlx-community/parakeet-tdt-0.6b-v3), [nvidia/parakeet-tdt-0.6b-v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3), [senstella/parakeet-mlx](https://github.com/senstella/parakeet-mlx).)
+- v2 is 2.47GB, v3 is 2.51GB (confirmed on the Hugging Face file pages — not a GB/GiB rounding difference, v3 is genuinely a bit bigger), same speed class — the difference is language coverage, not meaningfully size or latency
+- Real apps already ship Parakeet v3 *support* in production: **VoiceInk, MacWhisper, Spokenly, and Handy**. Caveat — not all of them use the `mlx-community` MLX artifact this ticket targets; MacWhisper and Spokenly specifically ship a smaller CoreML build instead (see "Size, honestly" below for the correction and what that implies). (Source: web search, September 2026 — [mlx-community/parakeet-tdt-0.6b-v3 on Hugging Face](https://huggingface.co/mlx-community/parakeet-tdt-0.6b-v3), [nvidia/parakeet-tdt-0.6b-v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3), [senstella/parakeet-mlx](https://github.com/senstella/parakeet-mlx).)
 
-- Size: 2.47GB on disk each (a user who installs both is using ~4.94GB) — see "Size, honestly" below, this is the weak point
+- Size: v2 is 2.47GB, v3 is 2.51GB (a user who installs both is using ~4.98GB) — see "Size, honestly" below, this is the weak point
 - Platform: **Apple Silicon only** (MLX/Metal)
 - Language: v2 = English only. v3 = 25 European languages with auto-detect.
 - License: CC-BY-4.0 (requires attribution in the app's licenses screen)
@@ -26,14 +26,17 @@
 |---|---|---|---|---|
 | Qwen3-ASR 0.6B (current app default) | ~680MB | 4-bit | `aufklarer` | Yes — already shipping in this app |
 | Qwen3-ASR 1.7B (current app option) | ~1.7GB | 4-bit | `mlx-community` | Yes — already shipping in this app |
-| **Parakeet v2, standard build (English)** | **2.47GB** | none (BF16) | `mlx-community` | Yes — the English-only build most local apps ship |
-| **Parakeet v3, standard build (Multilingual)** | **2.47GB** | none (BF16) | `mlx-community` | Yes — VoiceInk, MacWhisper, Spokenly, Handy all ship this exact build |
-| Parakeet v3, 8-bit quant | ~909MB | 8-bit | `animaslabs` (individual HF account) | No — no known production app ships this |
-| Parakeet v2, 8-bit quant | ~778MB | 8-bit | `kyr0` (individual HF account) | No — no known production app ships this |
+| **Parakeet v2, standard MLX build (English)** | **2.47GB** | none (BF16) | `mlx-community` | Yes — the MLX weights this ticket's Phase 1 plan targets |
+| **Parakeet v3, standard MLX build (Multilingual)** | **2.51GB** | none (BF16) | `mlx-community` | Partially — see correction below, not all cited apps ship this exact artifact |
+| Parakeet v3, 8-bit MLX quant | ~909MB | 8-bit | `animaslabs` (individual HF account) | No — no known production app ships this |
+| Parakeet v2, 8-bit MLX quant | ~778MB | 8-bit | `kyr0` (individual HF account) | No — no known production app ships this |
+| Parakeet v3, CoreML build (`parakeet-pro`) | **494MB** | CoreML/ANE-optimized | Argmax (`argmaxinc/parakeetkit-pro`) | Yes — this is what MacWhisper actually ships |
 
-Parakeet's standard build is the *largest* option on the table, not the lightest — bigger than both Qwen3-ASR variants already in the app. Smaller 8-bit quantized Parakeet builds exist and would undercut Qwen3-ASR 1.7B on size, but they come from individual community HF accounts, not `nvidia`/`mlx-community`, with no track record and no guarantee the quantization holds accuracy or gets maintained. The 2.47GB build is the one with real adoption evidence.
+**Correction on the adoption claim:** an earlier version of this ticket said "VoiceInk, MacWhisper, Spokenly, and Handy all ship this exact build," meaning the 2.47/2.51GB `mlx-community` MLX safetensors. That's not accurate for at least two of them — MacWhisper ships a **494MB CoreML build** (`parakeet-pro:nvidia_parakeet-v3_494MB`, built with Argmax, running on the Neural Engine, not MLX/GPU), and Spokenly documents a Core ML Parakeet v3 model too. Those apps support **Parakeet v3 the model**, not necessarily the specific MLX artifact this ticket's Phase 1 plan is built around. That CoreML/Argmax path is a real, production-proven, much smaller option — genuinely worth considering as an alternative to the MLX plan below, but it's a different runtime (CoreML/ANE via Argmax's tooling, not `parakeet-mlx`) and would change the Phase 1 integration approach, not just the model file. Flagging it here rather than redesigning the plan around it, since that's a bigger decision than this correction pass.
 
-So the honest pitch for Parakeet isn't "smaller file" — it's **lower inference latency and less hang risk** (the benchmarks below: ~120–170ms warm latency vs. Qwen3-ASR's reported hangs) plus, with v3, multilingual support Qwen3-ASR may or may not match feature-for-feature. If on-disk size is the deciding factor, either stick with Qwen3-ASR 0.6B, or someone needs to actually validate one of the unofficial 8-bit Parakeet quants (WER check against the benchmarks below) before it's trustworthy to ship.
+Parakeet's standard MLX build is still the *largest* option on the table among the MLX weights, bigger than both Qwen3-ASR variants already in the app. The unofficial 8-bit MLX quants remain unproven (individual HF accounts, no track record). The CoreML/Argmax 494MB build is the one genuinely proven-smaller option — but adopting it means building against CoreML instead of MLX, a different integration than Phase 1 below assumes.
+
+So the honest pitch for the MLX build isn't "smaller file" — it's **lower inference latency and less hang risk** (the benchmarks below: ~120–170ms warm latency vs. Qwen3-ASR's reported hangs) plus, with v3, multilingual support Qwen3-ASR may or may not match feature-for-feature. If on-disk size is the deciding factor, the real options are: stick with Qwen3-ASR 0.6B, validate one of the unofficial 8-bit MLX quants first, or scope a separate CoreML/Argmax integration instead of the MLX plan below.
 
 ## Prior research already done (currently stuck in a stash, not on any branch)
 
@@ -68,10 +71,17 @@ For comparison, this is the thing being replaced/supplemented — Qwen3-ASR is l
 
 ## Proposed integration path (from the prior spike, not started)
 
-**Phase 1 — manual server setup (low effort):** the codebase already has a `speaches.ts` provider that talks to a self-hosted OpenAI-compatible `/v1/audio/transcriptions` endpoint. Parakeet exposes the same API via the pip-installable `riedemannai/parakeet-mlx-server`. Integration is essentially cloning `speaches.ts` → `parakeet.ts` with **two model entries**, mirroring `QWEN3_ASR_MODELS`' two-entry array in `qwen3-asr.ts`:
-- Default `baseUrl`: `http://localhost:8000`
-- Entry 1 — `mlx-community/parakeet-tdt-0.6b-v2`, label "Parakeet 0.6B (English)": validate `outputLanguage` is `en`/`auto` only, reject anything else before sending the request
-- Entry 2 — `mlx-community/parakeet-tdt-0.6b-v3`, label "Parakeet 0.6B (Multilingual)": v3 auto-detects language across its 25 supported languages, so validate against that list instead of English-only
+**Phase 1 — manual server setup (low effort, plan needs revising before implementation):** the codebase already has a `speaches.ts` provider that talks to a self-hosted OpenAI-compatible `/v1/audio/transcriptions` endpoint. The original version of this plan assumed Parakeet's server (`riedemannai/parakeet-mlx-server`) exposes that same generic API — send any `model`/`language` per request, get it transcribed accordingly, same as Speaches. **That's wrong, checked against the actual server code:**
+- `riedemannai/parakeet-mlx-server` loads **one model at startup** (via `PARAKEET_MODEL` env var or `--model` flag), default `NeurologyAI/neuro-parakeet-mlx` — a German neurology fine-tune, not even the base `mlx-community/parakeet-tdt-0.6b-v3`. Default port is `8002`, not `8000`.
+- The request body's `model` field is accepted but does **not** switch which model actually runs — whatever loaded at startup is what serves every request.
+- Its transcribe call is invoked with a fixed language rather than honoring a per-request language field, so passing `outputLanguage` per request doesn't do what the original plan assumed either.
+
+So a single shared server can't back the v2/v3 picker the way `speaches.ts`'s pattern assumes. Before implementing, pick one of:
+1. **Two separate server processes, two separate ports** — one instance started with `PARAKEET_MODEL=mlx-community/parakeet-tdt-0.6b-v2` on `:8002`, another with `PARAKEET_MODEL=mlx-community/parakeet-tdt-0.6b-v3` on a different port — and give `parakeet.ts`'s two model entries distinct `baseUrl`s instead of a shared one with a `model` field.
+2. **Fork/patch the server** to honor per-request model and language instead of a startup-fixed model.
+3. **Find or write a different server** that's genuinely OpenAI-API-compatible for model switching (not yet identified — needs its own research pass).
+
+Whichever is chosen, `outputLanguage` validation (v2 = `en`/`auto` only, v3 = its 25-language list) still needs to happen client-side in `parakeet.ts` before sending, same as originally planned — that part of the plan was fine, just not sufficient on its own since the server-side language handling can't be assumed to cooperate.
 - Strip `temperature` from the request on both (Parakeet ignores it)
 
 Files that would need touching: `apps/whispering/src/lib/services/transcription/parakeet.ts` (new), `.../transcription/index.ts` (export), `.../constants/transcription/service-config.ts` (registry entry).

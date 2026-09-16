@@ -131,6 +131,12 @@ async function confirmCheckoutReturn() {
     const maxAttempts = 40;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       await refresh();
+      // Stop polling if the user signed out (or is anonymous again) mid-wait —
+      // otherwise isConfirmingCheckout stays true and Sidebar.svelte keeps
+      // showing "Confirming payment" for up to two minutes after sign-out.
+      if (!auth.user || auth.user.isAnonymous) {
+        return;
+      }
       if (subscriptionState.tier === 'pro' && subscriptionState.isActive) {
         return;
       }
