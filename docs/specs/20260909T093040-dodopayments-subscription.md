@@ -146,6 +146,46 @@ Polar's plan had the desktop `openCheckout()` open `noteflux.app/checkout` in th
 
 **Still required for the E2E test:** deploy the website, set the DODO/Supabase env vars in Vercel, create the Dodo webhook endpoint (`https://noteflux.app/api/webhooks/dodo`, all `subscription.*` events) and copy its secret, then test the desktop subscribe flow with the 100%-off code (real checkout, $0 charge, webhook flips `users.subscription_tier` to `pro`).
 
+## Known Gap Discovered Later (2026-09-12, fixed 2026-09-16 — see below)
+
+This spec wired up `subscription.isPro` (status fetch, store, checkout,
+paywall UI) but never audited **which actual features check it**. Found one
+real, undocumented gap while auditing the payment flow end to end:
+
+`total_usage_limit`-based lifetime cap never checks `subscription.isPro`.
+- `src/lib/services/usage-tracking.ts` (`checkUsageLimitAndBlockStatus()`,
+  ~lines 267-337) reads `total_minutes`/`limit_minutes` (default **2000
+  minutes lifetime**)/`is_blocked` from `total_usage_limit`. No reference to
+  `subscription` anywhere in the file.
+- `src/lib/query/transcription.ts` (`transcribeBlob`, ~lines 151-268) calls
+  this check for every authenticated user and blocks transcription with a
+  "⚠️ Usage limit reached" dialog once `isOverLimit`/`is_blocked` — Pro or
+  free, no distinction.
+
+Result: a paying Pro subscriber who crosses 2000 lifetime transcription
+minutes gets blocked exactly like a free user, despite the product's own
+pricing copy advertising "Unlimited voice recordings" as the Pro feature.
+The anonymous 5-minute gate (`anonymous-gate.ts`) is unaffected and already
+correctly skips non-anonymous accounts — this is a separate check.
+
+**Fixed 2026-09-16 — but not with a `subscription.isPro` check.** Discussed
+the fix shape before implementing and landed somewhere better: the cap
+should never apply to local on-device models (Qwen3-ASR today, Parakeet
+later — see `docs/issues/20260916T000000-parakeet-local-model.md`) in the
+first place, for **any** tier, free included. Local transcription runs
+entirely on the user's own device and costs nothing per minute, unlike the
+metered cloud path (Groq), so gating it by subscription tier would still
+leave *free* users pointlessly blocked on something that isn't costing
+anyone money. Implemented in `src/lib/query/transcription.ts`
+(`transcribeBlob`): looks up the selected service's `type` from
+`TRANSCRIPTION_SERVICES` (`constants/transcription/service-config.ts`) once
+up front as `isLocalService`, and skips both usage-limit call sites — the
+frequent-checks lookup and the periodic full check — entirely when true, for
+every tier. Any future service registered with `type: 'local'` inherits the
+exemption automatically; the 2000-minute cap now applies only to `type:
+'api'` services (Groq). This was previously also logged in `noteflux--`'s
+`polish-payment-flow.md`.
+
 ## Reference: DodoPayments key differences from Polar
 
 | Concern | Polar (old) | DodoPayments (new) |

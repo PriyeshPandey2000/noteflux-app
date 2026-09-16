@@ -14,6 +14,7 @@
 		HomeIcon,
 		LayersIcon,
 		ListIcon,
+		Loader,
 		SettingsIcon,
 		SunIcon,
 		MoonIcon,
@@ -162,6 +163,24 @@
 					)}
 				>
 					Pro
+				</span>
+			</div>
+		{:else if subscription.isConfirmingCheckout}
+			<div
+				title={isCollapsed ? 'Confirming payment' : undefined}
+				class={cn(
+					'flex items-center gap-3 px-3 py-2.5 text-sm rounded-md border border-emerald-500/30 bg-emerald-500/5 overflow-hidden whitespace-nowrap',
+					isCollapsed ? 'justify-center px-2 w-full' : 'w-full'
+				)}
+			>
+				<Loader class="size-5 shrink-0 text-emerald-400 animate-spin" />
+				<span
+					class={cn(
+						'text-emerald-400 transition-opacity duration-300',
+						isCollapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'
+					)}
+				>
+					Confirming payment… (~2-3 min)
 				</span>
 			</div>
 		{:else if canSubscribe}
