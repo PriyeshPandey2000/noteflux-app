@@ -11,7 +11,10 @@
 	import AppShell from './+layout/AppShell.svelte';
 	import SignupRequiredDialog from '$lib/components/auth/SignupRequiredDialog.svelte';
 	import ProPricingDialog from '$lib/components/subscription/ProPricingDialog.svelte';
+	import PostTrialDialog from '$lib/components/subscription/PostTrialDialog.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
+	import { subscription } from '$lib/stores/subscription.svelte';
+	import { postTrialDialog } from '$lib/stores/post-trial-dialog.svelte';
 	import { QWEN3_ASR_SUPPORTED_LANGUAGES } from '$lib/constants/languages';
 
 	let { children } = $props();
@@ -30,6 +33,23 @@
 			).catch((e) => console.error('[qwen3-asr] background warmup failed:', e));
 		} else {
 			services.transcriptions.qwen3asr.shutdown();
+		}
+	});
+
+	// Shown exactly once — the first app-open after a trial has ended and the
+	// notice hasn't been shown yet. trialEndsAt !== null confirms they
+	// actually had a trial (not just a free account that never had one).
+	// See docs/specs/20260916T160000-pro-trial-and-feature-gating.md.
+	$effect(() => {
+		if (
+			subscription.isConfirmed &&
+			!subscription.isPro &&
+			!subscription.isTrialActive &&
+			subscription.state.trialEndsAt !== null &&
+			!settings.value['app.trialEndedNoticeShown']
+		) {
+			settings.updateKey('app.trialEndedNoticeShown', true);
+			postTrialDialog.open();
 		}
 	});
 
@@ -91,6 +111,7 @@
 	</AppShell>
 	<SignupRequiredDialog />
 	<ProPricingDialog />
+	<PostTrialDialog />
 </QueryClientProvider>
 
 <!-- <SvelteQueryDevtools client={queryClient} buttonPosition="bottom-left" /> -->

@@ -18,7 +18,6 @@
 		SettingsIcon,
 		SunIcon,
 		MoonIcon,
-		ZapIcon,
 	} from '@lucide/svelte';
 	import { toggleMode } from 'mode-watcher';
 
@@ -151,17 +150,11 @@
 			<div
 				title={isCollapsed ? 'Pro' : undefined}
 				class={cn(
-					'flex items-center gap-3 px-3 py-2.5 text-sm rounded-md border border-emerald-500/30 bg-emerald-500/5 overflow-hidden whitespace-nowrap',
-					isCollapsed ? 'justify-center px-2 w-full' : 'w-full'
+					'flex items-center justify-center py-2.5 text-sm rounded-md border border-emerald-500/30 bg-emerald-500/5 overflow-hidden whitespace-nowrap',
+					isCollapsed ? 'px-2 w-full' : 'px-3 w-full'
 				)}
 			>
-				<ZapIcon class="size-5 shrink-0 text-emerald-400" />
-				<span
-					class={cn(
-						'font-semibold bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent transition-opacity duration-300',
-						isCollapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'
-					)}
-				>
+				<span class="font-semibold tracking-wide bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">
 					Pro
 				</span>
 			</div>
@@ -183,6 +176,35 @@
 					Confirming payment… (~2-3 min)
 				</span>
 			</div>
+		{:else if subscription.isKnown && subscription.isTrialActive}
+			<button
+				type="button"
+				onclick={onGetProClick}
+				title={isCollapsed ? `Pro trial — ${subscription.trialDaysLeft}d left` : undefined}
+				aria-label="Pro trial"
+				class={cn(
+					'flex items-center justify-center py-2.5 text-sm font-semibold tracking-wide rounded-md border transition-colors overflow-hidden whitespace-nowrap cursor-pointer',
+					subscription.trialDaysLeft <= 1
+						? 'border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10'
+						: 'border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10',
+					isCollapsed ? 'px-2 w-full' : 'px-3 w-full'
+				)}
+			>
+				{#if isCollapsed}
+					<span class={cn(subscription.trialDaysLeft <= 1 ? 'text-amber-400' : 'text-emerald-400')}>
+						{subscription.trialDaysLeft}d
+					</span>
+				{:else}
+					<span class="flex items-baseline gap-1.5">
+						<span class="bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">
+							Pro trial
+						</span>
+						<span class={cn('text-xs font-normal', subscription.trialDaysLeft <= 1 ? 'text-amber-400' : 'text-muted-foreground')}>
+							{subscription.trialDaysLeft <= 1 ? 'ends tomorrow' : `${subscription.trialDaysLeft} days left`}
+						</span>
+					</span>
+				{/if}
+			</button>
 		{:else if canSubscribe}
 			<button
 				type="button"
@@ -190,18 +212,12 @@
 				title={isCollapsed ? 'Get Pro' : undefined}
 				aria-label="Get Pro"
 				class={cn(
-					'flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-md border border-emerald-500/30 hover:bg-emerald-500/10 transition-colors overflow-hidden whitespace-nowrap text-left cursor-pointer',
-					isCollapsed ? 'justify-center px-2 w-full' : 'w-full'
+					'flex items-center justify-center py-2.5 text-sm font-semibold tracking-wide rounded-md border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors overflow-hidden whitespace-nowrap cursor-pointer',
+					isCollapsed ? 'px-2 w-full' : 'px-3 w-full'
 				)}
 			>
-				<ZapIcon class="size-5 shrink-0 text-emerald-400" />
-				<span
-					class={cn(
-						'bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent transition-opacity duration-300',
-						isCollapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'
-					)}
-				>
-					Get Pro
+				<span class="bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">
+					{isCollapsed ? 'Pro' : 'Get Pro'}
 				</span>
 			</button>
 		{/if}

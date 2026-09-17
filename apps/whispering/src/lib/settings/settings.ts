@@ -104,6 +104,10 @@ export const settingsSchema = z.object({
 	'onboarding.hasSeenWelcome': z.boolean().default(false),
 	'onboarding.pasteTestCompleted': z.boolean().default(false),
 	'app.onboardingCompleted': z.boolean().default(false),
+	// One-time UI nag flag, not billing state — the trial's actual end is
+	// derived from subscription.trialDaysLeft (Supabase trial_ends_at). This
+	// just tracks whether the post-trial dialog has already been shown once.
+	'app.trialEndedNoticeShown': z.boolean().default(false),
 	'apiKeys.anthropic': z.string().default(''),
 	'apiKeys.deepgram': z.string().default(''),
 	'apiKeys.elevenlabs': z.string().default(''),

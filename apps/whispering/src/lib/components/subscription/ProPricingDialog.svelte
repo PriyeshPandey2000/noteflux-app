@@ -11,13 +11,14 @@
 	const FREE_FEATURES = [
 		'Voice-to-text in any app',
 		'Local models, free forever',
-		'Instant correction & formatting',
+		'Custom dictionary for names & jargon',
 		'Community support',
 	];
 
 	const PRO_FEATURES = [
-		'Unlimited voice recordings',
-		'AI-powered transcription & style control',
+		'Unlimited voice recordings — local & cloud',
+		'Custom AI cleanup — ready by default, yours to customize',
+		'Select text, say the change, it\'s rewritten',
 		'Priority support',
 		'Early access to new features',
 	];
@@ -124,7 +125,9 @@
 						<p class="text-xs text-muted-foreground">billed $6/month</p>
 					{/if}
 
-					<ul class="mt-5 space-y-3">
+					<p class="mt-5 text-sm font-medium text-emerald-400">Everything in Starter, plus:</p>
+
+					<ul class="mt-3 space-y-3">
 						{#each PRO_FEATURES as feature (feature)}
 							<li class="flex items-center gap-2.5 border-t border-emerald-500/20 pt-3 text-sm">
 								<CheckIcon class="size-4 shrink-0 text-emerald-400" />

@@ -125,11 +125,11 @@
 			{/if}
 		</Dialog.Header>
 
-		<div class="flex flex-col gap-2 mt-4">
-			<Button onclick={handleSignUp} size="default" class="w-full">
+		<div class="flex flex-col items-center gap-2 mt-4">
+			<Button onclick={handleSignUp} size="sm" class="w-fit min-w-32">
 				Sign Up
 			</Button>
-			<Button onclick={handleSignIn} variant="outline" size="default" class="w-full">
+			<Button onclick={handleSignIn} variant="outline" size="sm" class="w-fit">
 				Already have an account? Sign In
 			</Button>
 		</div>

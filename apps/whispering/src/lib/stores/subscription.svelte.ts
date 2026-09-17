@@ -14,6 +14,7 @@ const FREE_SUBSCRIPTION: SubscriptionStatus = {
   isActive: false,
   subscriptionId: null,
   currentPeriodEnd: null,
+  trialEndsAt: null,
 };
 
 const CACHE_PREFIX = 'noteflux_subscription_cache_v1:';
@@ -25,7 +26,12 @@ function readCachedStatus(userId: string): SubscriptionStatus | null {
   if (typeof localStorage === 'undefined') return null;
   try {
     const raw = localStorage.getItem(CACHE_PREFIX + userId);
-    return raw ? (JSON.parse(raw) as SubscriptionStatus) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SubscriptionStatus;
+    // Legacy cached records predate trialEndsAt and won't have the key at
+    // all — normalize to null (not undefined) so `!== null` checks
+    // elsewhere can't mistake "never had this field" for "had a trial."
+    return { ...parsed, trialEndsAt: parsed.trialEndsAt ?? null };
   } catch {
     return null;
   }
@@ -42,6 +48,11 @@ function writeCachedStatus(userId: string, status: SubscriptionStatus) {
 
 let subscriptionState = $state<SubscriptionStatus>(FREE_SUBSCRIPTION);
 let isKnown = $state(false);
+// True only once the real network fetch has resolved at least once for the
+// current account — isKnown alone can be true purely from a cache paint
+// (see refresh() below), which isn't enough to safely gate one-time,
+// side-effecting UI like the post-trial notice.
+let isConfirmed = $state(false);
 let checkoutInFlight = $state(false);
 let refreshInFlight = false;
 let isConfirmingCheckout = $state(false);
@@ -54,6 +65,7 @@ async function refresh() {
   if (!user || !accessToken || user.isAnonymous) {
     subscriptionState = FREE_SUBSCRIPTION;
     isKnown = true;
+    isConfirmed = true;
     return;
   }
 
@@ -65,6 +77,12 @@ async function refresh() {
   refreshInFlight = true;
   const requestedUserId = user.id;
   let stale = false;
+  // Not confirmed again until the fetch below actually resolves for this
+  // account — a cache paint (right below) makes isKnown true but must not
+  // make isConfirmed true, otherwise one-time UI gated on "we've actually
+  // heard back from the server" (the post-trial notice) could fire off a
+  // stale or pre-trial-era cached record instead of the real thing.
+  isConfirmed = false;
 
   // Paint instantly from this account's last confirmed status (if any)
   // while we reconfirm over the network, instead of leaving the UI in the
@@ -89,6 +107,7 @@ async function refresh() {
     if (!stale) {
       subscriptionState = result ?? FREE_SUBSCRIPTION;
       isKnown = result !== null;
+      isConfirmed = true;
       if (result) {
         writeCachedStatus(requestedUserId, result);
       }
@@ -170,8 +189,38 @@ export const subscription = {
     return isKnown;
   },
 
+  // Stricter than isKnown — true only once the real network fetch has
+  // resolved for the current account, not just painted from a local cache.
+  // Use this (not isKnown) to gate one-time, side-effecting UI.
+  get isConfirmed() {
+    return isConfirmed;
+  },
+
   get isPro() {
     return isKnown && subscriptionState.tier === 'pro' && subscriptionState.isActive;
+  },
+
+  // Deliberately separate from isPro — a trial grants the same feature access
+  // without ever touching subscription_tier/subscription_id, so it can't
+  // collide with the real webhook's stale-update guard, and the "Get Pro"
+  // button can stay clickable during a trial instead of thinking they're
+  // already a paying subscriber. See docs/specs/20260916T160000-pro-trial-and-feature-gating.md.
+  get isTrialActive() {
+    const trialEndsAt = subscriptionState.trialEndsAt;
+    return trialEndsAt !== null && Date.now() < new Date(trialEndsAt).getTime();
+  },
+
+  get trialDaysLeft() {
+    const trialEndsAt = subscriptionState.trialEndsAt;
+    if (trialEndsAt === null) return 0;
+    const msLeft = new Date(trialEndsAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+  },
+
+  // The one every feature gate should check — real subscription OR active
+  // trial. isPro alone would make free-during-trial users see "no access."
+  get hasProAccess() {
+    return this.isPro || this.isTrialActive;
   },
 
   get isCheckoutInFlight() {

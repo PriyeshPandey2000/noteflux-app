@@ -8,6 +8,9 @@ export type SubscriptionStatus = {
   isActive: boolean;
   subscriptionId: string | null;
   currentPeriodEnd: string | null;
+  // Independent of tier/subscriptionId on purpose — see docs/specs/20260916T160000-pro-trial-and-feature-gating.md
+  // for why trial state must never be merged into the real subscription fields.
+  trialEndsAt: string | null;
 };
 
 const NOTEFLUX_API_URL = 'https://noteflux.app';
@@ -37,6 +40,7 @@ export async function fetchSubscriptionStatus(
       isActive: data.isActive === true,
       subscriptionId: data.subscriptionId || null,
       currentPeriodEnd: data.currentPeriodEnd || null,
+      trialEndsAt: data.trialEndsAt || null,
     };
   } catch (error) {
     console.error('Failed to check subscription status:', error);

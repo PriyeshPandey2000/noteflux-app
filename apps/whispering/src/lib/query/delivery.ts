@@ -6,6 +6,8 @@ import { WHISPERING_RECORDINGS_PATHNAME } from '$lib/constants/app';
 import * as services from '$lib/services';
 import { settings } from '$lib/stores/settings.svelte';
 import { onboardingStore } from '$lib/stores/onboarding.svelte';
+import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
+import { subscription } from '$lib/stores/subscription.svelte';
 import { Ok } from 'wellcrafted/result';
 import { getGroqApiKey } from '$lib/utils/embedded-keys';
 import { trackLlmUsage } from '$lib/services/usage-tracking';
@@ -152,6 +154,26 @@ export const delivery = {
 				});
 
 			if (hasSelection && selectionContext) {
+				// Guard: Pro or active trial required — this is a deliberate,
+				// user-initiated action (select text, hold Fn, speak), so a
+				// lightweight toast is fair, unlike the silent fallback used for
+				// the automatic per-transcription features. Never re-opens the
+				// full paywall dialog — that's shown exactly once, on trial end.
+				// See docs/specs/20260916T160000-pro-trial-and-feature-gating.md.
+				if (!subscription.hasProAccess) {
+					rpc.notify.warning.execute({
+						title: '🔒 This is a Pro feature',
+						description: 'Inline editing requires Pro. Upgrade to keep using it.',
+						id: toastId,
+						action: {
+							type: 'button',
+							label: 'Get Pro',
+							onClick: () => proPricingDialog.open(),
+						},
+					});
+					return Ok(undefined);
+				}
+
 				// Guard: instruction too short to be meaningful
 				if (text.trim().length < 3) {
 					rpc.notify.error.execute({
