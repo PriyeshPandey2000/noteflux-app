@@ -83,11 +83,11 @@ Specced, not yet manually tested end-to-end (needs a real signup → trial → c
 
 ## Still to do
 
-1. **Run the Supabase migration manually** — no `pg` client or direct Postgres connection available in either repo, and a production-DB schema change isn't something to script around. Run this in the Supabase SQL editor:
+1. **Supabase migration — done.** Run manually in the SQL editor (no `pg` client or direct Postgres connection was available in either repo to script it):
    ```sql
    ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at timestamptz DEFAULT (now() + interval '7 days');
    ```
-   Note: existing rows (if any real accounts exist) will get the default evaluated once at ALTER-time, not backdated to their actual signup date — everyone existing effectively gets a fresh 7-day trial starting from whenever this runs. Given "nobody's using the app consistently right now," this was judged low-stakes and not worth extra migration complexity to avoid.
+   Note: existing rows (if any real accounts exist) got the default evaluated once at ALTER-time, not backdated to their actual signup date — everyone existing effectively got a fresh 7-day trial starting from when this ran. Given "nobody's using the app consistently right now," this was judged low-stakes and not worth extra migration complexity to avoid.
 2. **Manual end-to-end test of the 4 purchase-during-trial scenarios above** — not yet run against a real trial account.
 3. **Lock-icon UI polish in `TransformationSelector.svelte`** — deferred, noted above.
 4. **Trial abuse ceiling** (quiet backend cap on cloud usage during trial, discussed earlier in the conversation, never specced in detail) — deliberately deferred; current judgment is real abuse cost is low enough (a determined abuser costs tens of dollars, not a threat at current scale) to watch via analytics rather than pre-build for.

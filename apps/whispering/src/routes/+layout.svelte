@@ -42,7 +42,7 @@
 	// See docs/specs/20260916T160000-pro-trial-and-feature-gating.md.
 	$effect(() => {
 		if (
-			subscription.isKnown &&
+			subscription.isConfirmed &&
 			!subscription.isPro &&
 			!subscription.isTrialActive &&
 			subscription.state.trialEndsAt !== null &&

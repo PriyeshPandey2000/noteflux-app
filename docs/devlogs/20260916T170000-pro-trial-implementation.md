@@ -115,8 +115,26 @@ Verified: `tsc --noEmit` clean, `/pricing` and `/` both load without error in a 
 
 ## What's explicitly not done — see "Still to do" in the spec doc for the full list
 
-The short version: (1) the actual Supabase `ALTER TABLE` to add `trial_ends_at` hasn't been run — no safe programmatic path was available (no `pg` package, no direct Postgres connection string in either repo's `.env`, and a production schema change isn't something to script around blindly), so the exact SQL is documented in the spec doc for manual execution; (2) the four purchase-during-trial scenarios are specced but not yet manually tested end-to-end; (3) `TransformationSelector.svelte`'s lock-icon UI polish; (4) a quiet backend abuse ceiling on trial cloud usage.
+The short version: (1) the actual Supabase `ALTER TABLE` to add `trial_ends_at` has now been run manually — no safe programmatic path was available (no `pg` package, no direct Postgres connection string in either repo's `.env`, and a production schema change isn't something to script around blindly), so it was run directly in the SQL editor per the exact statement in the spec doc; (2) the four purchase-during-trial scenarios are specced but not yet manually tested end-to-end; (3) `TransformationSelector.svelte`'s lock-icon UI polish; (4) a quiet backend abuse ceiling on trial cloud usage.
 
 ## Verification performed
 
 `bunx svelte-check` run after every file group above, not just at the end. Final full pass: 71 errors total, matching the known pre-existing baseline from before this session's work started (confirmed by grepping the output for every file touched in this pass — zero of the 71 belong to any of them, except one pre-existing, unrelated `OnboardingStep` type mismatch in `commands.ts` at a line this pass never touched).
+
+---
+
+## Milestone 8 — CodeRabbit review fixes on PR #42
+
+Six findings, all verified against current code before fixing, none dismissed:
+
+1. **`transcription.ts`'s `isExemptFromUsageLimit` still checked `subscription.isPro`, not `hasProAccess`.** Real bug: `isPro` is deliberately false during a trial (Milestone 1's whole point), so this line would still run the lifetime-cap lookup against an active trial user and could block them via the old `total_usage_limit` path before ever reaching the Groq switch-case's silent fallback. Changed to `hasProAccess`.
+
+2. **Usage tracking/analytics mislabeled the provider when the silent fallback fired.** `rpc.analytics.logEvent` and `trackUsage()` both keyed off `selectedService` (the user's *setting*, always `'Groq'` if that's selected), not what actually ran. A blocked user's request silently falling back to local Qwen3-ASR was still being logged and billed as Groq cloud usage — wrong on both counts (inflates analytics, and would wrongly eat into a free user's lifetime cap for a transcription that cost nothing). Added `actualProvider`, set to `'Qwen3ASR'` inside the fallback branch, and used it for the `transcription_completed`/`transcription_failed` events and the `trackUsage()` gate (`actualProvider === 'Groq'`, not `selectedService === 'Groq'`).
+
+3. **The post-trial notice effect in `+layout.svelte` could fire off stale cached data.** `subscription.isKnown` can become `true` purely from a local-cache paint (`refresh()`'s fast-paint optimization, existed before this session), before the real network fetch confirms anything. Two compounding issues: (a) gating the one-time dialog on `isKnown` alone meant it could theoretically fire based on a stale read rather than confirmed reality; (b) a cached record written *before* `trialEndsAt` existed as a field would have it as `undefined`, and `undefined !== null` evaluates `true` — meaning `readCachedStatus` could make an account that never had a trial look like `trialEndsAt !== null` was satisfied. Fixed both: added a new `isConfirmed` state (true only once the real fetch resolves for the current account, not just painted from cache) and gated the effect on that instead of `isKnown`; `readCachedStatus` now normalizes a missing `trialEndsAt` to explicit `null` on read.
+
+4. **Devlog and spec doc both said the Supabase migration was still pending** — it had already been run manually by the time this was flagged. Updated both to say done, not pending, so this doesn't cause someone to redo it or think the whole system is still inert.
+
+5. **Checklist doc had a personal email and real Dodo subscription IDs in plain text.** Not credentials, but no reason to leave identifiable customer data sitting in a docs file that ships in a PR diff. Replaced with neutral placeholders.
+
+Verified: `bunx svelte-check` clean after all fixes — 71 errors, same known baseline, zero in any file this milestone touched.

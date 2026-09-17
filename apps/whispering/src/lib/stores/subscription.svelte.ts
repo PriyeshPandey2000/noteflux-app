@@ -26,7 +26,12 @@ function readCachedStatus(userId: string): SubscriptionStatus | null {
   if (typeof localStorage === 'undefined') return null;
   try {
     const raw = localStorage.getItem(CACHE_PREFIX + userId);
-    return raw ? (JSON.parse(raw) as SubscriptionStatus) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SubscriptionStatus;
+    // Legacy cached records predate trialEndsAt and won't have the key at
+    // all — normalize to null (not undefined) so `!== null` checks
+    // elsewhere can't mistake "never had this field" for "had a trial."
+    return { ...parsed, trialEndsAt: parsed.trialEndsAt ?? null };
   } catch {
     return null;
   }
@@ -43,6 +48,11 @@ function writeCachedStatus(userId: string, status: SubscriptionStatus) {
 
 let subscriptionState = $state<SubscriptionStatus>(FREE_SUBSCRIPTION);
 let isKnown = $state(false);
+// True only once the real network fetch has resolved at least once for the
+// current account — isKnown alone can be true purely from a cache paint
+// (see refresh() below), which isn't enough to safely gate one-time,
+// side-effecting UI like the post-trial notice.
+let isConfirmed = $state(false);
 let checkoutInFlight = $state(false);
 let refreshInFlight = false;
 let isConfirmingCheckout = $state(false);
@@ -55,6 +65,7 @@ async function refresh() {
   if (!user || !accessToken || user.isAnonymous) {
     subscriptionState = FREE_SUBSCRIPTION;
     isKnown = true;
+    isConfirmed = true;
     return;
   }
 
@@ -66,6 +77,12 @@ async function refresh() {
   refreshInFlight = true;
   const requestedUserId = user.id;
   let stale = false;
+  // Not confirmed again until the fetch below actually resolves for this
+  // account — a cache paint (right below) makes isKnown true but must not
+  // make isConfirmed true, otherwise one-time UI gated on "we've actually
+  // heard back from the server" (the post-trial notice) could fire off a
+  // stale or pre-trial-era cached record instead of the real thing.
+  isConfirmed = false;
 
   // Paint instantly from this account's last confirmed status (if any)
   // while we reconfirm over the network, instead of leaving the UI in the
@@ -90,6 +107,7 @@ async function refresh() {
     if (!stale) {
       subscriptionState = result ?? FREE_SUBSCRIPTION;
       isKnown = result !== null;
+      isConfirmed = true;
       if (result) {
         writeCachedStatus(requestedUserId, result);
       }
@@ -169,6 +187,13 @@ export const subscription = {
   // Pro user must not be treated as free.
   get isKnown() {
     return isKnown;
+  },
+
+  // Stricter than isKnown — true only once the real network fetch has
+  // resolved for the current account, not just painted from a local cache.
+  // Use this (not isKnown) to gate one-time, side-effecting UI.
+  get isConfirmed() {
+    return isConfirmed;
   },
 
   get isPro() {

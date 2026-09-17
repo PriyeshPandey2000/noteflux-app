@@ -165,12 +165,16 @@ async function transcribeBlob(
 	const isLocalService =
 		TRANSCRIPTION_SERVICES.find((service) => service.id === selectedService)
 			?.type === 'local';
-	// Pro subscribers are exempt from the cap on cloud transcription too.
-	// Groq Whisper costs ~$0.04-0.11/hour; a $7/month subscription covers
-	// 60-175 hours of cloud transcription before it's even break-even, far
-	// beyond realistic dictation use — so there's no real cost reason to cap
-	// Pro here, unlike the free tier where the cap is the conversion lever.
-	const isExemptFromUsageLimit = isLocalService || subscription.isPro;
+	// Pro subscribers (and active trial users, who get identical access) are
+	// exempt from the cap on cloud transcription too. Groq Whisper costs
+	// ~$0.04-0.11/hour; a $7/month subscription covers 60-175 hours of cloud
+	// transcription before it's even break-even, far beyond realistic
+	// dictation use — so there's no real cost reason to cap here, unlike the
+	// free tier where the cap is the conversion lever. Must be hasProAccess,
+	// not isPro — isPro is false during a trial by design (see
+	// docs/specs/20260916T160000-pro-trial-and-feature-gating.md), so isPro
+	// alone would still run the lifetime-cap checks against trial users.
+	const isExemptFromUsageLimit = isLocalService || subscription.hasProAccess;
 
 	try {
 		const { supabase } = await import('$lib/services/auth/supabase-client');
@@ -298,6 +302,12 @@ async function transcribeBlob(
 		type: 'transcription_requested',
 	});
 
+	// Tracks what actually ran, which can differ from selectedService when the
+	// Groq case silently falls back to local (see below) — usage/analytics
+	// must reflect reality, not the configured setting, or a blocked user's
+	// free local transcription gets billed/logged as paid cloud usage.
+	let actualProvider: typeof selectedService = selectedService;
+
 	const transcriptionResult: Result<string, NoteFluxError> =
 		await (async () => {
 			switch (selectedService) {
@@ -325,6 +335,7 @@ async function transcribeBlob(
 					// transcription, so any interruption here would be spam. See
 					// docs/specs/20260916T160000-pro-trial-and-feature-gating.md.
 					if (!subscription.hasProAccess) {
+						actualProvider = 'Qwen3ASR';
 						return await services.transcriptions.qwen3asr.transcribe(blob, {
 							outputLanguage: settings.value['transcription.outputLanguage'],
 							modelId: DEFAULT_QWEN3_ASR_MODEL_ID,
@@ -380,19 +391,23 @@ async function transcribeBlob(
 		rpc.analytics.logEvent.execute({
 			error_description: transcriptionResult.error.description,
 			error_title: transcriptionResult.error.title,
-			provider: selectedService,
+			provider: actualProvider,
 			type: 'transcription_failed',
 		});
 	} else {
 		rpc.analytics.logEvent.execute({
 			duration,
-			provider: selectedService,
+			provider: actualProvider,
 			type: 'transcription_completed',
 		});
 
 		// Track usage for billing/analytics (fire-and-forget, won't block)
-		// Only track for services that charge by duration (like Groq)
-		if (selectedService === 'Groq') {
+		// Only track for services that charge by duration (like Groq) — must
+		// check actualProvider, not selectedService: a blocked user's request
+		// silently fell back to the free local model above, and billing that
+		// as Groq usage would be wrong (and would wrongly eat into their
+		// lifetime cap for a transcription that cost nothing).
+		if (actualProvider === 'Groq') {
 			try {
 				// Import usage tracking dynamically to avoid circular imports
 				const { trackUsage, getAudioDurationFromBlob } = await import('$lib/services/usage-tracking');
@@ -400,7 +415,7 @@ async function transcribeBlob(
 				trackUsage({
 					durationMinutes,
 					estimatedCost: 0, // Will be calculated in trackUsage
-					provider: selectedService,
+					provider: actualProvider,
 					fileName: 'audio-recording' // Could be enhanced to use actual filename
 				});
 			} catch (error) {
