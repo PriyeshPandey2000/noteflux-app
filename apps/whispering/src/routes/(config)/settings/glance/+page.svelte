@@ -22,7 +22,7 @@
 			{/if}
 		</div>
 		<p class="text-sm text-muted-foreground max-w-2xl">
-			Early foundation for app-aware features. Right now it only detects which app you're in — it doesn't change NoteFlux's behavior yet. Nothing is ever saved.
+			Detects which app you're in and adjusts dictation tone to match — casual in chat apps, professional in email, code-safe in editors. App detection is fully local, and nothing Glance detects is ever saved. This page covers Glance only — other features like inline-edit have their own separate data handling.
 		</p>
 	</div>
 
@@ -35,7 +35,7 @@
 						Detect which app you're using
 					</Label>
 					<p class="text-sm text-muted-foreground leading-relaxed">
-						When you press Fn, NoteFlux checks which app is frontmost. This doesn't change your results yet — it's groundwork for app-aware features coming later, like a more formal tone in Mail or code-aware output in an editor.
+						When you press Fn with nothing selected, NoteFlux checks which app is frontmost and polishes your dictation to match it — casual in Slack, professional in Mail, untouched syntax in a code editor. Only applies to plain dictation; editing selected text is unaffected. Unrecognized apps get no changes.
 					</p>
 				</div>
 				<Switch
@@ -75,18 +75,22 @@
 			<Card.Header>
 				<Card.Title class="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
 					<div class="w-2 h-2 bg-amber-500 rounded-full"></div>
-					Never saved
+					Good to know
 				</Card.Title>
 			</Card.Header>
 			<Card.Content>
 				<ul class="text-sm text-muted-foreground space-y-1.5 leading-relaxed">
 					<li class="flex items-start gap-2">
 						<span class="text-amber-500 mt-1">•</span>
-						<span>No screenshots or screen content are stored</span>
+						<span>App detection itself is fully local — the app name never leaves your device</span>
 					</li>
 					<li class="flex items-start gap-2">
 						<span class="text-amber-500 mt-1">•</span>
-						<span>Nothing leaves your device — checked locally, never sent anywhere</span>
+						<span>When Glance is on, nothing is selected, the app is recognized, and a Groq API key is set, your dictated text (not the app name) is sent to Groq for cleanup — the same provider already used for inline-edit and transformations</span>
+					</li>
+					<li class="flex items-start gap-2">
+						<span class="text-amber-500 mt-1">•</span>
+						<span>No screenshots or screen content — only the app's name is read</span>
 					</li>
 					<li class="flex items-start gap-2">
 						<span class="text-amber-500 mt-1">•</span>
