@@ -11,7 +11,7 @@
 </script>
 
 <Dialog.Root bind:open={postTrialDialog.isOpen}>
-	<Dialog.Content class="max-w-md">
+	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
 			<Dialog.Title>Your Pro trial has ended</Dialog.Title>
 			<Dialog.Description>

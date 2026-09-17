@@ -94,7 +94,7 @@
 
 <Dialog.Root bind:open={signupRequiredDialog.isOpen}>
 	<Dialog.Content
-		class="max-w-md z-[9999]"
+		class="sm:max-w-md z-[9999]"
 		onInteractOutside={(e) => {
 			// Usage-limit signup is mandatory to keep recording; the Pro variant
 			// is just an upsell, so let it be dismissed normally — except while

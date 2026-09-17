@@ -32,7 +32,7 @@
 </script>
 
 <Dialog.Root bind:open={proPricingDialog.isOpen}>
-	<Dialog.Content class="max-w-3xl">
+	<Dialog.Content class="sm:max-w-3xl">
 		<Dialog.Header>
 			<Dialog.Title>Upgrade to Pro</Dialog.Title>
 			<Dialog.Description>Start free. Upgrade when you need more.</Dialog.Description>

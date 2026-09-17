@@ -78,7 +78,7 @@
 			</NoteFluxTooltip>
 		{/snippet}
 	</Dialog.Trigger>
-	<Dialog.Content class="max-w-4xl">
+	<Dialog.Content class="sm:max-w-4xl">
 		<Card.Title class="text-lg">{title}</Card.Title>
 		<Textarea readonly value={text} rows={20} />
 		<Dialog.Footer>
