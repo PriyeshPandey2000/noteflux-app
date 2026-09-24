@@ -104,6 +104,23 @@ export const settingsSchema = z.object({
 	'onboarding.hasSeenWelcome': z.boolean().default(false),
 	'onboarding.pasteTestCompleted': z.boolean().default(false),
 	'app.onboardingCompleted': z.boolean().default(false),
+	// Set only when the user leaves onboarding via the "Customize Shortcut"
+	// detour (usage-guide -> settings). Read once on next app-layout mount to
+	// resume there instead of restarting from 'welcome' — the existing
+	// reopenOnboarding query param only survives the shortcut-recorder-dialog
+	// success path, not e.g. clicking Home directly from settings. Cleared
+	// once consumed (see OnboardingFlow.svelte onMount) or on completion.
+	'onboarding.resumeStep': z
+		.enum([
+			'welcome',
+			'permissions',
+			'usage-guide',
+			'inline-edit',
+			'choice',
+			'complete',
+		])
+		.nullable()
+		.default(null),
 	// One-time UI nag flag, not billing state — the trial's actual end is
 	// derived from subscription.trialDaysLeft (Supabase trial_ends_at). This
 	// just tracks whether the post-trial dialog has already been shown once.

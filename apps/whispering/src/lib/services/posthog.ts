@@ -161,27 +161,6 @@ export const analytics = {
 		}
 	},
 
-	async trackOnboardingSkipped(step: string) {
-		if (!browser) return;
-
-		try {
-			const { supabase } = await import('$lib/services/auth/supabase-client');
-			const { data: { user } } = await supabase.auth.getUser();
-
-			posthog.capture('onboarding_skipped', {
-				step,
-				email: user?.email || 'anonymous',
-				...platformInfo
-			});
-		} catch (error) {
-			posthog.capture('onboarding_skipped', {
-				step,
-				email: 'anonymous',
-				...platformInfo
-			});
-		}
-	},
-
 	// Feature usage tracking
 	trackFeatureUsed(feature: string) {
 		if (!browser) return;

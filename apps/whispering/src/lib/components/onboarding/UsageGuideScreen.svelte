@@ -6,14 +6,17 @@
 	import { onMount } from 'svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
-	import confetti from 'canvas-confetti';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { rpc } from '$lib/query';
+	import { celebrate } from './celebrate';
+	import Keycap from './Keycap.svelte';
+	import VoiceRing from './VoiceRing.svelte';
 
 	type Props = {
 		onNext: () => void;
-		onSkip: () => void;
 	};
 
-	let { onNext, onSkip }: Props = $props();
+	let { onNext }: Props = $props();
 
 	const isDesktop = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;
 
@@ -41,6 +44,26 @@
 				textareaRef.focus();
 			}
 		};
+
+		// Proactively bring the window to the front on mount — the
+		// permissions step right before this one routes through macOS
+		// permission prompts / System Settings, which can leave this window
+		// in the background with no natural 'focus' event to react to.
+		// Without this, the first click on anything here (e.g. "Customize
+		// Shortcut") just re-activates the window instead of registering,
+		// requiring a second click. PermissionsScreen.svelte already does
+		// this proactively for the same reason.
+		if (isDesktop && window.__TAURI_INTERNALS__) {
+			try {
+				const { getCurrentWindow } = await import('@tauri-apps/api/window');
+				const currentWindow = getCurrentWindow();
+				await currentWindow.show();
+				await currentWindow.unminimize();
+				await currentWindow.setFocus();
+			} catch (e) {
+				console.log('Could not proactively focus window:', e);
+			}
+		}
 
 		// Try multiple times with increasing delays
 		setTimeout(focusTextarea, 50);
@@ -94,10 +117,24 @@
 			// Cleanup after 2 seconds
 			const timeout = setTimeout(() => clearInterval(interval), 2000);
 
+			// Stop fighting the user the moment they deliberately interact
+			// with anything — otherwise a click on e.g. "Customize Shortcut"
+			// within this 2s window can get its focus yanked back to the
+			// textarea mid-click by the next poll tick, making the first
+			// click unreliable (had to click twice, intermittently).
+			const stopOnUserInput = () => clearInterval(interval);
+			document.addEventListener('pointerdown', stopOnUserInput, {
+				capture: true,
+				once: true,
+			});
+
 			// Return cleanup function to properly clear intervals when effect is destroyed
 			return () => {
 				clearInterval(interval);
 				clearTimeout(timeout);
+				document.removeEventListener('pointerdown', stopOnUserInput, {
+					capture: true,
+				});
 			};
 		}
 	});
@@ -106,36 +143,23 @@
 	$effect(() => {
 		if (hasTried && !hasShownConfetti) {
 			hasShownConfetti = true;
-
-			// Small delay to ensure text is visible before confetti
-			setTimeout(() => {
-				// Create confetti canvas with high z-index to appear above dialog
-				const canvas = document.createElement('canvas');
-				canvas.style.position = 'fixed';
-				canvas.style.top = '0';
-				canvas.style.left = '0';
-				canvas.style.width = '100%';
-				canvas.style.height = '100%';
-				canvas.style.zIndex = '99999';
-				canvas.style.pointerEvents = 'none';
-				document.body.appendChild(canvas);
-
-				const myConfetti = confetti.create(canvas, { resize: true });
-				myConfetti({
-					particleCount: 100,
-					spread: 70,
-					origin: { y: 0.6 }
-				});
-
-				// Remove canvas after animation
-				setTimeout(() => {
-					document.body.removeChild(canvas);
-				}, 3000);
-			}, 100);
+			setTimeout(() => celebrate(), 100);
 		}
 	});
 
+	// Live recorder state drives the ring: breathing → listening → done.
+	const recorderStateQuery = createQuery(rpc.recorder.getRecorderState.options);
+	const isRecording = $derived(recorderStateQuery.data === 'RECORDING');
+	const ringState = $derived(isRecording ? 'listening' : hasTried ? 'done' : 'idle');
+
 	function handleCustomizeShortcut() {
+		// Remember where they left off — if they bail out anywhere other than
+		// completing the shortcut-recorder dialog (e.g. clicking Home
+		// directly from settings), this is what lets the next app-layout
+		// mount resume here instead of silently losing the rest of
+		// onboarding (including the trial offer) or restarting from scratch.
+		settings.updateKey('onboarding.resumeStep', 'usage-guide');
+
 		// Close the dialog first
 		onboardingStore.close();
 
@@ -152,25 +176,27 @@
 	}
 </script>
 
-<!-- Styled Keyboard Key Component -->
-{#snippet Kbd(key: string)}
-	<span
-		class="inline-flex items-center justify-center px-2 py-1 min-w-[1.75rem] text-[11px] font-medium text-white/80 bg-zinc-800 border border-zinc-700 border-b-2 border-b-zinc-600 rounded shadow-sm"
-	>
-		{key === 'Option' ? '\u2325' : key === 'Space' ? '\u2423' : key === 'Command' ? '\u2318' : key}
-	</span>
-{/snippet}
+<div class="flex flex-col items-center px-8 pt-6 pb-8 space-y-5">
+	<VoiceRing state={ringState} size={96} />
 
-<div class="flex flex-col p-8 space-y-5">
-	<!-- Header -->
-	<div class="text-center space-y-2">
-		<h2 class="text-xl font-semibold text-white/95">Try It Now</h2>
+	<div class="text-center space-y-1.5">
+		<h2 class="text-2xl font-semibold tracking-tight text-white">
+			{#if hasTried}
+				Zero keystrokes. 🎉
+			{:else if isRecording}
+				I'm listening…
+			{:else}
+				Say something
+			{/if}
+		</h2>
 		<p class="text-sm text-white/50">
-			{#if isDesktop}
+			{#if hasTried}
+				That's the whole trick. It works in every app.
+			{:else if isDesktop}
 				{#if recordingMode === 'hold'}
-					Hold <span class="text-white/70 font-medium">{shortcut}</span>, speak, then release
+					Hold the key, talk, let go.
 				{:else}
-					Press <span class="text-white/70 font-medium">{shortcut}</span>, speak, then press again
+					Tap the key, talk, tap again.
 				{/if}
 			{:else}
 				Press the shortcut and speak to see the magic
@@ -178,84 +204,69 @@
 		</p>
 	</div>
 
-	<!-- Shortcut Display -->
 	{#if isDesktop}
-		<div class="flex items-center justify-center gap-1">
+		<div class="flex items-center justify-center gap-2">
 			{#each shortcutKeys as key, i}
-				{@render Kbd(key)}
+				<Keycap label={key} demo={!hasTried} active={isRecording} />
 				{#if i < shortcutKeys.length - 1}
-					<span class="text-white/20 text-xs mx-0.5">+</span>
+					<span class="text-white/25 text-sm">+</span>
 				{/if}
 			{/each}
 		</div>
 	{/if}
 
 	<!-- Text Editor Playground -->
-	<div class="relative">
+	<div class="relative w-full">
 		<div
-			class="w-full min-h-[120px] rounded-xl border transition-all duration-300 {hasTried
-				? 'border-green-500/30 bg-green-500/5'
-				: 'border-white/10 bg-white/[0.02]'}"
+			class="w-full rounded-xl border transition-all duration-500 {hasTried
+				? 'border-green-500/40 bg-green-500/[0.06] shadow-[0_0_30px_rgba(74,222,128,0.12)]'
+				: isRecording
+					? 'border-green-500/30 bg-white/[0.03]'
+					: 'border-white/10 bg-white/[0.03]'}"
 		>
-			<!-- Editor header bar -->
 			<div class="flex items-center gap-1.5 px-3 py-2 border-b border-white/5">
 				<div class="w-2.5 h-2.5 rounded-full bg-red-500/60"></div>
 				<div class="w-2.5 h-2.5 rounded-full bg-yellow-500/60"></div>
 				<div class="w-2.5 h-2.5 rounded-full bg-green-500/60"></div>
-				<span class="ml-2 text-[10px] text-white/30">Text Preview</span>
+				<span class="ml-2 text-[10px] text-white/30">Any app, anywhere</span>
 				{#if hasTried}
 					<div class="ml-auto flex items-center gap-1 text-green-400">
 						<CheckIcon class="w-3 h-3" />
-						<span class="text-[10px] font-medium">Success!</span>
+						<span class="text-[10px] font-medium">Typed for you</span>
 					</div>
 				{/if}
 			</div>
 
-			<!-- Editor content -->
 			<textarea
 				bind:this={textareaRef}
 				bind:value={editorContent}
 				autofocus
 				placeholder={isDesktop
-					? 'Press your shortcut, speak, and watch the magic...'
+					? 'Try: "Remind me to call Alex about the launch tomorrow"'
 					: 'Your transcribed text will appear here...'}
-				class="w-full min-h-[80px] px-3 py-2 bg-transparent text-sm text-white/80 placeholder:text-white/30 resize-none focus:outline-none"
+				class="w-full min-h-[84px] px-3 py-2.5 bg-transparent text-sm text-white/85 placeholder:text-white/25 resize-none focus:outline-none"
 			></textarea>
 		</div>
-
-		<!-- Instruction overlay when empty -->
-		{#if !hasTried && isDesktop}
-			<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-				<div class="text-center space-y-2 mt-6">
-					<p class="text-xs text-white/40">
-						Press {shortcut} and speak
-					</p>
-				</div>
-			</div>
-		{/if}
 	</div>
 
-	<!-- Customize Shortcut Link -->
-	{#if isDesktop}
+	{#if isDesktop && !hasTried}
 		<button
 			onclick={handleCustomizeShortcut}
-			class="flex items-center justify-center gap-1.5 text-xs text-white/40 hover:text-white/60 transition-colors mx-auto"
+			class="flex items-center justify-center gap-1.5 text-xs text-white/35 hover:text-white/60 transition-colors mx-auto cursor-pointer"
 		>
 			<SettingsIcon class="w-3 h-3" />
-			<span>Customize Shortcut</span>
+			<span>Key not working? Change shortcut</span>
 		</button>
 	{/if}
 
-	<!-- Action Button -->
-	<div class="pt-1">
+	<div class="w-full">
 		{#if hasTried}
 			<Button onclick={onNext} class="w-full h-11 text-base font-medium cursor-pointer">
-				<CheckIcon class="w-4 h-4 mr-2" />
-				Start Using NoteFlux
+				Nice. Show me more →
 			</Button>
 		{:else}
-			<div class="w-full h-11 flex items-center justify-center text-sm text-white/40">
-				Try recording to continue
+			<div class="w-full h-11 flex items-center justify-center text-sm text-white/30">
+				Your words will appear above
 			</div>
 		{/if}
 	</div>

@@ -8,6 +8,7 @@ import { settings } from '$lib/stores/settings.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
 import { applyDictionary } from '$lib/utils/dictionary';
 import { getGroqApiKey } from '$lib/utils/embedded-keys';
+import { hasEffectiveProAccess } from '$lib/services/onboarding-demo-access';
 import { Err, Ok, partitionResults, type Result } from 'wellcrafted/result';
 
 import { toast } from 'svelte-sonner';
@@ -328,13 +329,20 @@ async function transcribeBlob(
 				// 		prompt: settings.value['transcription.prompt'],
 				// 		temperature: settings.value['transcription.temperature'],
 				// 	});
-				case 'Groq':
+				case 'Groq': {
 					// Cloud transcription requires Pro or an active trial — free tier
 					// (including a lapsed trial) falls back to the local model
 					// silently. No dialog, no toast: this fires on every single
 					// transcription, so any interruption here would be spam. See
 					// docs/specs/20260916T160000-pro-trial-and-feature-gating.md.
-					if (!subscription.hasProAccess) {
+					//
+					// During the onboarding demo, an anonymous/free session can
+					// also pass this gate via a server-checked demo credit — see
+					// docs/specs/20260923T170151-onboarding-pro-demo-redesign.md.
+					const effectiveHasProAccess = await hasEffectiveProAccess(
+						subscription.hasProAccess,
+					);
+					if (!effectiveHasProAccess) {
 						actualProvider = 'Qwen3ASR';
 						return await services.transcriptions.qwen3asr.transcribe(blob, {
 							outputLanguage: settings.value['transcription.outputLanguage'],
@@ -348,6 +356,7 @@ async function transcribeBlob(
 						prompt: settings.value['transcription.prompt'],
 						temperature: settings.value['transcription.temperature'],
 					});
+				}
 				case 'Qwen3ASR': {
 					const qwenModelId = settings.value['transcription.qwen3asr.modelId'] as import('$lib/services/transcription/qwen3-asr').Qwen3ASRModelId;
 					if (isQwen3WarmingUp(qwenModelId)) {

@@ -11,14 +11,38 @@
 	import * as Dialog from '$lib/ui/dialog';
 	import { tryAsync } from 'wellcrafted/result';
 	import { onMount, onDestroy } from 'svelte';
+	import { fly } from 'svelte/transition';
 	import WelcomeScreen from './WelcomeScreen.svelte';
 	import PermissionsScreen from './PermissionsScreen.svelte';
 	import UsageGuideScreen from './UsageGuideScreen.svelte';
+	import InlineEditDemoScreen from './InlineEditDemoScreen.svelte';
+	import ChoiceScreen from './ChoiceScreen.svelte';
 
-	type OnboardingStep = 'welcome' | 'permissions' | 'usage-guide' | 'complete';
+	type OnboardingStep =
+		| 'welcome'
+		| 'permissions'
+		| 'usage-guide'
+		| 'inline-edit'
+		| 'choice'
+		| 'complete';
+
+	const PROGRESS_STEPS: OnboardingStep[] = [
+		'welcome',
+		'permissions',
+		'usage-guide',
+		'inline-edit',
+		'choice',
+	];
+	const progressIndex = $derived(PROGRESS_STEPS.indexOf(onboardingStore.currentStep));
 
 	let permissionsComplete = $state(false);
 	let hasProcessedReopen = $state(false);
+	// Arms the mid-session recovery effect below only after confirming the
+	// user actually reached the shortcuts settings page — otherwise it fires
+	// during handleCustomizeShortcut's own ~150ms close-then-navigate delay,
+	// when resumeStep is already set but the pathname hasn't changed yet,
+	// reopening onboarding before the real navigation even happens.
+	let hasReachedShortcutsPage = $state(false);
 
 	const isDesktop = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;
 
@@ -80,20 +104,24 @@
 				break;
 			case 'usage-guide':
 				analytics.trackOnboardingStepCompleted('usage-guide');
+				onboardingStore.currentStep = 'inline-edit';
+				break;
+			case 'inline-edit':
+				analytics.trackOnboardingStepCompleted('inline-edit');
+				onboardingStore.currentStep = 'choice';
+				break;
+			case 'choice':
+				analytics.trackOnboardingStepCompleted('choice');
 				onboardingStore.currentStep = 'complete';
 				completeOnboarding();
 				break;
 		}
 	}
 
-	function skipOnboarding() {
-		analytics.trackOnboardingSkipped(onboardingStore.currentStep);
-		completeOnboarding();
-	}
-
 	function completeOnboarding() {
 		// Mark onboarding as complete
 		settings.updateKey('app.onboardingCompleted', true);
+		settings.updateKey('onboarding.resumeStep', null);
 		onboardingStore.close();
 		onboardingStore.currentStep = 'welcome'; // Reset for next time
 
@@ -164,6 +192,31 @@
 			// skip directly to permissions screen (e.g., after bundle ID change or uninstall/reinstall)
 			if (isCompleted && !allPermissionsGranted) {
 				onboardingStore.currentStep = 'permissions';
+			} else if (!isCompleted) {
+				// Resume where they left off if they bailed via the
+				// "Customize Shortcut" detour (see UsageGuideScreen.svelte).
+				// The reopenOnboarding query param is a more specific, more
+				// recent signal (the shortcut-recorder dialog just closed),
+				// so it takes priority when both are present — its own
+				// $effect further down handles that case.
+				const hasReopenParam = $page.url.searchParams.has('reopenOnboarding');
+				const resumeStep = settings.value['onboarding.resumeStep'];
+				if (!hasReopenParam && resumeStep) {
+					// Permissions were granted back when they first reached
+					// this step (permissions comes before usage-guide) — but
+					// they could've been revoked since. Route to permissions
+					// first rather than resuming straight into a demo that'd
+					// silently fail; normal step progression carries them
+					// back to usage-guide afterward.
+					onboardingStore.currentStep = allPermissionsGranted
+						? resumeStep
+						: 'permissions';
+				}
+				// One-shot: consumed or not, don't let a stale resume step
+				// keep overriding normal step progression later.
+				if (resumeStep) {
+					settings.updateKey('onboarding.resumeStep', null);
+				}
 			}
 
 			// Track onboarding started
@@ -253,6 +306,39 @@
 		}
 	});
 
+	// Mid-session recovery: if they left the "Customize Shortcut" detour by
+	// navigating away instead of finishing the shortcut-recorder dialog (the
+	// only path the effect above catches), reopen onboarding as soon as they
+	// land anywhere outside the shortcuts settings page — same session, no
+	// need to wait for the next app relaunch. Same reopen behavior as the
+	// success path above, just triggered by a wider set of exits. Skips the
+	// permissions re-check that onMount does (cross-restart only) — the gap
+	// here is seconds, not enough time for permissions to realistically
+	// change.
+	$effect(() => {
+		const resumeStep = settings.value['onboarding.resumeStep'];
+		const isCompleted = settings.value['app.onboardingCompleted'];
+		const onShortcutsPage = $page.url.pathname.startsWith('/settings/shortcuts');
+		const hasReopenParam = $page.url.searchParams.has('reopenOnboarding');
+
+		if (onShortcutsPage) {
+			hasReachedShortcutsPage = true;
+		}
+
+		if (
+			resumeStep &&
+			!isCompleted &&
+			!onboardingStore.isOpen &&
+			!onShortcutsPage &&
+			!hasReopenParam &&
+			hasReachedShortcutsPage
+		) {
+			hasReachedShortcutsPage = false;
+			settings.updateKey('onboarding.resumeStep', null);
+			onboardingStore.openAt(resumeStep);
+		}
+	});
+
 	// Debug functions - expose to window for manual testing
 	if (typeof window !== 'undefined') {
 		(window as any).showOnboarding = (step?: OnboardingStep) => {
@@ -264,6 +350,7 @@
 		(window as any).resetOnboarding = () => {
 			settings.updateKey('app.onboardingCompleted', false);
 			settings.updateKey('onboarding.pasteTestCompleted', false);
+			settings.updateKey('onboarding.resumeStep', null);
 			onboardingStore.currentStep = 'welcome';
 			permissionsComplete = false;
 			console.log('✅ Onboarding reset! Refresh the page to see the automatic onboarding flow.');
@@ -289,18 +376,42 @@
 			}
 		}}
 	>
-		<div class="relative overflow-hidden">
+		<div class="relative overflow-hidden rounded-2xl">
+			<!-- Ambient glow behind every step -->
+			<div
+				class="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-80 h-64 rounded-full bg-green-500/15 blur-3xl"
+			></div>
+
+			<!-- Progress rail -->
+			<div class="relative flex items-center gap-1.5 px-8 pt-6">
+				{#each PROGRESS_STEPS as step, i (step)}
+					<div class="h-1 flex-1 rounded-full bg-white/[0.08] overflow-hidden">
+						<div
+							class="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-300 transition-all duration-500 ease-out"
+							style="width: {i <= progressIndex ? '100%' : '0%'}"
+						></div>
+					</div>
+				{/each}
+			</div>
+
+			{#key onboardingStore.currentStep}
+			<div class="relative" in:fly={{ y: 12, duration: 380 }}>
 			{#if onboardingStore.currentStep === 'welcome'}
-				<WelcomeScreen onNext={nextStep} onSkip={skipOnboarding} />
+				<WelcomeScreen onNext={nextStep} />
 			{:else if onboardingStore.currentStep === 'permissions'}
 				<PermissionsScreen
 					onNext={nextStep}
-					onSkip={skipOnboarding}
 					onComplete={handlePermissionsComplete}
 				/>
 			{:else if onboardingStore.currentStep === 'usage-guide'}
-				<UsageGuideScreen onNext={nextStep} onSkip={skipOnboarding} />
+				<UsageGuideScreen onNext={nextStep} />
+			{:else if onboardingStore.currentStep === 'inline-edit'}
+				<InlineEditDemoScreen onNext={nextStep} />
+			{:else if onboardingStore.currentStep === 'choice'}
+				<ChoiceScreen onNext={nextStep} />
 			{/if}
+			</div>
+			{/key}
 		</div>
 	</Dialog.Content>
 </Dialog.Root>

@@ -1,4 +1,10 @@
-type OnboardingStep = 'welcome' | 'permissions' | 'usage-guide' | 'complete';
+type OnboardingStep =
+	| 'welcome'
+	| 'permissions'
+	| 'usage-guide'
+	| 'inline-edit'
+	| 'choice'
+	| 'complete';
 
 type OnboardingState = {
 	isOpen: boolean;

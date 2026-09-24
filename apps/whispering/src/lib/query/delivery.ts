@@ -11,6 +11,7 @@ import { subscription } from '$lib/stores/subscription.svelte';
 import { Ok } from 'wellcrafted/result';
 import { getGroqApiKey } from '$lib/utils/embedded-keys';
 import { trackLlmUsage } from '$lib/services/usage-tracking';
+import { hasEffectiveProAccess } from '$lib/services/onboarding-demo-access';
 
 import { defineMutation } from './_client';
 import { rpc } from './index';
@@ -160,7 +161,14 @@ export const delivery = {
 				// the automatic per-transcription features. Never re-opens the
 				// full paywall dialog — that's shown exactly once, on trial end.
 				// See docs/specs/20260916T160000-pro-trial-and-feature-gating.md.
-				if (!subscription.hasProAccess) {
+				//
+				// During the onboarding demo, an anonymous/free session can also
+				// pass this gate via a server-checked demo credit — see
+				// docs/specs/20260923T170151-onboarding-pro-demo-redesign.md.
+				const effectiveHasProAccess = await hasEffectiveProAccess(
+					subscription.hasProAccess,
+				);
+				if (!effectiveHasProAccess) {
 					rpc.notify.warning.execute({
 						title: '🔒 This is a Pro feature',
 						description: 'Inline editing requires Pro. Upgrade to keep using it.',
