@@ -80,6 +80,7 @@
 			<Button onclick={handleStartTrial} class="w-full h-11 text-base font-medium cursor-pointer">
 				Start 7-day free trial
 			</Button>
+			<p class="text-center text-[11px] text-white/35">$7/mo after — cancel anytime, no charge until then</p>
 		</div>
 	</div>
 
@@ -100,10 +101,13 @@
 		</span>
 	</button>
 
-	<p class="flex items-center justify-center gap-1.5 text-[11px] text-white/30">
-		<CloudIcon class="w-3 h-3" />
-		Upgrade or switch anytime from the sidebar
-	</p>
+	<div class="space-y-1 text-center">
+		<p class="flex items-center justify-center gap-1.5 text-[11px] text-white/30">
+			<CloudIcon class="w-3 h-3" />
+			Audio goes straight to Groq to transcribe — nothing passes through our servers
+		</p>
+		<p class="text-[11px] text-white/30">Upgrade or switch anytime from the sidebar</p>
+	</div>
 </div>
 
 <style>
