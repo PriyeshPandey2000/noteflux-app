@@ -175,7 +175,12 @@ async function transcribeBlob(
 	// not isPro — isPro is false during a trial by design (see
 	// docs/specs/20260916T160000-pro-trial-and-feature-gating.md), so isPro
 	// alone would still run the lifetime-cap checks against trial users.
-	const isExemptFromUsageLimit = isLocalService || subscription.hasProAccess;
+	// isOnboardingDemoStep() included so the onboarding demo (anonymous,
+	// no Pro access yet) doesn't get blocked by the same usage-limit checks
+	// this function otherwise runs before ever reaching the Groq branch's
+	// own isOnboardingDemoStep() exemption further down.
+	const isExemptFromUsageLimit =
+		isLocalService || subscription.hasProAccess || isOnboardingDemoStep();
 
 	try {
 		const { supabase } = await import('$lib/services/auth/supabase-client');

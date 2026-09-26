@@ -410,6 +410,8 @@ pub async fn run() {
                     if !is_visible {
                         let _ = main_window.show();
                         let _ = main_window.set_focus();
+                        #[cfg(target_os = "macos")]
+                        let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
                     }
                 }
             }
@@ -722,6 +724,8 @@ fn write_text(text: String, app_handle: tauri::AppHandle, keep_window_visible: O
             if let Ok(is_visible) = main_window.is_visible() {
                 if is_visible {
                     let _ = main_window.hide();
+                    #[cfg(target_os = "macos")]
+                    let _ = app_handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
                 }
             }
         }

@@ -311,10 +311,7 @@
 	// only path the effect above catches), reopen onboarding as soon as they
 	// land anywhere outside the shortcuts settings page — same session, no
 	// need to wait for the next app relaunch. Same reopen behavior as the
-	// success path above, just triggered by a wider set of exits. Skips the
-	// permissions re-check that onMount does (cross-restart only) — the gap
-	// here is seconds, not enough time for permissions to realistically
-	// change.
+	// success path above, just triggered by a wider set of exits.
 	$effect(() => {
 		const resumeStep = settings.value['onboarding.resumeStep'];
 		const isCompleted = settings.value['app.onboardingCompleted'];
@@ -335,7 +332,19 @@
 		) {
 			hasReachedShortcutsPage = false;
 			settings.updateKey('onboarding.resumeStep', null);
-			onboardingStore.openAt(resumeStep);
+			// Re-check permissions before resuming — the detour goes through
+			// macOS System Settings, so revoking one during it is genuinely
+			// possible (unlike the ~150ms gap the effect above covers). A
+			// stale resumeStep pointing at usage-guide/inline-edit would
+			// otherwise reopen a demo that can't work without the
+			// permission it needs.
+			void (async () => {
+				const [hasMic, hasAccessibility] = await Promise.all([
+					checkMicrophonePermission(),
+					checkAccessibilityPermission(),
+				]);
+				onboardingStore.openAt(hasMic && hasAccessibility ? resumeStep : 'permissions');
+			})();
 		}
 	});
 

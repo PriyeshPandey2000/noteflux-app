@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import OnboardingButton from './OnboardingButton.svelte';
 	import { auth } from '$lib/stores/auth.svelte';
+	import { supabase } from '$lib/services/auth/supabase-client';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import { celebrate } from './celebrate';
@@ -24,6 +26,8 @@
 		'Local models free forever',
 	];
 
+	let isWaitingForSignup = $state(false);
+
 	// Only one real path forward here, not two — every real signup gets the
 	// same trial_ends_at = now() + 7 days DB default regardless of intent
 	// (verified against the live database). A "Start Pro trial" button next
@@ -31,15 +35,50 @@
 	// produce the exact same account would be showing a choice that isn't
 	// real. See docs/specs/20260925T113952-anonymous-14-day-trial.md.
 	function handleSignUp() {
-		celebrate({ particleCount: 160, originY: 0.5 });
+		isWaitingForSignup = true;
 		// Opens the website's sign-up page. Anonymous session tokens are
 		// passed along so the website converts this session instead of
-		// creating a second, disconnected account.
+		// creating a second, disconnected account. Does NOT complete
+		// onboarding here — auth.signUp() only opens a browser tab, it
+		// doesn't confirm anything. Completing immediately meant onboarding
+		// marked itself done even if the browser signup failed or was
+		// abandoned, silently leaving the user anonymous despite there being
+		// no other way out of onboarding by design. Completion now happens
+		// below, only once the deep-link callback confirms a real session.
 		auth.signUp().catch((error) => {
 			console.error('Failed to open sign up:', error);
+			isWaitingForSignup = false;
 		});
-		onNext();
 	}
+
+	onMount(() => {
+		// Re-fetch directly rather than trusting the auth store's reactive
+		// snapshot at this exact tick — setSession() inside the callback
+		// handler and this event firing are close enough together that
+		// relying on store timing would be fragile.
+		const handleSuccess = async () => {
+			const {
+				data: { user },
+			} = await supabase.auth.getUser();
+			if (user && !user.is_anonymous) {
+				celebrate({ particleCount: 160, originY: 0.5 });
+				onNext();
+				return;
+			}
+			// Callback fired but the session still isn't a real account —
+			// shouldn't normally happen, but don't complete onboarding on it.
+			isWaitingForSignup = false;
+		};
+		const handleError = () => {
+			isWaitingForSignup = false;
+		};
+		window.addEventListener('noteflux-auth-callback-success', handleSuccess);
+		window.addEventListener('noteflux-auth-callback-error', handleError);
+		return () => {
+			window.removeEventListener('noteflux-auth-callback-success', handleSuccess);
+			window.removeEventListener('noteflux-auth-callback-error', handleError);
+		};
+	});
 </script>
 
 <div class="flex flex-col px-8 pt-7 pb-8 space-y-5">
@@ -73,8 +112,13 @@
 				{/each}
 			</ul>
 			<OnboardingButton onclick={handleSignUp} class="w-full h-11 text-base cursor-pointer">
-				Sign up free — 7 days of Pro →
+				{isWaitingForSignup ? 'Waiting for you in the browser…' : 'Sign up free — 7 days of Pro →'}
 			</OnboardingButton>
+			{#if isWaitingForSignup}
+				<p class="text-center text-[11px] text-white/35">
+					Didn't open? Click again to retry.
+				</p>
+			{/if}
 		</div>
 	</div>
 </div>

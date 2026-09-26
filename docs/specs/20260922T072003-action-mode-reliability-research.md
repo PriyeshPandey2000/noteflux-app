@@ -1,11 +1,5 @@
 # Action Mode reliability — research notes (for when we resume)
 
-Action Mode itself is stashed (`stash@{0}`, "Action Mode: Jev integration,
-allow-list, risk-gate, BFS depth fix"). This doc is just the findings from
-reading real macOS-Jev-automation repos, so the reasoning isn't lost before
-we pick this back up. Not urgent — current priority is testing the payment
-flow and shipping a demo with what's solid today.
-
 ## Why our Action Mode wasn't reliable — real finding, not a guess
 
 Read `kevinbadi/jev-voice` (67★, "Talk to your Mac. Local whisper.cpp + one
@@ -96,3 +90,14 @@ Whether to rebuild Action Mode around the three-tier pattern (bigger lift,
 proper reliability) or ship the current single-tier version as-is once
 retested (smaller lift, unknown reliability ceiling). Deferred until after
 payment-flow testing and the demo push.
+
+## Status
+
+Action Mode itself lives in a local stash, not a branch — look it up by
+message (`git stash list | grep "Action Mode: Jev integration"`) rather
+than by index. `stash@{0}` names whatever was stashed *most recently*, not
+this specific one — any later `git stash push`, on any branch, silently
+shifts the index and makes a hardcoded number wrong. At the time this doc
+was written it was `stash@{0}`; treat that as a snapshot, not a pointer.
+Worth publishing to a branch before this becomes a real dependency for
+anyone but the person who stashed it.

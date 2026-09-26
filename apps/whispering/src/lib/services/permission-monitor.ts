@@ -24,10 +24,15 @@ export function createPermissionMonitor() {
 	// a store) so this file stays dependency-light — no reason for a
 	// detection service to import the notification/UI layer directly.
 	let onRevokedCallback: (() => void) | null = null;
+	let onRestoredCallback: (() => void) | null = null;
 
 	return {
 		onRevoked(callback: () => void) {
 			onRevokedCallback = callback;
+		},
+
+		onRestored(callback: () => void) {
+			onRestoredCallback = callback;
 		},
 
 		/**
@@ -208,6 +213,7 @@ export function createPermissionMonitor() {
 				// );
 				// Run reinitialize in background, don't block periodic check
 				this.attemptReinitialize();
+				onRestoredCallback?.();
 			}
 
 			previousStatus = currentStatus;

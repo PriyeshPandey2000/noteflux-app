@@ -209,8 +209,8 @@
 			<div class="w-full space-y-2">
 				{#if !isCollapsed}
 					<div class="px-1">
-						<p class="text-xs font-semibold text-white/80">Free plan</p>
-						<p class="text-[11px] text-white/40 mt-0.5">
+						<p class="text-xs font-semibold text-foreground">Free plan</p>
+						<p class="text-[11px] text-muted-foreground mt-0.5">
 							Upgrade for faster cloud transcription — select text, speak
 							an edit, watch it rewrite.
 						</p>

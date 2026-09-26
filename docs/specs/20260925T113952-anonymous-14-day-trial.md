@@ -396,7 +396,14 @@ second button.
    access via `isOnboardingDemoStep()` (`services/onboarding-demo-step.ts`) — a plain
    `onboardingStore.isOpen && step check`, no RPC, no counting, unlimited retries.
 3. Onboarding's last step (`choice`) shows `ChoiceScreen` with one CTA: create a real
-   account. No anonymous exit from onboarding exists.
+   account. No anonymous exit from onboarding exists — and onboarding only actually
+   *completes* once the deep-link callback confirms a real, non-anonymous session
+   (verified via a direct `supabase.auth.getUser()` call, not the reactive auth
+   store's snapshot). Clicking the button just opens the browser; if that signup is
+   abandoned or fails, onboarding stays open and the button can be clicked again
+   (2026-09-26 fix — it originally called `onNext()` immediately on click, which
+   marked onboarding complete regardless of whether signup ever succeeded, silently
+   defeating the "no anonymous exit" guarantee for anyone who closed the browser tab).
 4. Every real signup gets `trial_ends_at = now() + 7 days` automatically (DB default,
    pre-existing, unrelated to this feature). `subscription.svelte.ts`'s real-account
    branch (`fetchSubscriptionStatus` → `noteflux.app/api/subscription`) picks this up
