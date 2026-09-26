@@ -17,7 +17,6 @@ export {
 
 export {
 	TRANSCRIPTION_SERVICE_IDS,
-	TRANSCRIPTION_SERVICE_OPTIONS,
 	TRANSCRIPTION_SERVICES,
 	type TranscriptionService,
 } from './service-config';

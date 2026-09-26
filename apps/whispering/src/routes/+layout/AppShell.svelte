@@ -66,6 +66,85 @@
 			await checkForUpdates();
 			// Start global permission monitoring for Fn key functionality
 			await services.permissionMonitor.start();
+			// Surface it — until now, a revoked permission was only ever
+			// console.warn'd, so a real user's Fn key would just silently
+			// stop working with zero explanation. Persists (doesn't
+			// auto-dismiss) since walking away from a silent Fn failure is
+			// exactly the confusing case this exists to prevent. Tracks its
+			// own toast ID so the warning can be dismissed once permission
+			// is actually restored — without this it stayed on screen
+			// forever even after re-granting, since restoring only ever
+			// reinitialized the Fn manager, nothing dismissed the toast.
+			let revokedWarningToastId: string | undefined;
+			services.permissionMonitor.onRevoked(async () => {
+				const { data } = await rpc.notify.warning.execute({
+					title: '⌨️ Fn shortcut stopped working',
+					description:
+						"Accessibility permission was turned off. Re-enable it in Settings — if toggling it doesn't work, remove NoteFlux from the list and add it back.",
+					persist: true,
+					action: {
+						type: 'button',
+						label: 'Open Settings',
+						onClick: () => {
+							import('@tauri-apps/api/core').then(({ invoke }) =>
+								invoke('open_apple_accessibility'),
+							);
+						},
+					},
+				});
+				revokedWarningToastId = data ?? undefined;
+			});
+			services.permissionMonitor.onRestored(() => {
+				if (revokedWarningToastId) {
+					rpc.notify.dismiss(revokedWarningToastId);
+					revokedWarningToastId = undefined;
+				}
+			});
+			// Clicking the close button used to quit the whole app; now it
+			// just hides the window (see lib.rs CloseRequested handler) so
+			// the Fn shortcut keeps working. First time this happens, tell
+			// the user why the app didn't actually go away — but the event
+			// fires right after the window is hidden, so a toast rendered
+			// immediately shows inside a webview nobody can see and expires
+			// unseen. Defer it: mark a pending flag, only show (and only
+			// then persist the "seen" setting) once the window is visible
+			// again, via the tray's own show/hide toggle or Reopen.
+			let closeNoticePending = false;
+			const { listen } = await import('@tauri-apps/api/event');
+			await listen('main-window-hidden-via-close-button', () => {
+				if (settings.value['app.closeHidesToTrayNoticeShown']) return;
+				closeNoticePending = true;
+			});
+			const currentWindow = (await import('@tauri-apps/api/window')).getCurrentWindow();
+			await currentWindow.onFocusChanged(({ payload: isFocused }) => {
+				if (!isFocused || !closeNoticePending) return;
+				closeNoticePending = false;
+				settings.updateKey('app.closeHidesToTrayNoticeShown', true);
+				rpc.notify.info.execute({
+					title: '👋 Still here',
+					description:
+						'NoteFlux keeps running in your menu bar so Fn still works. Quit from the menu bar icon to fully exit.',
+				});
+			});
+			// Sign-up/sign-in finishing in the browser hands back a real
+			// session via a noteflux://auth/callback deep link — this used
+			// to fail completely silently (no toast, nothing), so someone
+			// who completed signup would just see the app still showing
+			// "Free plan" with zero explanation why. See auth-service.ts.
+			window.addEventListener('noteflux-auth-callback-success', () => {
+				rpc.notify.success.execute({
+					title: '✅ Signed in',
+					description: 'Your account is ready.',
+				});
+			});
+			window.addEventListener('noteflux-auth-callback-error', ((
+				event: CustomEvent<{ message: string }>,
+			) => {
+				rpc.notify.error.execute({
+					title: '⚠️ Sign-in failed',
+					description: `${event.detail.message} — try signing up again.`,
+				});
+			}) as EventListener);
 		} else {
 			// const _notifyNoteFluxTabReadyResult =
 			// await extension.notifyNoteFluxTabReady(undefined);

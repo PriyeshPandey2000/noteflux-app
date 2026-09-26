@@ -6,14 +6,15 @@
 	import MicIcon from '@lucide/svelte/icons/mic';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
 	import LoaderIcon from '@lucide/svelte/icons/loader';
+	import LockIcon from '@lucide/svelte/icons/lock';
+	import VoiceRing from './VoiceRing.svelte';
 
 	type Props = {
 		onNext: () => void;
-		onSkip: () => void;
 		onComplete: (complete: boolean) => void;
 	};
 
-	let { onNext, onSkip, onComplete }: Props = $props();
+	let { onNext, onComplete }: Props = $props();
 
 	type PermissionStatus = 'unknown' | 'granted' | 'denied' | 'requesting';
 
@@ -191,124 +192,122 @@
 	});
 </script>
 
-<div class="flex flex-col p-8 space-y-6">
-	<!-- Header with Progress -->
-	<div class="text-center space-y-3">
-		<p class="text-xs text-white/40 uppercase tracking-wider font-medium">
-			Step {completedSteps + 1 > totalSteps ? totalSteps : completedSteps + 1} of {totalSteps}
-		</p>
-		<h2 class="text-xl font-semibold text-white/95">Grant Permissions</h2>
-	</div>
-
-	<!-- Permissions List -->
-	<div class="space-y-4">
-		<!-- Microphone Permission -->
+{#snippet permissionCard(
+	status: PermissionStatus,
+	title: string,
+	description: string,
+	Icon: typeof MicIcon,
+	action: () => void,
+	actionLabel: string,
+	requestingLabel: string,
+)}
+	<div
+		class="relative flex items-center gap-3 p-3.5 rounded-xl border transition-all duration-500 {status ===
+		'granted'
+			? 'border-green-500/40 bg-green-500/[0.07]'
+			: 'border-white/10 bg-white/[0.03]'}"
+	>
 		<div
-			class="p-4 rounded-xl border transition-all duration-300 {microphoneStatus === 'granted'
-				? 'border-green-500/30 bg-green-500/5'
-				: 'border-white/10 bg-white/[0.02]'}"
+			class="relative w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-500 {status ===
+			'granted'
+				? 'bg-gradient-to-br from-green-400 to-emerald-600 text-white shadow-[0_0_18px_rgba(74,222,128,0.45)]'
+				: 'bg-white/[0.06] text-white/70'}"
 		>
-			<div class="flex items-start gap-3">
-				<!-- Step indicator -->
-				<div
-					class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors duration-300 {microphoneStatus === 'granted'
-						? 'bg-green-500 text-white'
-						: 'bg-white/10 text-white/60'}"
-				>
-					{#if microphoneStatus === 'granted'}
-						<CheckIcon class="w-4 h-4" />
-					{:else}
-						<MicIcon class="w-4 h-4" />
-					{/if}
-				</div>
-
-				<div class="flex-1 min-w-0">
-					<div class="flex items-center justify-between gap-2">
-						<h3 class="font-medium text-sm text-white/90">Microphone Access</h3>
-						{#if microphoneStatus === 'granted'}
-							<span class="text-xs font-medium text-green-400">Done</span>
-						{/if}
-					</div>
-					<p class="text-xs text-white/50 mt-1">
-						So you can speak instead of typing.
-					</p>
-
-					{#if microphoneStatus !== 'granted'}
-						<div class="mt-3">
-							{#if microphoneStatus === 'requesting'}
-								<div class="flex items-center gap-2 text-xs text-white/50">
-									<LoaderIcon class="w-3 h-3 animate-spin" />
-									<span>Waiting for permission...</span>
-								</div>
-							{:else}
-								<Button size="sm" onclick={requestMicrophonePermission} class="cursor-pointer">
-									Allow Microphone
-								</Button>
-							{/if}
-						</div>
-					{/if}
-				</div>
-			</div>
+			{#if status === 'granted'}
+				<span class="ping"></span>
+				<CheckIcon class="w-5 h-5" />
+			{:else}
+				<Icon class="w-5 h-5" />
+			{/if}
 		</div>
 
-		<!-- Accessibility Permission (Desktop only) -->
+		<div class="flex-1 min-w-0 text-left">
+			<h3 class="font-medium text-sm text-white/90">{title}</h3>
+			<p class="text-xs text-white/45 mt-0.5">{description}</p>
+		</div>
+
+		<div class="shrink-0">
+			{#if status === 'granted'}
+				<span class="text-xs font-medium text-green-400">Granted</span>
+			{:else if status === 'requesting'}
+				<span class="flex items-center gap-1.5 text-xs text-white/50">
+					<LoaderIcon class="w-3 h-3 animate-spin" />
+					{requestingLabel}
+				</span>
+			{:else}
+				<Button size="sm" onclick={action} class="cursor-pointer">{actionLabel}</Button>
+			{/if}
+		</div>
+	</div>
+{/snippet}
+
+<div class="flex flex-col items-center px-8 pt-6 pb-8 space-y-5">
+	<VoiceRing state={allRequiredGranted ? 'done' : 'idle'} size={96} />
+
+	<div class="text-center space-y-1.5">
+		<h2 class="text-2xl font-semibold tracking-tight text-white">
+			{allRequiredGranted ? 'Ears on. Hands free.' : 'Two quick yeses'}
+		</h2>
+		<p class="text-sm text-white/50">
+			{allRequiredGranted
+				? 'Continuing…'
+				: 'So NoteFlux can hear you and type for you.'}
+		</p>
+	</div>
+
+	<div class="w-full space-y-3">
+		{@render permissionCard(
+			microphoneStatus,
+			'Microphone',
+			'So you can speak instead of type',
+			MicIcon,
+			requestMicrophonePermission,
+			'Allow',
+			'Waiting…',
+		)}
 		{#if isDesktop}
-			<div
-				class="p-4 rounded-xl border transition-all duration-300 {accessibilityStatus === 'granted'
-					? 'border-green-500/30 bg-green-500/5'
-					: 'border-white/10 bg-white/[0.02]'}"
-			>
-				<div class="flex items-start gap-3">
-					<!-- Step indicator -->
-					<div
-						class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors duration-300 {accessibilityStatus === 'granted'
-							? 'bg-green-500 text-white'
-							: 'bg-white/10 text-white/60'}"
-					>
-						{#if accessibilityStatus === 'granted'}
-							<CheckIcon class="w-4 h-4" />
-						{:else}
-							<ShieldIcon class="w-4 h-4" />
-						{/if}
-					</div>
-
-					<div class="flex-1 min-w-0">
-						<div class="flex items-center justify-between gap-2">
-							<h3 class="font-medium text-sm text-white/90">Accessibility Access</h3>
-							{#if accessibilityStatus === 'granted'}
-								<span class="text-xs font-medium text-green-400">Done</span>
-							{/if}
-						</div>
-						<p class="text-xs text-white/50 mt-1">
-							So NoteFlux can paste your text anywhere instantly.
-						</p>
-
-						{#if accessibilityStatus !== 'granted'}
-							<div class="mt-3">
-								{#if accessibilityStatus === 'requesting'}
-									<div class="flex items-center gap-2 text-xs text-white/50">
-										<LoaderIcon class="w-3 h-3 animate-spin" />
-										<span>Opening System Settings...</span>
-									</div>
-								{:else}
-									<Button size="sm" variant="outline" onclick={requestAccessibilityPermission} class="cursor-pointer">
-										Open Settings
-									</Button>
-								{/if}
-							</div>
-						{/if}
-					</div>
-				</div>
-			</div>
+			{@render permissionCard(
+				accessibilityStatus,
+				'Accessibility',
+				'So your words land in any app, instantly',
+				ShieldIcon,
+				requestAccessibilityPermission,
+				'Open Settings',
+				'Opening…',
+			)}
 		{/if}
 	</div>
 
-	<!-- Status Message -->
-	{#if allRequiredGranted}
-		<div class="text-center py-2">
-			<p class="text-sm text-green-400 font-medium">
-				All set! Continuing...
-			</p>
-		</div>
-	{/if}
+	<div class="flex items-center gap-1.5 text-[11px] text-white/35">
+		<LockIcon class="w-3 h-3" />
+		<span>Your mic is only used while you're recording · {completedSteps}/{totalSteps} granted</span>
+	</div>
 </div>
+
+<style>
+	.ping {
+		position: absolute;
+		inset: 0;
+		border-radius: 0.75rem;
+		border: 2px solid rgba(74, 222, 128, 0.7);
+		animation: ping 0.9s ease-out 1 forwards;
+	}
+
+	@keyframes ping {
+		from {
+			transform: scale(1);
+			opacity: 1;
+		}
+		to {
+			transform: scale(1.7);
+			opacity: 0;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ping {
+			animation: none;
+			opacity: 0;
+		}
+	}
+</style>

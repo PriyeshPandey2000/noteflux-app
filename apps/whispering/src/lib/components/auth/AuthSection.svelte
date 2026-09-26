@@ -116,9 +116,9 @@
 				type="button"
 				onclick={onGetProClick}
 				title="Get Pro"
-				class="flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-1.5 text-sm font-semibold tracking-wide hover:bg-emerald-500/10 transition-colors cursor-pointer"
+				class="flex items-center whitespace-nowrap rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-1.5 text-sm font-semibold tracking-wide hover:bg-emerald-500/10 transition-colors cursor-pointer"
 			>
-				<span class="bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">
+				<span class="whitespace-nowrap bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">
 					Get Pro
 				</span>
 			</button>
@@ -136,9 +136,9 @@
 					type="button"
 					onclick={onGetProClick}
 					title="Get Pro"
-					class="flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-1.5 text-sm font-semibold tracking-wide hover:bg-emerald-500/10 transition-colors cursor-pointer"
+					class="flex items-center whitespace-nowrap rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-1.5 text-sm font-semibold tracking-wide hover:bg-emerald-500/10 transition-colors cursor-pointer"
 				>
-					<span class="bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">
+					<span class="whitespace-nowrap bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">
 						Get Pro
 					</span>
 				</button>

@@ -116,11 +116,4 @@ export const TRANSCRIPTION_SERVICES = [
 	// },
 ] as const satisfies SatisfiedTranscriptionService[];
 
-export const TRANSCRIPTION_SERVICE_OPTIONS = TRANSCRIPTION_SERVICES.map(
-	(service) => ({
-		label: service.name,
-		value: service.id,
-	}),
-);
-
 export type TranscriptionService = (typeof TRANSCRIPTION_SERVICES)[number];

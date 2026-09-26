@@ -206,20 +206,31 @@
 				{/if}
 			</button>
 		{:else if canSubscribe}
-			<button
-				type="button"
-				onclick={onGetProClick}
-				title={isCollapsed ? 'Get Pro' : undefined}
-				aria-label="Get Pro"
-				class={cn(
-					'flex items-center justify-center py-2.5 text-sm font-semibold tracking-wide rounded-md border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors overflow-hidden whitespace-nowrap cursor-pointer',
-					isCollapsed ? 'px-2 w-full' : 'px-3 w-full'
-				)}
-			>
-				<span class="bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">
-					{isCollapsed ? 'Pro' : 'Get Pro'}
-				</span>
-			</button>
+			<div class="w-full space-y-2">
+				{#if !isCollapsed}
+					<div class="px-1">
+						<p class="text-xs font-semibold text-foreground">Free plan</p>
+						<p class="text-[11px] text-muted-foreground mt-0.5">
+							Upgrade for faster cloud transcription — select text, speak
+							an edit, watch it rewrite.
+						</p>
+					</div>
+				{/if}
+				<button
+					type="button"
+					onclick={onGetProClick}
+					title={isCollapsed ? 'Get Pro' : undefined}
+					aria-label="Get Pro"
+					class={cn(
+						'flex items-center justify-center py-2.5 text-sm font-semibold tracking-wide rounded-md border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors overflow-hidden whitespace-nowrap cursor-pointer',
+						isCollapsed ? 'px-2 w-full' : 'px-3 w-full'
+					)}
+				>
+					<span class="bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">
+						{isCollapsed ? 'Pro' : 'Get Pro'}
+					</span>
+				</button>
+			</div>
 		{/if}
 		{#each footerItems as item}
 			{@const Icon = item.icon}

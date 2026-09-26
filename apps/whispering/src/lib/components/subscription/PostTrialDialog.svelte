@@ -22,10 +22,10 @@
 		</Dialog.Header>
 
 		<div class="flex flex-col items-center gap-2 mt-4">
-			<Button onclick={handleGetPro} size="sm" class="w-fit min-w-32">
+			<Button onclick={handleGetPro} size="sm" class="w-48">
 				Get Pro
 			</Button>
-			<Button onclick={() => postTrialDialog.close()} variant="outline" size="sm" class="w-fit">
+			<Button onclick={() => postTrialDialog.close()} variant="outline" size="sm" class="w-48">
 				Continue with Free
 			</Button>
 		</div>

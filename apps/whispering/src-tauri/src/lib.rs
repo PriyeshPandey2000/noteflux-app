@@ -21,7 +21,7 @@ use microphone::{is_macos_microphone_enabled, request_macos_microphone_permissio
 #[cfg(target_os = "macos")]
 use frontmost_app::get_frontmost_app;
 
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}};
+use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}};
 use tauri_plugin_aptabase::EventTracker;
 use tauri_plugin_clipboard_manager;
 
@@ -410,6 +410,8 @@ pub async fn run() {
                     if !is_visible {
                         let _ = main_window.show();
                         let _ = main_window.set_focus();
+                        #[cfg(target_os = "macos")]
+                        let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
                     }
                 }
             }
@@ -549,15 +551,18 @@ pub async fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    // Set activation policy to Accessory to hide from dock and run as menu bar app on macOS
-    // Note: LSUIElement is set in Info.plist which should handle this
+    // Menu-bar app by default (no dock icon) — Info.plist's LSUIElement sets
+    // this as the baseline. Switched to Regular (dock icon shown) whenever
+    // the main window is visible, back to Accessory when it's hidden, so
+    // there's always a discoverable way back to the window without
+    // permanently cluttering the dock during normal background dictation.
     #[cfg(target_os = "macos")]
     app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
     // CRITICAL: Create recording overlay at startup (hidden) so we don't create it during recording
     // This prevents focus stealing when recording starts
     let _ = create_recording_overlay_at_startup(&app);
-    
+
     // Create system tray
     let _ = create_system_tray(&app);
 
@@ -565,9 +570,15 @@ pub async fn run() {
     if let Some(main_window) = app.get_webview_window("main") {
         let _ = main_window.show();
         let _ = main_window.set_focus();
+        // Deliberately NOT setting activation policy here — this runs
+        // before app.run() starts the actual event loop, and
+        // set_activation_policy doesn't reliably take effect that early on
+        // macOS (confirmed: dock icon didn't appear on first launch, only
+        // after a tray click — which runs inside the live loop). Done in
+        // RunEvent::Ready below instead, once the loop is actually pumping.
     }
 
-    
+
     app.run(|handler, event| match event {
         tauri::RunEvent::Exit { .. } => {
             // Kill the qwen daemon before exit. std::process::exit() (called by
@@ -595,12 +606,19 @@ pub async fn run() {
             if let Some(main_window) = handler.get_webview_window("main") {
                 let _ = main_window.show();
                 let _ = main_window.set_focus();
+                #[cfg(target_os = "macos")]
+                let _ = handler.set_activation_policy(tauri::ActivationPolicy::Regular);
             }
         }
         tauri::RunEvent::Ready { .. } => {
             let _ = handler.track_event("app_started", None);
+            // Main window is shown on startup (above, before .run()) — show
+            // the dock icon to match, now that the event loop is actually
+            // live and set_activation_policy will reliably take effect.
+            #[cfg(target_os = "macos")]
+            let _ = handler.set_activation_policy(tauri::ActivationPolicy::Regular);
         }
-        // Handle tray icon events  
+        // Handle tray icon events
         tauri::RunEvent::TrayIconEvent(tray_event) => {
             match tray_event {
                 TrayIconEvent::Click { button, button_state, .. } => {
@@ -610,10 +628,14 @@ pub async fn run() {
                             match main_window.is_visible() {
                                 Ok(true) => {
                                     let _ = main_window.hide();
+                                    #[cfg(target_os = "macos")]
+                                    let _ = handler.set_activation_policy(tauri::ActivationPolicy::Accessory);
                                 }
                                 Ok(false) => {
                                     let _ = main_window.show();
                                     let _ = main_window.set_focus();
+                                    #[cfg(target_os = "macos")]
+                                    let _ = handler.set_activation_policy(tauri::ActivationPolicy::Regular);
                                 }
                                 Err(_) => {}
                             }
@@ -626,9 +648,25 @@ pub async fn run() {
         // Handle window events
         tauri::RunEvent::WindowEvent { label, event, .. } => {
             match event {
-                tauri::WindowEvent::CloseRequested { .. } if label == "main" => {
-                    // When user clicks X button, exit the entire app (including tray icon)
-                    handler.exit(0);
+                tauri::WindowEvent::CloseRequested { api, .. } if label == "main" => {
+                    // Clicking the close button used to quit the entire app,
+                    // including the tray icon — which killed the Fn shortcut
+                    // too, directly undermining the app's whole pitch
+                    // ("works from anywhere, anytime"). Now it just hides
+                    // the window, same as the tray menu's Show/Hide toggle;
+                    // the app keeps running in the background. "Quit" in the
+                    // tray menu is still the real, explicit way to exit.
+                    api.prevent_close();
+                    if let Some(main_window) = handler.get_webview_window("main") {
+                        let _ = main_window.hide();
+                        #[cfg(target_os = "macos")]
+                        let _ = handler.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                    }
+                    // Frontend shows a one-time toast on this specific event
+                    // ("still running in your menu bar") — closing via the
+                    // tray toggle is already an informed action, so that
+                    // path doesn't need the same explanation.
+                    let _ = handler.emit("main-window-hidden-via-close-button", ());
                 }
                 _ => {}
             }
@@ -641,10 +679,14 @@ pub async fn run() {
                         match main_window.is_visible() {
                             Ok(true) => {
                                 let _ = main_window.hide();
+                                #[cfg(target_os = "macos")]
+                                let _ = handler.set_activation_policy(tauri::ActivationPolicy::Accessory);
                             }
                             Ok(false) => {
                                 let _ = main_window.show();
                                 let _ = main_window.set_focus();
+                                #[cfg(target_os = "macos")]
+                                let _ = handler.set_activation_policy(tauri::ActivationPolicy::Regular);
                             }
                             Err(_) => {}
                         }
@@ -682,6 +724,8 @@ fn write_text(text: String, app_handle: tauri::AppHandle, keep_window_visible: O
             if let Ok(is_visible) = main_window.is_visible() {
                 if is_visible {
                     let _ = main_window.hide();
+                    #[cfg(target_os = "macos")]
+                    let _ = app_handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
                 }
             }
         }

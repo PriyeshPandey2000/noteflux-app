@@ -22,14 +22,35 @@
 		ELEVENLABS_TRANSCRIPTION_MODELS,
 		GROQ_MODELS,
 		OPENAI_TRANSCRIPTION_MODELS,
-		TRANSCRIPTION_SERVICE_OPTIONS
+		TRANSCRIPTION_SERVICES,
 	} from '$lib/constants/transcription';
 	import { settings } from '$lib/stores/settings.svelte';
+	import { subscription } from '$lib/stores/subscription.svelte';
 	import { Badge } from '$lib/ui/badge';
 	import { Button } from '$lib/ui/button';
 	import * as Card from '$lib/ui/card';
 	import { Separator } from '$lib/ui/separator';
 	import { CheckIcon } from '@lucide/svelte';
+
+	// Cloud (`type: 'api'`) services silently fall back to local transcription
+	// for free users (see lib/query/transcription.ts) rather than erroring —
+	// which looked, from the outside, like picking Groq just didn't work.
+	// Disable them outright instead of just labeling — a free user selecting
+	// one would still silently get local results, so letting the selection
+	// happen at all just re-creates the same confusion one click later.
+	// Reactive, not baked into the shared TRANSCRIPTION_SERVICES
+	// constant, since subscription/trial state can change while this page
+	// is open.
+	const transcriptionServiceOptions = $derived(
+		TRANSCRIPTION_SERVICES.map((service) => ({
+			label:
+				service.type === 'api' && !subscription.hasProAccess
+					? `${service.name} (Pro)`
+					: service.name,
+			value: service.id,
+			disabled: service.type === 'api' && !subscription.hasProAccess,
+		})),
+	);
 </script>
 
 <svelte:head>
@@ -48,12 +69,15 @@
 	<LabeledSelect
 		id="selected-transcription-service"
 		label="Transcription Service"
-		items={TRANSCRIPTION_SERVICE_OPTIONS}
+		items={transcriptionServiceOptions}
 		selected={settings.value['transcription.selectedTranscriptionService']}
 		onSelectedChange={(selected) => {
 			settings.updateKey('transcription.selectedTranscriptionService', selected);
 		}}
 		placeholder="Select a transcription service"
+		description={!subscription.hasProAccess
+			? 'Cloud services marked (Pro) require a subscription — Qwen3-ASR runs fully offline, free for everyone.'
+			: undefined}
 	/>
 
 	{#if settings.value['transcription.selectedTranscriptionService'] === 'OpenAI'}

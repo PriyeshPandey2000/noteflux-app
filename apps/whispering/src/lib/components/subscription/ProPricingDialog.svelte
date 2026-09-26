@@ -3,7 +3,7 @@
 	import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
 	import { subscription } from '$lib/stores/subscription.svelte';
 	import { cn } from '$lib/ui/utils';
-	import { CheckIcon, Loader, ZapIcon } from '@lucide/svelte';
+	import { CheckIcon, Loader } from '@lucide/svelte';
 
 	type Billing = 'monthly' | 'yearly';
 	let billing = $state<Billing>('monthly');
@@ -154,10 +154,8 @@
 								<Loader class="size-4 animate-spin" />
 								Checking account status…
 							{:else if subscription.isPro}
-								<ZapIcon class="size-4" />
 								You're already Pro
 							{:else}
-								<ZapIcon class="size-4" />
 								Get Pro
 							{/if}
 						</button>

@@ -1,13 +1,11 @@
 import { fromTaggedErr, fromTaggedError, NoteFluxErr } from '$lib/result';
 import type { SelectionContext } from '$lib/services/clipboard/types';
 import * as services from '$lib/services';
-import { checkAnonymousGate, refreshAnonymousGateCache } from '$lib/services/anonymous-gate';
 import { analytics } from '$lib/services/posthog';
 import { auth } from '$lib/stores/auth.svelte';
 import { settings } from '$lib/stores/settings.svelte';
 import { authRequiredDialog } from '$lib/stores/auth-required-dialog.svelte';
 import { onboardingStore } from '$lib/stores/onboarding.svelte';
-import { signupRequiredDialog } from '$lib/stores/signup-required-dialog.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
 import { invoke } from '@tauri-apps/api/core';
 import { nanoid } from 'nanoid/non-secure';
@@ -138,34 +136,6 @@ const startManualRecording = defineMutation({
 			return NoteFluxErr({
 				title: '🔐 Authentication Required',
 				description: 'Please sign in to start recording',
-			});
-		}
-
-		// Check if anonymous user has reached the 5-minute gate
-		// Only apply gate to anonymous users - permanent users have unlimited usage
-		const gateStatus = await checkAnonymousGate();
-		if (gateStatus?.needsSignup && auth.isAnonymous) {
-			// Bring window to focus when showing signup modal
-			if (window.__TAURI_INTERNALS__) {
-				try {
-					const { getCurrentWindow } = await import('@tauri-apps/api/window');
-					const currentWindow = getCurrentWindow();
-					await currentWindow.show();
-					await currentWindow.setAlwaysOnTop(true);
-					await currentWindow.setFocus();
-
-					setTimeout(() => {
-						currentWindow.setAlwaysOnTop(false).catch(() => {});
-					}, 2000);
-				} catch (windowError) {
-					console.warn('Failed to bring window to front:', windowError);
-				}
-			}
-
-			signupRequiredDialog.open(onboardingStore.isOpen);
-			return NoteFluxErr({
-				title: '📝 Sign up to continue recording',
-				description: `You've transcribed ${gateStatus.totalMinutes.toFixed(1)} minutes. Sign up (free) to continue.`,
 			});
 		}
 
@@ -323,34 +293,6 @@ const startVadRecording = defineMutation({
 			return NoteFluxErr({
 				title: '🔐 Authentication Required',
 				description: 'Please sign in to start recording',
-			});
-		}
-
-		// Check if anonymous user has reached the 5-minute gate
-		// Only apply gate to anonymous users - permanent users have unlimited usage
-		const gateStatus = await checkAnonymousGate();
-		if (gateStatus?.needsSignup && auth.isAnonymous) {
-			// Bring window to focus when showing signup modal
-			if (window.__TAURI_INTERNALS__) {
-				try {
-					const { getCurrentWindow } = await import('@tauri-apps/api/window');
-					const currentWindow = getCurrentWindow();
-					await currentWindow.show();
-					await currentWindow.setAlwaysOnTop(true);
-					await currentWindow.setFocus();
-
-					setTimeout(() => {
-						currentWindow.setAlwaysOnTop(false).catch(() => {});
-					}, 2000);
-				} catch (windowError) {
-					console.warn('Failed to bring window to front:', windowError);
-				}
-			}
-
-			signupRequiredDialog.open(onboardingStore.isOpen);
-			return NoteFluxErr({
-				title: '📝 Sign up to continue recording',
-				description: `You've transcribed ${gateStatus.totalMinutes.toFixed(1)} minutes. Sign up (free) to continue.`,
 			});
 		}
 
@@ -621,17 +563,6 @@ export const commands = {
 				});
 			}
 
-			// Check if anonymous user has reached the 5-minute gate
-			// Only apply gate to anonymous users - permanent users have unlimited usage
-			const gateStatus = await checkAnonymousGate();
-			if (gateStatus?.needsSignup && auth.isAnonymous) {
-				signupRequiredDialog.open(onboardingStore.isOpen);
-				return NoteFluxErr({
-					title: '📝 Sign up to continue',
-					description: `You've transcribed ${gateStatus.totalMinutes.toFixed(1)} minutes. Sign up (free) to continue.`,
-				});
-			}
-
 			// Partition files into valid and invalid in a single pass
 			const { invalid: invalidFiles, valid: validFiles } = files.reduce<{
 				invalid: File[];
@@ -828,7 +759,6 @@ async function processRecordingPipeline({
 		// Track text delivery
 		analytics.trackTextDelivered('clipboard');
 
-		refreshAnonymousGateCache();
 		await hideRecordingOverlay();
 		return;
 	}
@@ -910,6 +840,5 @@ async function processRecordingPipeline({
 	// Track text delivery for transformed text
 	analytics.trackTextDelivered('clipboard');
 
-	refreshAnonymousGateCache();
 	await hideRecordingOverlay();
 }

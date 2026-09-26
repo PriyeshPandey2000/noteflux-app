@@ -66,7 +66,25 @@ class AuthService {
         await onOpenUrl((urls) => {
           for (const url of urls) {
             if (url.startsWith('noteflux://auth/callback')) {
-              this.handleAuthCallback(url);
+              // Was fire-and-forget with no .catch() — any failure here
+              // (bad/expired tokens, setSession rejecting, the website's
+              // auto-redirect firing twice, etc.) was completely silent:
+              // no error, no toast, nothing. The user would just stay
+              // anonymous with zero explanation why signup "didn't work".
+              // Same decoupling as checkout-success below, to avoid a
+              // circular import.
+              this.handleAuthCallback(url)
+                .then(() => {
+                  window.dispatchEvent(new CustomEvent('noteflux-auth-callback-success'));
+                })
+                .catch((error) => {
+                  console.error('Auth callback failed:', error);
+                  window.dispatchEvent(
+                    new CustomEvent('noteflux-auth-callback-error', {
+                      detail: { message: error instanceof Error ? error.message : String(error) },
+                    }),
+                  );
+                });
               break;
             }
             if (url.startsWith('noteflux://checkout-success')) {

@@ -8,6 +8,7 @@ import { settings } from '$lib/stores/settings.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
 import { applyDictionary } from '$lib/utils/dictionary';
 import { getGroqApiKey } from '$lib/utils/embedded-keys';
+import { isOnboardingDemoStep } from '$lib/services/onboarding-demo-step';
 import { Err, Ok, partitionResults, type Result } from 'wellcrafted/result';
 
 import { toast } from 'svelte-sonner';
@@ -174,7 +175,12 @@ async function transcribeBlob(
 	// not isPro — isPro is false during a trial by design (see
 	// docs/specs/20260916T160000-pro-trial-and-feature-gating.md), so isPro
 	// alone would still run the lifetime-cap checks against trial users.
-	const isExemptFromUsageLimit = isLocalService || subscription.hasProAccess;
+	// isOnboardingDemoStep() included so the onboarding demo (anonymous,
+	// no Pro access yet) doesn't get blocked by the same usage-limit checks
+	// this function otherwise runs before ever reaching the Groq branch's
+	// own isOnboardingDemoStep() exemption further down.
+	const isExemptFromUsageLimit =
+		isLocalService || subscription.hasProAccess || isOnboardingDemoStep();
 
 	try {
 		const { supabase } = await import('$lib/services/auth/supabase-client');
@@ -328,13 +334,18 @@ async function transcribeBlob(
 				// 		prompt: settings.value['transcription.prompt'],
 				// 		temperature: settings.value['transcription.temperature'],
 				// 	});
-				case 'Groq':
-					// Cloud transcription requires Pro or an active trial — free tier
-					// (including a lapsed trial) falls back to the local model
+				case 'Groq': {
+					// Cloud transcription requires Pro or an active trial — free
+					// tier (including a lapsed trial) falls back to the local model
 					// silently. No dialog, no toast: this fires on every single
 					// transcription, so any interruption here would be spam. See
 					// docs/specs/20260916T160000-pro-trial-and-feature-gating.md.
-					if (!subscription.hasProAccess) {
+					//
+					// During onboarding, the two demo steps (usage-guide,
+					// inline-edit) also pass this gate for an anonymous session —
+					// no credit counter, just a step check. See
+					// docs/specs/20260925T113952-anonymous-14-day-trial.md.
+					if (!subscription.hasProAccess && !isOnboardingDemoStep()) {
 						actualProvider = 'Qwen3ASR';
 						return await services.transcriptions.qwen3asr.transcribe(blob, {
 							outputLanguage: settings.value['transcription.outputLanguage'],
@@ -348,6 +359,7 @@ async function transcribeBlob(
 						prompt: settings.value['transcription.prompt'],
 						temperature: settings.value['transcription.temperature'],
 					});
+				}
 				case 'Qwen3ASR': {
 					const qwenModelId = settings.value['transcription.qwen3asr.modelId'] as import('$lib/services/transcription/qwen3-asr').Qwen3ASRModelId;
 					if (isQwen3WarmingUp(qwenModelId)) {
