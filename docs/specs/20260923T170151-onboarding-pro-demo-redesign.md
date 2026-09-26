@@ -1,5 +1,18 @@
 # Onboarding redesign — real Pro demo before the signup choice
 
+> **SUPERSEDED (2026-09-25)**: the credit-based demo-access system described
+> below (`onboarding_demo_credits_used` column, `use_onboarding_demo_credit`
+> RPC, `hasEffectiveProAccess`, the `choice` screen's dual Pro/Free buttons)
+> was fully deleted the same day it briefly went through a device-bound
+> 7-day anonymous trial redesign, then simplified further. See
+> `20260925T113952-anonymous-14-day-trial.md` for the full history and the
+> actual current architecture (`isOnboardingDemoStep()` — a plain step
+> check, no credits, no server round-trip; signup happens at the final
+> onboarding step, single CTA, no free/anonymous path out of onboarding).
+> The demo-flow *ordering* described here (welcome → permissions →
+> usage-guide → inline-edit → choice) is still accurate; the *access
+> mechanism* is not.
+
 Supersedes the earlier `trial-offer` onboarding step (built, then reasoned
 out of, over the course of this conversation — see
 `20260921T055638-action-mode-toggle-v1.md`'s neighbor docs for that history).
