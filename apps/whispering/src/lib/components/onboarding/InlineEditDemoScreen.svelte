@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createQuery } from '@tanstack/svelte-query';
 	import { rpc } from '$lib/query';
-	import { Button } from '$lib/ui/button';
+	import OnboardingButton from './OnboardingButton.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { onMount } from 'svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -16,8 +16,14 @@
 
 	let { onNext }: Props = $props();
 
+	// Multiple distinct clauses on purpose — a single short sentence gives the
+	// model nothing to restructure, so "turn it into bullets" (or even
+	// "make it shorter") can legitimately no-op and return the text
+	// unchanged (the system prompt explicitly allows that when it judges no
+	// real change is needed). Three joined action items means every
+	// suggested prompt below produces a visibly different result reliably.
 	const SAMPLE_TEXT =
-		'i think we shoudl probably go with the first option since it seems like the simplest one for now';
+		'we shoudl ship the new pricing page by friday also need to fix the login bug and someone should update the docs';
 
 	// Real, non-readonly textarea — paste-back after the edit needs to land
 	// somewhere real (a readonly field would silently reject it). The
@@ -43,14 +49,17 @@
 	const isRecording = $derived(recorderStateQuery.data === 'RECORDING');
 	const ringState = $derived(isRecording ? 'listening' : hasEdited ? 'done' : 'idle');
 
-	const PROMPTS = ['"make it more formal"', '"make it shorter"', '"turn it into bullets"'];
+	const PROMPTS = [
+		'"convert it to French"',
+		'"make it more formal"',
+		'"turn it into bullets"',
+	];
 
 	onMount(() => {
-		// Pre-select the whole sample so there's nothing to do first — just
-		// hold the shortcut and speak. They can still change the selection.
+		// No pre-selection — selecting the text themselves is part of the
+		// demo now, not something done for them.
 		if (textareaRef) {
 			textareaRef.focus();
-			textareaRef.setSelectionRange(0, SAMPLE_TEXT.length);
 		}
 	});
 
@@ -79,7 +88,7 @@
 			{#if hasEdited}
 				No copy, no paste, no retyping. Select any text, anywhere.
 			{:else}
-				The text below is already selected. Hold the key and say how to fix it.
+				Select some text below. Hold the key and say how to fix it.
 			{/if}
 		</p>
 	</div>
@@ -139,16 +148,13 @@
 
 	<div class="w-full">
 		{#if hasEdited}
-			<Button onclick={onNext} class="w-full h-11 text-base font-medium cursor-pointer">
+			<OnboardingButton onclick={onNext} class="w-full h-11 text-base cursor-pointer">
 				That's wild. Continue →
-			</Button>
+			</OnboardingButton>
 		{:else}
-			<button
-				onclick={onNext}
-				class="w-full h-11 flex items-center justify-center text-sm text-white/35 hover:text-white/60 transition-colors cursor-pointer"
-			>
-				Skip this step
-			</button>
+			<div class="w-full h-11 flex items-center justify-center text-sm text-white/30">
+				Select some text, then hold {shortcut} and speak
+			</div>
 		{/if}
 	</div>
 </div>

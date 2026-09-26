@@ -211,8 +211,8 @@
 					<div class="px-1">
 						<p class="text-xs font-semibold text-white/80">Free plan</p>
 						<p class="text-[11px] text-white/40 mt-0.5">
-							Faster cloud transcription. Select text, speak an edit,
-						watch it rewrite.
+							Upgrade for faster cloud transcription — select text, speak
+							an edit, watch it rewrite.
 						</p>
 					</div>
 				{/if}

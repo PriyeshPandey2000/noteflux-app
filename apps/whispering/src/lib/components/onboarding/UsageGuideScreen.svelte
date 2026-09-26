@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button } from '$lib/ui/button';
+	import OnboardingButton from './OnboardingButton.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { onboardingStore } from '$lib/stores/onboarding.svelte';
 	import { goto } from '$app/navigation';
@@ -261,9 +261,9 @@
 
 	<div class="w-full">
 		{#if hasTried}
-			<Button onclick={onNext} class="w-full h-11 text-base font-medium cursor-pointer">
+			<OnboardingButton onclick={onNext} class="w-full h-11 text-base cursor-pointer">
 				Nice. Show me more →
-			</Button>
+			</OnboardingButton>
 		{:else}
 			<div class="w-full h-11 flex items-center justify-center text-sm text-white/30">
 				Your words will appear above

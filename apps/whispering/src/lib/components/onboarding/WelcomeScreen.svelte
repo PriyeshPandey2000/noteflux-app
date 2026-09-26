@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button } from '$lib/ui/button';
+	import OnboardingButton from './OnboardingButton.svelte';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import { onMount } from 'svelte';
 	import Orb from './Orb.svelte';
@@ -82,10 +82,10 @@
 	</div>
 
 	<div class="w-full space-y-2">
-		<Button onclick={onNext} class="w-full h-11 text-base font-medium cursor-pointer group">
+		<OnboardingButton onclick={onNext} class="w-full h-11 text-base cursor-pointer group">
 			Let's go
 			<ArrowRightIcon class="w-4 h-4 ml-1.5 transition-transform group-hover:translate-x-0.5" />
-		</Button>
+		</OnboardingButton>
 		<p class="text-[11px] text-white/35">Takes about a minute</p>
 	</div>
 </div>
