@@ -1,54 +1,54 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { Button } from '$lib/ui/button';
+	import OnboardingButton from './OnboardingButton.svelte';
 	import { auth } from '$lib/stores/auth.svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import CloudIcon from '@lucide/svelte/icons/cloud';
-	import HardDriveIcon from '@lucide/svelte/icons/hard-drive';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import { celebrate } from './celebrate';
 
 	type Props = {
 		onNext: () => void;
+		eyebrow?: string;
+		headline?: string;
 	};
 
-	let { onNext }: Props = $props();
+	let {
+		onNext,
+		eyebrow = 'You just used Pro',
+		headline = 'Keep the magic?',
+	}: Props = $props();
 
 	const PRO_FEATURES = [
 		'Cloud transcription — faster, sharper',
 		'Edit any text by voice',
 		'Auto-cleanup of every dictation',
+		'Local models free forever',
 	];
 
-	function handleStartTrial() {
+	// Only one real path forward here, not two — every real signup gets the
+	// same trial_ends_at = now() + 7 days DB default regardless of intent
+	// (verified against the live database). A "Start Pro trial" button next
+	// to a "Stay on Free" button that both call the exact same signUp() and
+	// produce the exact same account would be showing a choice that isn't
+	// real. See docs/specs/20260925T113952-anonymous-14-day-trial.md.
+	function handleSignUp() {
 		celebrate({ particleCount: 160, originY: 0.5 });
-		// Opens the website's sign-up page; the 7-day trial is granted by
-		// the `trial_ends_at` column default on real signup (verified against
-		// the live database — see
-		// docs/specs/20260923T170151-onboarding-pro-demo-redesign.md). Anonymous
-		// session tokens are passed along so the website converts this session
-		// instead of creating a second, disconnected account.
+		// Opens the website's sign-up page. Anonymous session tokens are
+		// passed along so the website converts this session instead of
+		// creating a second, disconnected account.
 		auth.signUp().catch((error) => {
 			console.error('Failed to open sign up:', error);
 		});
 		onNext();
-	}
-
-	function handleUseFree() {
-		onNext();
-		// Local transcription needs a model downloaded first — nothing is
-		// bundled with the install. Send them to the existing model picker.
-		goto('/settings/transcription');
 	}
 </script>
 
 <div class="flex flex-col px-8 pt-7 pb-8 space-y-5">
 	<div class="text-center space-y-1.5">
 		<p class="text-[11px] uppercase tracking-[0.18em] text-green-300/70 font-medium">
-			You just used Pro
+			{eyebrow}
 		</p>
-		<h2 class="text-2xl font-semibold tracking-tight text-white">Keep the magic?</h2>
-		<p class="text-sm text-white/50">7 days free. No card, nothing to cancel.</p>
+		<h2 class="text-2xl font-semibold tracking-tight text-white">{headline}</h2>
+		<p class="text-sm text-white/50">Create your free account to keep going.</p>
 	</div>
 
 	<!-- Pro card with animated glowing border -->
@@ -57,13 +57,8 @@
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-2">
 					<SparklesIcon class="w-4 h-4 text-green-300" />
-					<span class="font-semibold text-white">Pro</span>
+					<span class="font-semibold text-white">Included free for 7 days</span>
 				</div>
-				<span
-					class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-500/15 text-green-300 border border-green-500/25"
-				>
-					Recommended
-				</span>
 			</div>
 			<ul class="space-y-2">
 				{#each PRO_FEATURES as feature (feature)}
@@ -77,36 +72,10 @@
 					</li>
 				{/each}
 			</ul>
-			<Button onclick={handleStartTrial} class="w-full h-11 text-base font-medium cursor-pointer">
-				Start 7-day free trial
-			</Button>
-			<p class="text-center text-[11px] text-white/35">$7/mo after — cancel anytime, no charge until then</p>
+			<OnboardingButton onclick={handleSignUp} class="w-full h-11 text-base cursor-pointer">
+				Sign up free — 7 days of Pro →
+			</OnboardingButton>
 		</div>
-	</div>
-
-	<!-- Free option -->
-	<button
-		onclick={handleUseFree}
-		class="group flex items-center gap-3 w-full rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] px-4 py-3 text-left transition-colors cursor-pointer"
-	>
-		<div class="w-9 h-9 rounded-lg bg-white/[0.06] flex items-center justify-center shrink-0">
-			<HardDriveIcon class="w-4 h-4 text-white/60" />
-		</div>
-		<div class="flex-1 min-w-0">
-			<p class="text-sm font-medium text-white/80">Stay on Free</p>
-			<p class="text-xs text-white/40">Unlimited offline transcription, on your Mac</p>
-		</div>
-		<span class="text-white/30 group-hover:text-white/60 group-hover:translate-x-0.5 transition-all">
-			→
-		</span>
-	</button>
-
-	<div class="space-y-1 text-center">
-		<p class="flex items-center justify-center gap-1.5 text-[11px] text-white/30">
-			<CloudIcon class="w-3 h-3" />
-			Audio goes straight to Groq to transcribe — nothing passes through our servers
-		</p>
-		<p class="text-[11px] text-white/30">Upgrade or switch anytime from the sidebar</p>
 	</div>
 </div>
 

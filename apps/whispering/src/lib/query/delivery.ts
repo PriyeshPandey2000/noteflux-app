@@ -5,13 +5,12 @@ import type { SelectionContext } from '$lib/services/clipboard/types';
 import { WHISPERING_RECORDINGS_PATHNAME } from '$lib/constants/app';
 import * as services from '$lib/services';
 import { settings } from '$lib/stores/settings.svelte';
-import { onboardingStore } from '$lib/stores/onboarding.svelte';
 import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
 import { Ok } from 'wellcrafted/result';
 import { getGroqApiKey } from '$lib/utils/embedded-keys';
 import { trackLlmUsage } from '$lib/services/usage-tracking';
-import { hasEffectiveProAccess } from '$lib/services/onboarding-demo-access';
+import { isOnboardingDemoStep } from '$lib/services/onboarding-demo-step';
 
 import { defineMutation } from './_client';
 import { rpc } from './index';
@@ -162,13 +161,10 @@ export const delivery = {
 				// full paywall dialog — that's shown exactly once, on trial end.
 				// See docs/specs/20260916T160000-pro-trial-and-feature-gating.md.
 				//
-				// During the onboarding demo, an anonymous/free session can also
-				// pass this gate via a server-checked demo credit — see
-				// docs/specs/20260923T170151-onboarding-pro-demo-redesign.md.
-				const effectiveHasProAccess = await hasEffectiveProAccess(
-					subscription.hasProAccess,
-				);
-				if (!effectiveHasProAccess) {
+				// During onboarding, the inline-edit demo step also passes this
+				// gate for an anonymous session — no credit counter, just a step
+				// check. See docs/specs/20260925T113952-anonymous-14-day-trial.md.
+				if (!subscription.hasProAccess && !isOnboardingDemoStep()) {
 					rpc.notify.warning.execute({
 						title: '🔒 This is a Pro feature',
 						description: 'Inline editing requires Pro. Upgrade to keep using it.',
@@ -287,8 +283,9 @@ export const delivery = {
 				const isPastingIntoApp = activeElement &&
 					(activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT');
 
-				// Check if we're actively in the onboarding flow (dialog open at usage-guide)
-				const isInOnboarding = onboardingStore.isOpen && onboardingStore.currentStep === 'usage-guide';
+				// Same "are we in one of the two onboarding demo steps" check
+				// the Pro-access gate above uses — not duplicated here.
+				const isInOnboarding = isOnboardingDemoStep();
 
 				// Check if we're on the settings page (testing shortcut)
 				const isOnSettingsPage = window.location.pathname.includes('/settings/shortcuts');
@@ -504,8 +501,9 @@ export const delivery = {
 				const isPastingIntoApp = activeElement &&
 					(activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT');
 
-				// Check if we're actively in the onboarding flow (dialog open at usage-guide)
-				const isInOnboarding = onboardingStore.isOpen && onboardingStore.currentStep === 'usage-guide';
+				// Same "are we in one of the two onboarding demo steps" check
+				// the Pro-access gate above uses — not duplicated here.
+				const isInOnboarding = isOnboardingDemoStep();
 
 				// Check if we're on the settings page (testing shortcut)
 				const isOnSettingsPage = window.location.pathname.includes('/settings/shortcuts');

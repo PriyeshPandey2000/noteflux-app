@@ -8,7 +8,7 @@ import { settings } from '$lib/stores/settings.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
 import { applyDictionary } from '$lib/utils/dictionary';
 import { getGroqApiKey } from '$lib/utils/embedded-keys';
-import { hasEffectiveProAccess } from '$lib/services/onboarding-demo-access';
+import { isOnboardingDemoStep } from '$lib/services/onboarding-demo-step';
 import { Err, Ok, partitionResults, type Result } from 'wellcrafted/result';
 
 import { toast } from 'svelte-sonner';
@@ -330,19 +330,17 @@ async function transcribeBlob(
 				// 		temperature: settings.value['transcription.temperature'],
 				// 	});
 				case 'Groq': {
-					// Cloud transcription requires Pro or an active trial — free tier
-					// (including a lapsed trial) falls back to the local model
+					// Cloud transcription requires Pro or an active trial — free
+					// tier (including a lapsed trial) falls back to the local model
 					// silently. No dialog, no toast: this fires on every single
 					// transcription, so any interruption here would be spam. See
 					// docs/specs/20260916T160000-pro-trial-and-feature-gating.md.
 					//
-					// During the onboarding demo, an anonymous/free session can
-					// also pass this gate via a server-checked demo credit — see
-					// docs/specs/20260923T170151-onboarding-pro-demo-redesign.md.
-					const effectiveHasProAccess = await hasEffectiveProAccess(
-						subscription.hasProAccess,
-					);
-					if (!effectiveHasProAccess) {
+					// During onboarding, the two demo steps (usage-guide,
+					// inline-edit) also pass this gate for an anonymous session —
+					// no credit counter, just a step check. See
+					// docs/specs/20260925T113952-anonymous-14-day-trial.md.
+					if (!subscription.hasProAccess && !isOnboardingDemoStep()) {
 						actualProvider = 'Qwen3ASR';
 						return await services.transcriptions.qwen3asr.transcribe(blob, {
 							outputLanguage: settings.value['transcription.outputLanguage'],

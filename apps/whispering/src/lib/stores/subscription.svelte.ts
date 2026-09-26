@@ -62,6 +62,10 @@ async function refresh() {
   const accessToken = auth.state.session?.access_token;
 
   // Signed out or anonymous users are genuinely free; nothing to confirm.
+  // Anonymous sessions exist only to power the onboarding demo (see
+  // isOnboardingDemoStep in transcription.ts/delivery.ts) — they never get
+  // a persisted trial. See docs/specs/20260925T113952-anonymous-14-day-trial.md
+  // for why the earlier device-bound-trial version of this was reverted.
   if (!user || !accessToken || user.isAnonymous) {
     subscriptionState = FREE_SUBSCRIPTION;
     isKnown = true;
@@ -84,24 +88,24 @@ async function refresh() {
   // stale or pre-trial-era cached record instead of the real thing.
   isConfirmed = false;
 
-  // Paint instantly from this account's last confirmed status (if any)
-  // while we reconfirm over the network, instead of leaving the UI in the
-  // "unknown" state — which is what previously hid the Pro badge / buy
-  // button until the noteflux.app round trip finished on every launch.
-  // This can briefly show a stale tier (e.g. right after a cancellation)
-  // until the fetch below resolves and corrects it — same-tab correction
-  // happens within one refresh, so the window is small.
-  const cached = readCachedStatus(requestedUserId);
-  if (cached) {
-    subscriptionState = cached;
-    isKnown = true;
-  } else {
-    // Unknown until the fetch confirms free/pro, so subscribe buttons never
-    // flash for a user who is actually Pro.
-    isKnown = false;
-  }
-
   try {
+    // Paint instantly from this account's last confirmed status (if any)
+    // while we reconfirm over the network, instead of leaving the UI in the
+    // "unknown" state — which is what previously hid the Pro badge / buy
+    // button until the noteflux.app round trip finished on every launch.
+    // This can briefly show a stale tier (e.g. right after a cancellation)
+    // until the fetch below resolves and corrects it — same-tab correction
+    // happens within one refresh, so the window is small.
+    const cached = readCachedStatus(requestedUserId);
+    if (cached) {
+      subscriptionState = cached;
+      isKnown = true;
+    } else {
+      // Unknown until the fetch confirms free/pro, so subscribe buttons never
+      // flash for a user who is actually Pro.
+      isKnown = false;
+    }
+
     const result = await fetchSubscriptionStatus(requestedUserId, accessToken);
     stale = auth.user?.id !== requestedUserId;
     if (!stale) {
