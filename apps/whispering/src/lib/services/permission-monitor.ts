@@ -17,8 +17,19 @@ export function createPermissionMonitor() {
 	let intervalId: ReturnType<typeof setInterval> | null = null;
 	let previousStatus: PermissionStatus = 'unknown';
 	let reinitializeInProgress = false;
+	// Revocation used to only be logged to the console — invisible to a real
+	// user, who'd just see Fn silently stop working with no explanation.
+	// The UI layer (AppShell.svelte) registers a callback here so it can
+	// surface an actual notification instead. Kept as a plain callback (not
+	// a store) so this file stays dependency-light — no reason for a
+	// detection service to import the notification/UI layer directly.
+	let onRevokedCallback: (() => void) | null = null;
 
 	return {
+		onRevoked(callback: () => void) {
+			onRevokedCallback = callback;
+		},
+
 		/**
 		 * Check if Fn manager is currently being initialized
 		 */
@@ -185,6 +196,7 @@ export function createPermissionMonitor() {
 				);
 				// Reset reinitialize flag so subsequent re-grant can trigger new attempt
 				reinitializeInProgress = false;
+				onRevokedCallback?.();
 			}
 
 			// Only reinitialize if permission was explicitly changed from denied -> granted

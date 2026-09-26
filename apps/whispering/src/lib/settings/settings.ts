@@ -125,6 +125,10 @@ export const settingsSchema = z.object({
 	// derived from subscription.trialDaysLeft (Supabase trial_ends_at). This
 	// just tracks whether the post-trial dialog has already been shown once.
 	'app.trialEndedNoticeShown': z.boolean().default(false),
+	// One-time nag, shown the first time the user closes the main window via
+	// the X button — explains that NoteFlux keeps running in the menu bar
+	// (closing used to fully quit the app; now it just hides the window).
+	'app.closeHidesToTrayNoticeShown': z.boolean().default(false),
 	'apiKeys.anthropic': z.string().default(''),
 	'apiKeys.deepgram': z.string().default(''),
 	'apiKeys.elevenlabs': z.string().default(''),
