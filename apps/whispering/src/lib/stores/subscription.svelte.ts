@@ -8,6 +8,7 @@ import {
 } from '$lib/services/subscription/dodo';
 import { auth } from '$lib/stores/auth.svelte';
 import { setAlwaysOnTopSuspended } from '$lib/stores/alwaysOnTop.svelte';
+import { analytics } from '$lib/services/posthog';
 
 const FREE_SUBSCRIPTION: SubscriptionStatus = {
   tier: 'free',
@@ -161,6 +162,7 @@ async function confirmCheckoutReturn() {
         return;
       }
       if (subscriptionState.tier === 'pro' && subscriptionState.isActive) {
+        analytics.trackCheckoutConfirmed();
         return;
       }
       await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -264,6 +266,7 @@ export const subscription = {
         return false;
       }
       await openCheckoutUrl(checkoutUrl);
+      analytics.trackCheckoutOpened();
       return true;
     } finally {
       checkoutInFlight = false;

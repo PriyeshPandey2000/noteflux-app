@@ -39,9 +39,6 @@ async function hideRecordingOverlay() {
 // Track manual recording start time for duration calculation
 let manualRecordingStartTime: null | number = null;
 
-// Track transcription start time for duration calculation
-let transcriptionStartTime: null | number = null;
-
 // Track how the current recording was initiated
 let recordingInitiatedVia: 'global-shortcut' | 'local' | null = null;
 
@@ -688,9 +685,13 @@ async function processRecordingPipeline({
 
 	const transcribeToastId = nanoid();
 
-	// Track transcription started
-	transcriptionStartTime = Date.now();
-	analytics.trackTranscriptionStarted('groq');
+	// PostHog transcription-started/completed tracking now lives inside
+	// transcribeBlob() in transcription.ts, next to the equivalent Aptabase
+	// events — it has direct access to the real resolved provider
+	// (actualProvider), whereas this call site does not. The old calls here
+	// were hardcoded to 'groq' regardless of what actually ran (wrong for
+	// every free-tier/local-fallback transcription); removed rather than
+	// fixed in place since the correct data already existed one layer down.
 
 	notify.loading.execute({
 		title: '📋 Transcribing...',
@@ -702,8 +703,6 @@ async function processRecordingPipeline({
 		await transcription.transcribeRecording.execute(createdRecording);
 
 	if (transcribeError) {
-		transcriptionStartTime = null; // Reset on error
-
 		if (transcribeError.name === 'NoteFluxError') {
 			notify.error.execute({ id: transcribeToastId, ...transcribeError });
 			await hideRecordingOverlay();
@@ -718,11 +717,6 @@ async function processRecordingPipeline({
 		await hideRecordingOverlay();
 		return;
 	}
-
-	// Track transcription completion with actual duration
-	const transcriptionDuration = transcriptionStartTime ? Date.now() - transcriptionStartTime : 0;
-	transcriptionStartTime = null;
-	analytics.trackTranscriptionCompleted('groq', transcriptionDuration);
 
 	sound.playSoundIfEnabled.execute('transcriptionComplete');
 

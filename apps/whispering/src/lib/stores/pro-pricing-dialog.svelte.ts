@@ -4,6 +4,8 @@
  * same single dialog instance instead of each mounting its own.
  */
 
+import { analytics } from '$lib/services/posthog';
+
 let isOpen = $state(false);
 
 export const proPricingDialog = {
@@ -17,6 +19,7 @@ export const proPricingDialog = {
 
 	open() {
 		isOpen = true;
+		analytics.trackProPricingDialogShown();
 	},
 
 	close() {

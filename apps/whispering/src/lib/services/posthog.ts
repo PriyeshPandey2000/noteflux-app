@@ -230,5 +230,59 @@ export const analytics = {
 			delivery_method: method,
 			...platformInfo
 		});
+	},
+
+	// Onboarding funnel events
+	trackOnboardingSignupClicked() {
+		if (!browser) return;
+		posthog.capture('onboarding_signup_clicked', { ...platformInfo });
+	},
+
+	trackAuthCallbackSuccess() {
+		if (!browser) return;
+		posthog.capture('auth_callback_success', { ...platformInfo });
+	},
+
+	trackPostTrialDialogShown() {
+		if (!browser) return;
+		posthog.capture('post_trial_dialog_shown', { ...platformInfo });
+	},
+
+	trackPostTrialGetProClicked() {
+		if (!browser) return;
+		posthog.capture('post_trial_get_pro_clicked', { ...platformInfo });
+	},
+
+	trackPostTrialContinueFreeClicked() {
+		if (!browser) return;
+		posthog.capture('post_trial_continue_free_clicked', { ...platformInfo });
+	},
+
+	trackProPricingDialogShown() {
+		if (!browser) return;
+		posthog.capture('pro_pricing_dialog_shown', { ...platformInfo });
+	},
+
+	trackCheckoutStarted(plan: string) {
+		if (!browser) return;
+		posthog.capture('checkout_started', {
+			plan,
+			...platformInfo
+		});
+	},
+
+	trackCheckoutOpened() {
+		if (!browser) return;
+		posthog.capture('checkout_opened', { ...platformInfo });
+	},
+
+	trackCheckoutConfirmed() {
+		if (!browser) return;
+		posthog.capture('checkout_confirmed', { ...platformInfo });
+	},
+
+	trackFirstPostOnboardingRecording() {
+		if (!browser) return;
+		posthog.capture('first_post_onboarding_recording', { ...platformInfo });
 	}
 };

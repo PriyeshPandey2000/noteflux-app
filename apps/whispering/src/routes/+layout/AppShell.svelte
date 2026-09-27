@@ -12,6 +12,7 @@
 	import { rpc } from '$lib/query';
 	import * as services from '$lib/services';
 	import { settings } from '$lib/stores/settings.svelte';
+	import { analytics } from '$lib/services/posthog';
 	// import { extension } from '@repo/extension';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { Toaster, type ToasterProps } from 'svelte-sonner';
@@ -132,6 +133,7 @@
 			// who completed signup would just see the app still showing
 			// "Free plan" with zero explanation why. See auth-service.ts.
 			window.addEventListener('noteflux-auth-callback-success', () => {
+				analytics.trackAuthCallbackSuccess();
 				rpc.notify.success.execute({
 					title: '✅ Signed in',
 					description: 'Your account is ready.',
@@ -140,6 +142,7 @@
 			window.addEventListener('noteflux-auth-callback-error', ((
 				event: CustomEvent<{ message: string }>,
 			) => {
+				analytics.trackError(event.detail.message, 'auth_callback');
 				rpc.notify.error.execute({
 					title: '⚠️ Sign-in failed',
 					description: `${event.detail.message} — try signing up again.`,

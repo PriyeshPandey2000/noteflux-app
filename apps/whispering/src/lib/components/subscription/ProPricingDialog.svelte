@@ -2,6 +2,7 @@
 	import * as Dialog from '$lib/ui/dialog';
 	import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
 	import { subscription } from '$lib/stores/subscription.svelte';
+	import { analytics } from '$lib/services/posthog';
 	import { cn } from '$lib/ui/utils';
 	import { CheckIcon, Loader } from '@lucide/svelte';
 
@@ -24,6 +25,7 @@
 	];
 
 	async function handleGetPro() {
+		analytics.trackCheckoutStarted(billing);
 		const opened = await subscription.openCheckout(billing);
 		if (opened) {
 			proPricingDialog.close();

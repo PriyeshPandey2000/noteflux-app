@@ -125,6 +125,9 @@ export const settingsSchema = z.object({
 	// derived from subscription.trialDaysLeft (Supabase trial_ends_at). This
 	// just tracks whether the post-trial dialog has already been shown once.
 	'app.trialEndedNoticeShown': z.boolean().default(false),
+	// One-time analytics flag — whether the first real (post-onboarding)
+	// recording has already been sent to PostHog.
+	'app.firstPostOnboardingRecordingTracked': z.boolean().default(false),
 	// One-time nag, shown the first time the user closes the main window via
 	// the X button — explains that NoteFlux keeps running in the menu bar
 	// (closing used to fully quit the app; now it just hides the window).

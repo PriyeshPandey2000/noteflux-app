@@ -6,6 +6,8 @@ import * as services from '$lib/services';
 import { DEFAULT_QWEN3_ASR_MODEL_ID, isQwen3WarmingUp } from '$lib/services/transcription/qwen3-asr';
 import { settings } from '$lib/stores/settings.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
+import { onboardingStore } from '$lib/stores/onboarding.svelte';
+import { analytics } from '$lib/services/posthog';
 import { applyDictionary } from '$lib/utils/dictionary';
 import { getGroqApiKey } from '$lib/utils/embedded-keys';
 import { isOnboardingDemoStep } from '$lib/services/onboarding-demo-step';
@@ -157,6 +159,14 @@ async function transcribeBlob(
 	// Increment transcription count
 	transcriptionCount++;
 
+	// First real (post-onboarding) recording — fires exactly once. The
+	// onboarding dialog is modal, so any recording made while it's open is
+	// a demo recording (dictation / inline-edit practice) and doesn't count.
+	if (!settings.value['app.firstPostOnboardingRecordingTracked'] && !onboardingStore.isOpen) {
+		settings.updateKey('app.firstPostOnboardingRecordingTracked', true);
+		analytics.trackFirstPostOnboardingRecording();
+	}
+
 	const selectedService = settings.value['transcription.selectedTranscriptionService'];
 	// Local models (Qwen3-ASR, future on-device options) run entirely on the
 	// user's own device and cost nothing per minute, unlike the metered cloud
@@ -307,6 +317,9 @@ async function transcribeBlob(
 		provider: selectedService,
 		type: 'transcription_requested',
 	});
+	// PostHog side of the same event — selectedService (not actualProvider,
+	// which isn't known yet) since this fires before the attempt runs.
+	analytics.trackTranscriptionStarted(selectedService);
 
 	// Tracks what actually ran, which can differ from selectedService when the
 	// Groq case silently falls back to local (see below) — usage/analytics
@@ -412,6 +425,11 @@ async function transcribeBlob(
 			provider: actualProvider,
 			type: 'transcription_completed',
 		});
+		// PostHog side — actualProvider (the real outcome), not
+		// selectedService, since a blocked/free-tier Groq selection can
+		// silently fall back to Qwen3ASR and must be logged as what
+		// actually ran, same reasoning as the Aptabase event above.
+		analytics.trackTranscriptionCompleted(actualProvider, duration);
 
 		// Track usage for billing/analytics (fire-and-forget, won't block)
 		// Only track for services that charge by duration (like Groq) — must

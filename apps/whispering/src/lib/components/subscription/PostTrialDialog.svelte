@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { postTrialDialog } from '$lib/stores/post-trial-dialog.svelte';
 	import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
+	import { analytics } from '$lib/services/posthog';
 	import { Button } from '$lib/ui/button';
 	import * as Dialog from '$lib/ui/dialog';
 
 	function handleGetPro() {
+		analytics.trackPostTrialGetProClicked();
 		postTrialDialog.close();
 		proPricingDialog.open();
 	}
@@ -25,7 +27,15 @@
 			<Button onclick={handleGetPro} size="sm" class="w-48">
 				Get Pro
 			</Button>
-			<Button onclick={() => postTrialDialog.close()} variant="outline" size="sm" class="w-48">
+			<Button
+				onclick={() => {
+					analytics.trackPostTrialContinueFreeClicked();
+					postTrialDialog.close();
+				}}
+				variant="outline"
+				size="sm"
+				class="w-48"
+			>
 				Continue with Free
 			</Button>
 		</div>

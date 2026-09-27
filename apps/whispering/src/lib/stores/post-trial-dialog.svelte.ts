@@ -5,6 +5,8 @@
  * docs/specs/20260916T160000-pro-trial-and-feature-gating.md.
  */
 
+import { analytics } from '$lib/services/posthog';
+
 let isOpen = $state(false);
 
 export const postTrialDialog = {
@@ -18,6 +20,7 @@ export const postTrialDialog = {
 
 	open() {
 		isOpen = true;
+		analytics.trackPostTrialDialogShown();
 	},
 
 	close() {

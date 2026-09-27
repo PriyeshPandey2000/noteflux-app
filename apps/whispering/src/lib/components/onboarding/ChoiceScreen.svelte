@@ -6,6 +6,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import { celebrate } from './celebrate';
+	import { analytics } from '$lib/services/posthog';
 
 	type Props = {
 		onNext: () => void;
@@ -36,6 +37,7 @@
 	// real. See docs/specs/20260925T113952-anonymous-14-day-trial.md.
 	function handleSignUp() {
 		isWaitingForSignup = true;
+		analytics.trackOnboardingSignupClicked();
 		// Opens the website's sign-up page. Anonymous session tokens are
 		// passed along so the website converts this session instead of
 		// creating a second, disconnected account. Does NOT complete
