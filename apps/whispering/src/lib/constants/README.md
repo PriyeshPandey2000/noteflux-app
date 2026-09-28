@@ -101,7 +101,7 @@ Each category folder has an `index.ts` barrel file that uses **explicit exports*
 
 ```typescript
 // ✅ Good - Explicit exports in barrel files
-export { WHISPERING_URL, WHISPERING_RECORDINGS_PATHNAME } from './urls';
+export { WHISPERING_RECORDINGS_PATHNAME, WHISPERING_SETTINGS_PATHNAME } from './urls';
 export { DEBOUNCE_TIME_MS } from './timing';
 ```
 
@@ -120,7 +120,7 @@ Always import from the category barrel, not the individual files:
 
 ```typescript
 // ✅ Good - Import from category barrels
-import { WHISPERING_URL } from '$lib/constants/app';
+import { WHISPERING_RECORDINGS_PATHNAME } from '$lib/constants/app';
 import { DEFAULT_BITRATE_KBPS, RECORDING_MODES } from '$lib/constants/audio';
 import { IS_MACOS } from '$lib/constants/platform';
 ```
@@ -129,7 +129,7 @@ Don't import from the actual source files:
 
 ```typescript
 // ❌ Bad - Don't bypass the barrel
-import { WHISPERING_URL } from '$lib/constants/app/urls';
+import { WHISPERING_RECORDINGS_PATHNAME } from '$lib/constants/app/urls';
 import { DEFAULT_BITRATE_KBPS } from '$lib/constants/audio/bitrate';
 ```
 
