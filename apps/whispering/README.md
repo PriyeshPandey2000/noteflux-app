@@ -1125,8 +1125,6 @@ NoteFlux is released under the [MIT License](LICENSE). Use it, modify it, learn 
 If you encounter any issues or have suggestions for improvements, please open an issue on the [GitHub issues tab](https://github.com/PriyeshPandey2000/noteflux-app/issues) or contact me via [priyeshpandey2000@gmail.com](mailto:priyeshpandey2000@gmail.com). I really appreciate your feedback!
 
 - Community Chat: [Discord](https://discord.com/invite/T9nanY3aS)
-- Issues and Bug Reports: [GitHub Issues](https://github.com/epicenter-so/epicenter/issues)
-- Feature Discussions: [GitHub Discussions](https://github.com/epicenter-so/epicenter/discussions)
 - Direct Contact: [priyeshpandey2000@gmail.com](mailto:priyeshpandey2000@gmail.com)
 
 ### Sponsors
