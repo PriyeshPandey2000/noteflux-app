@@ -139,6 +139,29 @@ jobs:
             cd apps/whispering/src-tauri/parakeet-cli && bash build.sh
           fi
 
+      # Build stub sidecars for Linux/Windows — both Qwen3-ASR and Parakeet
+      # are macOS-only (MLX/CoreML), but tauri.conf.json's externalBin lists
+      # them unconditionally, so Tauri's bundler requires a binary matching
+      # the current target triple to exist on every platform or the build
+      # fails outright with "resource path ... doesn't exist" (this was
+      # failing on every Linux/Windows release build, unrelated to Parakeet —
+      # confirmed against CI history back to v0.0.23). Using rustc instead of
+      # swiftc since no Swift toolchain is installed on these runners.
+      - name: Build stub sidecars (Linux/Windows only)
+        if: "!startsWith(matrix.platform, 'macos')"
+        shell: bash
+        run: |
+          mkdir -p apps/whispering/src-tauri/binaries
+          EXT=""
+          if [[ "${{ matrix.platform }}" == "windows-latest" ]]; then
+            EXT=".exe"
+          fi
+          TRIPLE=$(rustc -vV | sed -n 's/host: //p')
+          echo 'fn main() { eprintln!("Qwen3-ASR requires macOS (Apple Silicon)."); std::process::exit(1); }' > /tmp/stub-qwen.rs
+          rustc /tmp/stub-qwen.rs -o "apps/whispering/src-tauri/binaries/qwen3-asr-cli-${TRIPLE}${EXT}"
+          echo 'fn main() { eprintln!("Parakeet requires macOS (Apple Silicon)."); std::process::exit(1); }' > /tmp/stub-parakeet.rs
+          rustc /tmp/stub-parakeet.rs -o "apps/whispering/src-tauri/binaries/parakeet-cli-${TRIPLE}${EXT}"
+
       # Install all JavaScript dependencies
       - name: install frontend dependencies
         run: bun install
