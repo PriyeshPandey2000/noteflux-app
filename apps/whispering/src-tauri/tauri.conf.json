@@ -15,7 +15,8 @@
 			"../../../LICENSE"
 		],
 		"externalBin": [
-			"binaries/qwen3-asr-cli"
+			"binaries/qwen3-asr-cli",
+			"binaries/parakeet-cli"
 		],
 		"icon": [
 			"icons/32x32.png",

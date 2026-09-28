@@ -61,6 +61,10 @@
     {
       "identifier": "shell:allow-execute",
       "allow": [{ "name": "qwen3-asr-cli", "sidecar": true, "args": true }]
+    },
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [{ "name": "parakeet-cli", "sidecar": true, "args": true }]
     }
   ]
 }

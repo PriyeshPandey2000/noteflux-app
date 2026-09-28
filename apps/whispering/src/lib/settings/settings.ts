@@ -207,6 +207,7 @@ export const settingsSchema = z.object({
 	'transcription.qwen3asr.modelId': z
 		.string()
 		.default('aufklarer/Qwen3-ASR-0.6B-MLX-4bit'),
+	'transcription.parakeet.modelId': z.string().default('parakeet-v2'),
 	'transcription.speaches.baseUrl': z.string().default('http://localhost:8000'),
 	'transcription.speaches.modelId': z
 		.string()

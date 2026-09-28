@@ -3,6 +3,7 @@ import type { Recording } from '$lib/services/db';
 import { TRANSCRIPTION_SERVICES } from '$lib/constants/transcription/service-config';
 import { NoteFluxErr, type NoteFluxError } from '$lib/result';
 import * as services from '$lib/services';
+import { isParakeetWarmingUp } from '$lib/services/transcription/parakeet';
 import { DEFAULT_QWEN3_ASR_MODEL_ID, isQwen3WarmingUp } from '$lib/services/transcription/qwen3-asr';
 import { settings } from '$lib/stores/settings.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
@@ -384,6 +385,19 @@ async function transcribeBlob(
 					return await services.transcriptions.qwen3asr.transcribe(blob, {
 						outputLanguage: settings.value['transcription.outputLanguage'],
 						modelId: qwenModelId,
+					});
+				}
+				case 'Parakeet': {
+					const parakeetModelId = settings.value['transcription.parakeet.modelId'] as import('$lib/services/transcription/parakeet').ParakeetModelId;
+					if (isParakeetWarmingUp(parakeetModelId)) {
+						toast.info('Setting up local model (first run only)', {
+							description: 'Transcription will begin automatically once ready. This takes 2–4 minutes.',
+							duration: 30000,
+						});
+					}
+					return await services.transcriptions.parakeet.transcribe(blob, {
+						outputLanguage: settings.value['transcription.outputLanguage'],
+						modelId: parakeetModelId,
 					});
 				}
 				// case 'OpenAI':

@@ -12,8 +12,11 @@
 		GroqApiKeyInput,
 		OpenAiApiKeyInput
 	} from '$lib/components/settings';
+	import ParakeetModelCard from '$lib/components/settings/ParakeetModelCard.svelte';
 	import Qwen3ASRModelCard from '$lib/components/settings/Qwen3ASRModelCard.svelte';
 	import {
+		PARAKEET_V2_LANGUAGES_OPTIONS,
+		PARAKEET_V3_LANGUAGES_OPTIONS,
 		QWEN3_ASR_LANGUAGES_OPTIONS,
 		SUPPORTED_LANGUAGES_OPTIONS,
 	} from '$lib/constants/languages';
@@ -182,6 +185,8 @@
 		<ElevenLabsApiKeyInput />
 	{:else if settings.value['transcription.selectedTranscriptionService'] === 'Qwen3ASR'}
 		<Qwen3ASRModelCard />
+	{:else if settings.value['transcription.selectedTranscriptionService'] === 'Parakeet'}
+		<ParakeetModelCard />
 	{:else if settings.value['transcription.selectedTranscriptionService'] === 'speaches'}
 		<div class="space-y-4">
 			<Card.Root>
@@ -361,7 +366,11 @@
 		items={settings.value['transcription.selectedTranscriptionService'] ===
 		'Qwen3ASR'
 			? QWEN3_ASR_LANGUAGES_OPTIONS
-			: SUPPORTED_LANGUAGES_OPTIONS}
+			: settings.value['transcription.selectedTranscriptionService'] === 'Parakeet'
+				? settings.value['transcription.parakeet.modelId'] === 'parakeet-v3'
+					? PARAKEET_V3_LANGUAGES_OPTIONS
+					: PARAKEET_V2_LANGUAGES_OPTIONS
+				: SUPPORTED_LANGUAGES_OPTIONS}
 		selected={settings.value['transcription.outputLanguage']}
 		onSelectedChange={(selected) => {
 			settings.updateKey('transcription.outputLanguage', selected);
@@ -369,7 +378,7 @@
 		placeholder="Select a language"
 	/>
 
-	{#if settings.value['transcription.selectedTranscriptionService'] !== 'Qwen3ASR'}
+	{#if !['Qwen3ASR', 'Parakeet'].includes(settings.value['transcription.selectedTranscriptionService'])}
 		<LabeledInput
 			id="temperature"
 			label="Temperature"

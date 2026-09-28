@@ -41,6 +41,7 @@ export const SUPPORTED_LANGUAGES = [
 	'ms',
 	'mr',
 	'mi',
+	'mt',
 	'ne',
 	'no',
 	'fa',
@@ -105,6 +106,7 @@ const SUPPORTED_LANGUAGES_TO_LABEL = {
 	mk: 'Macedonian',
 	mr: 'Marathi',
 	ms: 'Malay',
+	mt: 'Maltese',
 	ne: 'Nepali',
 	nl: 'Dutch',
 	no: 'Norwegian',
@@ -171,6 +173,58 @@ export const QWEN3_ASR_SUPPORTED_LANGUAGES = [
 ] as const satisfies readonly SupportedLanguage[];
 
 export const QWEN3_ASR_LANGUAGES_OPTIONS = QWEN3_ASR_SUPPORTED_LANGUAGES.map(
+	(lang) =>
+		({ label: SUPPORTED_LANGUAGES_TO_LABEL[lang], value: lang }) as const,
+);
+
+/**
+ * Languages supported by Parakeet v2 (English-only build).
+ */
+export const PARAKEET_V2_SUPPORTED_LANGUAGES = [
+	'auto',
+	'en',
+] as const satisfies readonly SupportedLanguage[];
+
+export const PARAKEET_V2_LANGUAGES_OPTIONS = PARAKEET_V2_SUPPORTED_LANGUAGES.map(
+	(lang) =>
+		({ label: SUPPORTED_LANGUAGES_TO_LABEL[lang], value: lang }) as const,
+);
+
+/**
+ * Languages supported by Parakeet v3 (multilingual build) — 25 European
+ * languages with automatic detection.
+ * Source: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+ */
+export const PARAKEET_V3_SUPPORTED_LANGUAGES = [
+	'auto',
+	'bg',
+	'cs',
+	'da',
+	'de',
+	'el',
+	'en',
+	'es',
+	'et',
+	'fi',
+	'fr',
+	'hr',
+	'hu',
+	'it',
+	'lt',
+	'lv',
+	'mt',
+	'nl',
+	'pl',
+	'pt',
+	'ro',
+	'ru',
+	'sk',
+	'sl',
+	'sv',
+	'uk',
+] as const satisfies readonly SupportedLanguage[];
+
+export const PARAKEET_V3_LANGUAGES_OPTIONS = PARAKEET_V3_SUPPORTED_LANGUAGES.map(
 	(lang) =>
 		({ label: SUPPORTED_LANGUAGES_TO_LABEL[lang], value: lang }) as const,
 );
