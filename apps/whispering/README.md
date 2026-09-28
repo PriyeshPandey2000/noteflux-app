@@ -8,19 +8,19 @@
 
 <p align="center">
   <!-- Latest Version Badge -->
-  <img src="https://img.shields.io/github/v/release/epicenter-so/epicenter?style=flat-square&label=Latest%20Version&color=brightgreen" />
+  <img src="https://img.shields.io/github/v/release/PriyeshPandey2000/noteflux-app?style=flat-square&label=Latest%20Version&color=brightgreen" />
   <!-- License Badge -->
   <a href="LICENSE" target="_blank">
-    <img alt="MIT License" src="https://img.shields.io/github/license/epicenter-so/epicenter.svg?style=flat-square" />
+    <img alt="MIT License" src="https://img.shields.io/github/license/PriyeshPandey2000/noteflux-app.svg?style=flat-square" />
   </a>
   <!-- Platform Support Badges -->
-  <a href="https://github.com/epicenter-so/epicenter/releases" target="_blank">
+  <a href="https://github.com/PriyeshPandey2000/noteflux-app/releases" target="_blank">
     <img alt="macOS" src="https://img.shields.io/badge/-macOS-black?style=flat-square&logo=apple&logoColor=white" />
   </a>
-  <a href="https://github.com/epicenter-so/epicenter/releases" target="_blank">
+  <a href="https://github.com/PriyeshPandey2000/noteflux-app/releases" target="_blank">
     <img alt="Windows" src="https://img.shields.io/badge/-Windows-blue?style=flat-square&logo=windows&logoColor=white" />
   </a>
-  <a href="https://github.com/epicenter-so/epicenter/releases" target="_blank">
+  <a href="https://github.com/PriyeshPandey2000/noteflux-app/releases" target="_blank">
     <img alt="Linux" src="https://img.shields.io/badge/-Linux-yellow?style=flat-square&logo=linux&logoColor=white" />
   </a>
   <!-- Tech Stack Badges -->
@@ -74,8 +74,8 @@ Choose your operating system below and click the download link:
 
 | Architecture | Download | Requirements |
 |-------------|----------|--------------|
-| **Apple Silicon** | [NoteFlux_7.1.1_aarch64.dmg](https://github.com/epicenter-so/epicenter/releases/latest/download/NoteFlux_7.1.1_aarch64.dmg) | M1/M2/M3/M4 Macs |
-| **Intel** | [NoteFlux_7.1.1_x64.dmg](https://github.com/epicenter-so/epicenter/releases/latest/download/NoteFlux_7.1.1_x64.dmg) | Intel-based Macs |
+| **Apple Silicon** | [NoteFlux_7.1.1_aarch64.dmg](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_aarch64.dmg) | M1/M2/M3/M4 Macs |
+| **Intel** | [NoteFlux_7.1.1_x64.dmg](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_x64.dmg) | Intel-based Macs |
 
 > **Not sure which Mac you have?** Click the Apple menu → About This Mac. Look for "Chip" or "Processor":
 > - Apple M1/M2/M3/M4 → Use Apple Silicon version
@@ -100,8 +100,8 @@ Choose your operating system below and click the download link:
 
 | Installer Type | Download | Description |
 |---------------|----------|-------------|
-| **MSI Installer** | [NoteFlux_7.1.1_x64_en-US.msi](https://github.com/epicenter-so/epicenter/releases/latest/download/NoteFlux_7.1.1_x64_en-US.msi) | Recommended Standard Windows installer |
-| **EXE Installer** | [NoteFlux_7.1.1_x64-setup.exe](https://github.com/epicenter-so/epicenter/releases/latest/download/NoteFlux_7.1.1_x64-setup.exe) | Alternative installer option |
+| **MSI Installer** | [NoteFlux_7.1.1_x64_en-US.msi](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_x64_en-US.msi) | Recommended Standard Windows installer |
+| **EXE Installer** | [NoteFlux_7.1.1_x64-setup.exe](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_x64-setup.exe) | Alternative installer option |
 
 #### Installation
 
@@ -121,34 +121,34 @@ NoteFlux will appear in your Start Menu when complete.
 
 | Package Format | Download | Compatible With |
 |---------------|----------|-----------------|
-| **AppImage** | [NoteFlux_7.1.1_amd64.AppImage](https://github.com/epicenter-so/epicenter/releases/latest/download/NoteFlux_7.1.1_amd64.AppImage) | All Linux distributions |
-| **DEB Package** | [NoteFlux_7.1.1_amd64.deb](https://github.com/epicenter-so/epicenter/releases/latest/download/NoteFlux_7.1.1_amd64.deb) | Debian, Ubuntu, Pop!_OS |
-| **RPM Package** | [NoteFlux-7.1.1-1.x86_64.rpm](https://github.com/epicenter-so/epicenter/releases/latest/download/NoteFlux-7.1.1-1.x86_64.rpm) | Fedora, RHEL, openSUSE |
+| **AppImage** | [NoteFlux_7.1.1_amd64.AppImage](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_amd64.AppImage) | All Linux distributions |
+| **DEB Package** | [NoteFlux_7.1.1_amd64.deb](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_amd64.deb) | Debian, Ubuntu, Pop!_OS |
+| **RPM Package** | [NoteFlux-7.1.1-1.x86_64.rpm](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux-7.1.1-1.x86_64.rpm) | Fedora, RHEL, openSUSE |
 
 #### Quick Install Commands
 
 **AppImage** (Universal)
 ```bash
-wget https://github.com/epicenter-so/epicenter/releases/latest/download/NoteFlux_7.1.1_amd64.AppImage
+wget https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_amd64.AppImage
 chmod +x NoteFlux_7.1.1_amd64.AppImage
 ./NoteFlux_7.1.1_amd64.AppImage
 ```
 
 **Debian/Ubuntu**
 ```bash
-wget https://github.com/epicenter-so/epicenter/releases/latest/download/NoteFlux_7.1.1_amd64.deb
+wget https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_amd64.deb
 sudo dpkg -i NoteFlux_7.1.1_amd64.deb
 ```
 
 **Fedora/RHEL**
 ```bash
-wget https://github.com/epicenter-so/epicenter/releases/latest/download/NoteFlux-7.1.1-1.x86_64.rpm
+wget https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux-7.1.1-1.x86_64.rpm
 sudo rpm -i NoteFlux-7.1.1-1.x86_64.rpm
 ```
 
 </details>
 
-> **Links not working?** Find all downloads at [GitHub Releases](https://github.com/epicenter-so/epicenter/releases/latest)
+> **Links not working?** Find all downloads at [GitHub Releases](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest)
 
 <details>
 <summary><strong>Try in Browser (No Download)</strong></summary>
@@ -479,7 +479,7 @@ With Groq (my favorite): $0.02-$0.06/hour. With OpenAI: $0.18-$0.36/hour. Local 
 
 Your recordings stay on your device in IndexedDB. When you transcribe, audio goes directly to your chosen provider using your API key. No middleman servers. For maximum privacy, use local transcription.
 
-Note: we use anonymized event logging with [Aptabase](https://github.com/aptabase), an open-source, privacy-first analytics service. No personal data is attached to any of these events. You can see exactly what events we log [in `analytics.ts`](https://github.com/epicenter-so/epicenter/tree/main/apps/noteflux/src/lib/services/analytics.ts) and where they are logged [by searching for `rpc.analytics.logEvent` in our codebase](https://github.com/search?q=repo%3Aepicenter-so%2Fepicenter+rpc.analytics.logEvent&type=code). You can turn this off in settings at any time.
+Note: we use anonymized event logging with [Aptabase](https://github.com/aptabase), an open-source, privacy-first analytics service. No personal data is attached to any of these events. You can see exactly what events we log [in `analytics.ts`](https://github.com/PriyeshPandey2000/noteflux-app/tree/main/apps/whispering/src/lib/services/analytics.ts) and where they are logged [by searching for `rpc.analytics.logEvent` in our codebase](https://github.com/search?q=repo%3APriyeshPandey2000%2Fnoteflux-app+rpc.analytics.logEvent&type=code). You can turn this off in settings at any time.
 
 ### Can I format the output automatically?
 
@@ -491,7 +491,7 @@ Desktop: Mac (Intel & Apple Silicon), Windows, Linux. Web: Any modern browser at
 
 ### Found a bug?
 
-Open an issue on [GitHub](https://github.com/epicenter-so/epicenter/issues). I actively maintain this and respond quickly.
+Open an issue on [GitHub](https://github.com/PriyeshPandey2000/noteflux-app/issues). I actively maintain this and respond quickly.
 
 ## Development
 
@@ -665,7 +665,7 @@ NoteFlux uses [WellCrafted](https://github.com/wellcrafted-dev/wellcrafted), a l
 
 ### Run NoteFlux in Local Development Mode
 
-1. Clone the repository: `git clone https://github.com/epicenter-so/epicenter.git`
+1. Clone the repository: `git clone https://github.com/PriyeshPandey2000/noteflux-app.git`
 2. Change into the project directory: `cd epicenter`
 3. Install the necessary dependencies: `pnpm i`
 

@@ -3,7 +3,7 @@ name = "noteflux"
 version = "0.0.31"
 description = "A Tauri App"
 authors = ["you"]
-repository = "https://github.com/epicenter-so/epicenter"
+repository = "https://github.com/PriyeshPandey2000/noteflux-app"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

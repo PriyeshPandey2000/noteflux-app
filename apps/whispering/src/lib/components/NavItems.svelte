@@ -45,7 +45,7 @@
 		},
 		// {
 		// 	external: true,
-		// 	href: 'https://github.com/epicenter-so/epicenter',
+		// 	href: 'https://github.com/PriyeshPandey2000/noteflux-app',
 		// 	icon: GithubIcon,
 		// 	label: 'View project on GitHub',
 		// 	type: 'anchor',
