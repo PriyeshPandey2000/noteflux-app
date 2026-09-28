@@ -41,6 +41,7 @@ export const SUPPORTED_LANGUAGES = [
 	'ms',
 	'mr',
 	'mi',
+	'mt',
 	'ne',
 	'no',
 	'fa',
@@ -105,6 +106,7 @@ const SUPPORTED_LANGUAGES_TO_LABEL = {
 	mk: 'Macedonian',
 	mr: 'Marathi',
 	ms: 'Malay',
+	mt: 'Maltese',
 	ne: 'Nepali',
 	nl: 'Dutch',
 	no: 'Norwegian',
@@ -171,6 +173,46 @@ export const QWEN3_ASR_SUPPORTED_LANGUAGES = [
 ] as const satisfies readonly SupportedLanguage[];
 
 export const QWEN3_ASR_LANGUAGES_OPTIONS = QWEN3_ASR_SUPPORTED_LANGUAGES.map(
+	(lang) =>
+		({ label: SUPPORTED_LANGUAGES_TO_LABEL[lang], value: lang }) as const,
+);
+
+/**
+ * Languages supported by Parakeet (CoreML, `aufklarer/Parakeet-TDT-v3-CoreML-INT8-30s`)
+ * — 25 European languages with automatic detection. There is no v2/English-only
+ * build in speech-swift, so this is the only Parakeet model shipped.
+ * Source: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+ */
+export const PARAKEET_SUPPORTED_LANGUAGES = [
+	'auto',
+	'bg',
+	'cs',
+	'da',
+	'de',
+	'el',
+	'en',
+	'es',
+	'et',
+	'fi',
+	'fr',
+	'hr',
+	'hu',
+	'it',
+	'lt',
+	'lv',
+	'mt',
+	'nl',
+	'pl',
+	'pt',
+	'ro',
+	'ru',
+	'sk',
+	'sl',
+	'sv',
+	'uk',
+] as const satisfies readonly SupportedLanguage[];
+
+export const PARAKEET_LANGUAGES_OPTIONS = PARAKEET_SUPPORTED_LANGUAGES.map(
 	(lang) =>
 		({ label: SUPPORTED_LANGUAGES_TO_LABEL[lang], value: lang }) as const,
 );

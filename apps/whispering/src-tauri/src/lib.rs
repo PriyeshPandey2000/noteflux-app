@@ -54,6 +54,20 @@ struct QwenASRDaemon {
 #[cfg(target_os = "macos")]
 struct QwenASRState(std::sync::Arc<std::sync::Mutex<Option<QwenASRDaemon>>>);
 
+// Persistent Parakeet sidecar daemon — same shape as QwenASRDaemon. A separate
+// daemon/state pair (rather than reusing Qwen3ASR's) because the two run as
+// distinct sidecar binaries and only one is ever loaded per selected service.
+#[cfg(target_os = "macos")]
+struct ParakeetDaemon {
+    child: std::process::Child,
+    stdin: std::process::ChildStdin,
+    reader: std::sync::mpsc::Receiver<String>,
+    model_id: String,
+}
+
+#[cfg(target_os = "macos")]
+struct ParakeetState(std::sync::Arc<std::sync::Mutex<Option<ParakeetDaemon>>>);
+
 #[cfg(target_os = "macos")]
 fn make_window_truly_transparent(window: &tauri::WebviewWindow) {
     unsafe {
@@ -397,7 +411,9 @@ pub async fn run() {
     {
         // Kill orphaned daemons from previous crash/force-quit before registering state.
         let _ = std::process::Command::new("pkill").args(["-f", "qwen3-asr-cli"]).output();
+        let _ = std::process::Command::new("pkill").args(["-f", "parakeet-cli"]).output();
         builder = builder.manage(QwenASRState(std::sync::Arc::new(std::sync::Mutex::new(None))));
+        builder = builder.manage(ParakeetState(std::sync::Arc::new(std::sync::Mutex::new(None))));
     }
 
     #[cfg(desktop)]
@@ -454,6 +470,13 @@ pub async fn run() {
         qwen3_asr_model_status,
         download_qwen3_asr_model,
         delete_qwen3_asr_model,
+        // Parakeet local transcription
+        transcribe_parakeet,
+        preload_parakeet,
+        shutdown_parakeet,
+        parakeet_model_status,
+        download_parakeet_model,
+        delete_parakeet_model,
     ]);
 
     #[cfg(not(target_os = "macos"))]
@@ -1184,6 +1207,386 @@ async fn transcribe_qwen3_asr(
             // Protocol corruption — restart daemon on next call.
             let msg = format!("Unexpected sidecar response: {}", response);
             *guard = None;
+            Err(msg)
+        }
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))?
+}
+
+// ---- Parakeet local transcription ----
+// Mirrors the Qwen3-ASR daemon block above 1:1 (same sidecar/IPC shape),
+// just pointed at the parakeet-cli binary and ParakeetState/ParakeetDaemon.
+
+#[cfg(target_os = "macos")]
+fn parakeet_daemon_paths(
+    app_handle: &tauri::AppHandle,
+) -> Result<(std::path::PathBuf, String), String> {
+    use tauri::Manager;
+
+    let metallib_path = app_handle
+        .path()
+        .resource_dir()
+        .map(|d| d.join("default.metallib"))
+        .ok()
+        .filter(|p| p.exists())
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let exe_dir = std::env::current_exe()
+        .map_err(|e| format!("Cannot find exe path: {}", e))?
+        .parent()
+        .ok_or("Exe has no parent dir")?
+        .to_path_buf();
+
+    Ok((exe_dir.join("parakeet-cli"), metallib_path))
+}
+
+#[cfg(target_os = "macos")]
+fn parakeet_ensure_daemon(
+    guard: &mut Option<ParakeetDaemon>,
+    sidecar_bin: &std::path::Path,
+    metallib_path: &str,
+    model_id: &str,
+) -> Result<(), String> {
+    use std::io::BufRead;
+
+    if let Some(existing) = guard.as_ref() {
+        if existing.model_id == model_id {
+            return Ok(());
+        }
+        if let Some(mut old) = guard.take() {
+            old.child.kill().ok();
+            old.child.wait().ok();
+        }
+    }
+
+    let mut cmd = std::process::Command::new(sidecar_bin);
+    cmd.stdin(std::process::Stdio::piped())
+       .stdout(std::process::Stdio::piped())
+       .stderr(std::process::Stdio::inherit())
+       .arg("--model")
+       .arg(model_id);
+
+    if !metallib_path.is_empty() {
+        if let Some(dir) = std::path::Path::new(metallib_path).parent() {
+            cmd.current_dir(dir);
+        }
+    }
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("Failed to spawn parakeet-cli: {}", e))?;
+
+    let stdin = child.stdin.take().ok_or("Failed to get stdin")?;
+    let mut stdout = std::io::BufReader::new(
+        child.stdout.take().ok_or("Failed to get stdout")?
+    );
+
+    let (line_tx, line_rx) = std::sync::mpsc::channel::<String>();
+    std::thread::spawn(move || {
+        use std::io::BufRead;
+        let mut buf = String::new();
+        loop {
+            buf.clear();
+            match stdout.read_line(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(_) => {
+                    if line_tx.send(buf.trim().to_string()).is_err() {
+                        break;
+                    }
+                }
+            }
+        }
+    });
+
+    let mut daemon = ParakeetDaemon { child, stdin, reader: line_rx, model_id: model_id.to_string() };
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(300);
+    loop {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
+            daemon.child.kill().ok();
+            daemon.child.wait().ok();
+            return Err("Parakeet took too long to load (>5 min). Try again — Metal shaders should be cached now.".to_string());
+        }
+        match daemon.reader.recv_timeout(remaining) {
+            Ok(line) if line == "READY" => break,
+            Ok(line) if line.is_empty() => continue,
+            Ok(line) if line.starts_with("LOAD_ERROR:") => {
+                daemon.child.kill().ok();
+                daemon.child.wait().ok();
+                let msg = line["LOAD_ERROR:".len()..].trim();
+                return Err(format!("Parakeet failed to load model: {}", msg));
+            }
+            Ok(line) => {
+                daemon.child.kill().ok();
+                daemon.child.wait().ok();
+                return Err(format!("Sidecar startup error: {}", line));
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                daemon.child.kill().ok();
+                daemon.child.wait().ok();
+                return Err("Parakeet sidecar crashed during model load. Check Console.app for details.".to_string());
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                daemon.child.kill().ok();
+                daemon.child.wait().ok();
+                return Err("Parakeet took too long to load (>5 min). Try again — Metal shaders should be cached now.".to_string());
+            }
+        }
+    }
+
+    *guard = Some(daemon);
+    Ok(())
+}
+
+// Shared between download and delete, not just download — delete used to only
+// `.load()` this (a check, not a claim), so a download could swap it true in
+// the gap between delete's check and its own filesystem work, letting both
+// mutate the same model cache directory concurrently. Both commands now
+// `.swap(true, ...)` to atomically claim exclusive access before touching
+// the cache, same pattern either way.
+#[cfg(target_os = "macos")]
+static PARAKEET_CACHE_OP_IN_PROGRESS: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn parakeet_model_status(
+    model_id: String,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    let (sidecar_bin, _) = parakeet_daemon_paths(&app_handle)?;
+
+    let output = tokio::task::spawn_blocking(move || {
+        std::process::Command::new(&sidecar_bin)
+            .arg("--model").arg(&model_id)
+            .arg("--status")
+            .output()
+            .map_err(|e| format!("Failed to run status check: {}", e))
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))??;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.trim() == "DOWNLOADED" {
+        Ok("downloaded".to_string())
+    } else {
+        Ok("not_downloaded".to_string())
+    }
+}
+
+// Downloads the model, emitting "parakeet-download-progress" events (0-100).
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn download_parakeet_model(
+    model_id: String,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    use std::io::{BufRead, Read};
+    use std::sync::atomic::Ordering;
+    use tauri::Emitter;
+
+    if PARAKEET_CACHE_OP_IN_PROGRESS.swap(true, Ordering::SeqCst) {
+        return Err("Another download or delete is already in progress".to_string());
+    }
+
+    let (sidecar_bin, _) = parakeet_daemon_paths(&app_handle).map_err(|e| {
+        PARAKEET_CACHE_OP_IN_PROGRESS.store(false, Ordering::SeqCst);
+        e
+    })?;
+
+    let result = tokio::task::spawn_blocking(move || {
+        let mut child = std::process::Command::new(&sidecar_bin)
+            .arg("--model").arg(&model_id)
+            .arg("--download")
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to start download: {}", e))?;
+
+        let stdout = std::io::BufReader::new(
+            child.stdout.take().ok_or("Failed to get stdout")?
+        );
+
+        let mut done = false;
+        for line in stdout.lines() {
+            let line = line.map_err(|e| format!("Read error: {}", e))?;
+            let line = line.trim();
+            if let Some(pct_str) = line.strip_prefix("PROGRESS:") {
+                if let Ok(pct) = pct_str.parse::<u32>() {
+                    let _ = app_handle.emit("parakeet-download-progress", pct);
+                }
+            } else if line == "DONE" {
+                done = true;
+            }
+        }
+
+        let mut stderr_text = String::new();
+        if let Some(mut stderr) = child.stderr.take() {
+            let _ = stderr.read_to_string(&mut stderr_text);
+        }
+
+        let status = child.wait().map_err(|e| format!("Wait failed: {}", e))?;
+
+        if done && status.success() {
+            Ok(())
+        } else {
+            Err(format!(
+                "Model download failed: {}",
+                if stderr_text.trim().is_empty() { "unknown error" } else { stderr_text.trim() }
+            ))
+        }
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))
+    .and_then(|r| r);
+
+    PARAKEET_CACHE_OP_IN_PROGRESS.store(false, Ordering::SeqCst);
+    result
+}
+
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn delete_parakeet_model(
+    model_id: String,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, ParakeetState>,
+) -> Result<(), String> {
+    use std::sync::atomic::Ordering;
+
+    if PARAKEET_CACHE_OP_IN_PROGRESS.swap(true, Ordering::SeqCst) {
+        return Err("Another download or delete is already in progress".to_string());
+    }
+
+    let (sidecar_bin, _) = parakeet_daemon_paths(&app_handle).map_err(|e| {
+        PARAKEET_CACHE_OP_IN_PROGRESS.store(false, Ordering::SeqCst);
+        e
+    })?;
+    let daemon_arc = state.0.clone();
+
+    let result = tokio::task::spawn_blocking(move || {
+        let mut guard = daemon_arc.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
+        if guard.as_ref().map(|d| d.model_id == model_id).unwrap_or(false) {
+            if let Some(mut daemon) = guard.take() {
+                let _ = daemon.child.kill();
+                let _ = daemon.child.wait();
+            }
+        }
+
+        let output = std::process::Command::new(&sidecar_bin)
+            .arg("--model").arg(&model_id)
+            .arg("--delete")
+            .output()
+            .map_err(|e| format!("Failed to run delete: {}", e))?;
+
+        if String::from_utf8_lossy(&output.stdout).trim() == "DELETED" {
+            Ok(())
+        } else {
+            Err(format!(
+                "Model delete failed: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            ))
+        }
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))
+    .and_then(|r| r);
+
+    PARAKEET_CACHE_OP_IN_PROGRESS.store(false, Ordering::SeqCst);
+    result
+}
+
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn shutdown_parakeet(
+    state: tauri::State<'_, ParakeetState>,
+) -> Result<(), String> {
+    let daemon_arc = state.0.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut guard = daemon_arc.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
+        if let Some(mut daemon) = guard.take() {
+            daemon.child.kill().ok();
+            daemon.child.wait().ok();
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))?
+}
+
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn preload_parakeet(
+    model_id: String,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, ParakeetState>,
+) -> Result<(), String> {
+    let (sidecar_bin, metallib_path) = parakeet_daemon_paths(&app_handle)?;
+    let daemon_arc = state.0.clone();
+
+    tokio::task::spawn_blocking(move || {
+        let mut guard = daemon_arc.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
+        parakeet_ensure_daemon(&mut guard, &sidecar_bin, &metallib_path, &model_id)
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))?
+}
+
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn transcribe_parakeet(
+    audio_path: String,
+    language: Option<String>,
+    model_id: String,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, ParakeetState>,
+) -> Result<String, String> {
+    use std::io::Write;
+
+    let (sidecar_bin, metallib_path) = parakeet_daemon_paths(&app_handle)?;
+
+    let daemon_arc = state.0.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut guard = daemon_arc.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
+
+        parakeet_ensure_daemon(&mut guard, &sidecar_bin, &metallib_path, &model_id)?;
+
+        let daemon = guard.as_mut().unwrap();
+
+        // On any of the failure paths below, the daemon session is no longer
+        // trusted — drop it. `*guard = None` alone would just leak the Child
+        // handle (dropping it doesn't kill the process on Unix), leaving a
+        // live sidecar with nothing tracking it anymore. Kill + wait first.
+        let discard_daemon = |guard: &mut Option<ParakeetDaemon>| {
+            if let Some(mut dead) = guard.take() {
+                dead.child.kill().ok();
+                dead.child.wait().ok();
+            }
+        };
+
+        let lang = language.unwrap_or_default();
+        if let Err(e) = writeln!(daemon.stdin, "{}\t{}", audio_path, lang) {
+            discard_daemon(&mut guard);
+            return Err(format!("Failed to write to sidecar: {}", e));
+        }
+
+        let response = match daemon.reader.recv_timeout(std::time::Duration::from_secs(30)) {
+            Ok(line) => line,
+            Err(_) => {
+                discard_daemon(&mut guard);
+                return Err("Transcription timed out or sidecar exited".to_string());
+            }
+        };
+
+        if let Some(text) = response.strip_prefix("OK:") {
+            Ok(text.to_string())
+        } else if let Some(err) = response.strip_prefix("ERR:") {
+            Err(format!("Transcription error: {}", err))
+        } else {
+            let msg = format!("Unexpected sidecar response: {}", response);
+            discard_daemon(&mut guard);
             Err(msg)
         }
     })

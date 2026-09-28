@@ -15,7 +15,10 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import { subscription } from '$lib/stores/subscription.svelte';
 	import { postTrialDialog } from '$lib/stores/post-trial-dialog.svelte';
-	import { QWEN3_ASR_SUPPORTED_LANGUAGES } from '$lib/constants/languages';
+	import {
+		PARAKEET_SUPPORTED_LANGUAGES,
+		QWEN3_ASR_SUPPORTED_LANGUAGES,
+	} from '$lib/constants/languages';
 
 	let { children } = $props();
 
@@ -33,6 +36,27 @@
 			).catch((e) => console.error('[qwen3-asr] background warmup failed:', e));
 		} else {
 			services.transcriptions.qwen3asr.shutdown();
+		}
+	});
+
+	// Same warm up/shutdown/language-reset dance as Qwen3ASR above, for Parakeet.
+	// Only one local service can be selected at a time, so exactly one of these
+	// two effects ever preloads a daemon — the other's else-branch shutdown()
+	// call is a harmless no-op when that service was never loaded.
+	$effect(() => {
+		if (settings.value['transcription.selectedTranscriptionService'] === 'Parakeet') {
+			const modelId = settings.value[
+				'transcription.parakeet.modelId'
+			] as import('$lib/services/transcription/parakeet').ParakeetModelId;
+			const lang = settings.value['transcription.outputLanguage'];
+			if (!(PARAKEET_SUPPORTED_LANGUAGES as readonly string[]).includes(lang)) {
+				settings.updateKey('transcription.outputLanguage', 'auto');
+			}
+			services.transcriptions.parakeet
+				.preload(modelId)
+				.catch((e) => console.error('[parakeet] background warmup failed:', e));
+		} else {
+			services.transcriptions.parakeet.shutdown();
 		}
 	});
 
