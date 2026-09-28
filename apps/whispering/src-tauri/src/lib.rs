@@ -1307,6 +1307,7 @@ fn parakeet_ensure_daemon(
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());
         if remaining.is_zero() {
             daemon.child.kill().ok();
+            daemon.child.wait().ok();
             return Err("Parakeet took too long to load (>5 min). Try again — Metal shaders should be cached now.".to_string());
         }
         match daemon.reader.recv_timeout(remaining) {
@@ -1314,19 +1315,23 @@ fn parakeet_ensure_daemon(
             Ok(line) if line.is_empty() => continue,
             Ok(line) if line.starts_with("LOAD_ERROR:") => {
                 daemon.child.kill().ok();
+                daemon.child.wait().ok();
                 let msg = line["LOAD_ERROR:".len()..].trim();
                 return Err(format!("Parakeet failed to load model: {}", msg));
             }
             Ok(line) => {
                 daemon.child.kill().ok();
+                daemon.child.wait().ok();
                 return Err(format!("Sidecar startup error: {}", line));
             }
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
                 daemon.child.kill().ok();
+                daemon.child.wait().ok();
                 return Err("Parakeet sidecar crashed during model load. Check Console.app for details.".to_string());
             }
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                 daemon.child.kill().ok();
+                daemon.child.wait().ok();
                 return Err("Parakeet took too long to load (>5 min). Try again — Metal shaders should be cached now.".to_string());
             }
         }
@@ -1336,8 +1341,14 @@ fn parakeet_ensure_daemon(
     Ok(())
 }
 
+// Shared between download and delete, not just download — delete used to only
+// `.load()` this (a check, not a claim), so a download could swap it true in
+// the gap between delete's check and its own filesystem work, letting both
+// mutate the same model cache directory concurrently. Both commands now
+// `.swap(true, ...)` to atomically claim exclusive access before touching
+// the cache, same pattern either way.
 #[cfg(target_os = "macos")]
-static PARAKEET_DOWNLOAD_IN_PROGRESS: std::sync::atomic::AtomicBool =
+static PARAKEET_CACHE_OP_IN_PROGRESS: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
 #[cfg(target_os = "macos")]
@@ -1377,12 +1388,12 @@ async fn download_parakeet_model(
     use std::sync::atomic::Ordering;
     use tauri::Emitter;
 
-    if PARAKEET_DOWNLOAD_IN_PROGRESS.swap(true, Ordering::SeqCst) {
-        return Err("Download already in progress".to_string());
+    if PARAKEET_CACHE_OP_IN_PROGRESS.swap(true, Ordering::SeqCst) {
+        return Err("Another download or delete is already in progress".to_string());
     }
 
     let (sidecar_bin, _) = parakeet_daemon_paths(&app_handle).map_err(|e| {
-        PARAKEET_DOWNLOAD_IN_PROGRESS.store(false, Ordering::SeqCst);
+        PARAKEET_CACHE_OP_IN_PROGRESS.store(false, Ordering::SeqCst);
         e
     })?;
 
@@ -1432,7 +1443,7 @@ async fn download_parakeet_model(
     .map_err(|e| format!("Task error: {}", e))
     .and_then(|r| r);
 
-    PARAKEET_DOWNLOAD_IN_PROGRESS.store(false, Ordering::SeqCst);
+    PARAKEET_CACHE_OP_IN_PROGRESS.store(false, Ordering::SeqCst);
     result
 }
 
@@ -1445,14 +1456,17 @@ async fn delete_parakeet_model(
 ) -> Result<(), String> {
     use std::sync::atomic::Ordering;
 
-    if PARAKEET_DOWNLOAD_IN_PROGRESS.load(Ordering::SeqCst) {
-        return Err("Cannot delete while a download is in progress".to_string());
+    if PARAKEET_CACHE_OP_IN_PROGRESS.swap(true, Ordering::SeqCst) {
+        return Err("Another download or delete is already in progress".to_string());
     }
 
-    let (sidecar_bin, _) = parakeet_daemon_paths(&app_handle)?;
+    let (sidecar_bin, _) = parakeet_daemon_paths(&app_handle).map_err(|e| {
+        PARAKEET_CACHE_OP_IN_PROGRESS.store(false, Ordering::SeqCst);
+        e
+    })?;
     let daemon_arc = state.0.clone();
 
-    tokio::task::spawn_blocking(move || {
+    let result = tokio::task::spawn_blocking(move || {
         let mut guard = daemon_arc.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
         if guard.as_ref().map(|d| d.model_id == model_id).unwrap_or(false) {
             if let Some(mut daemon) = guard.take() {
@@ -1477,7 +1491,11 @@ async fn delete_parakeet_model(
         }
     })
     .await
-    .map_err(|e| format!("Task error: {}", e))?
+    .map_err(|e| format!("Task error: {}", e))
+    .and_then(|r| r);
+
+    PARAKEET_CACHE_OP_IN_PROGRESS.store(false, Ordering::SeqCst);
+    result
 }
 
 #[cfg(target_os = "macos")]
@@ -1537,16 +1555,27 @@ async fn transcribe_parakeet(
 
         let daemon = guard.as_mut().unwrap();
 
+        // On any of the failure paths below, the daemon session is no longer
+        // trusted — drop it. `*guard = None` alone would just leak the Child
+        // handle (dropping it doesn't kill the process on Unix), leaving a
+        // live sidecar with nothing tracking it anymore. Kill + wait first.
+        let discard_daemon = |guard: &mut Option<ParakeetDaemon>| {
+            if let Some(mut dead) = guard.take() {
+                dead.child.kill().ok();
+                dead.child.wait().ok();
+            }
+        };
+
         let lang = language.unwrap_or_default();
         if let Err(e) = writeln!(daemon.stdin, "{}\t{}", audio_path, lang) {
-            *guard = None;
+            discard_daemon(&mut guard);
             return Err(format!("Failed to write to sidecar: {}", e));
         }
 
         let response = match daemon.reader.recv_timeout(std::time::Duration::from_secs(30)) {
             Ok(line) => line,
             Err(_) => {
-                *guard = None;
+                discard_daemon(&mut guard);
                 return Err("Transcription timed out or sidecar exited".to_string());
             }
         };
@@ -1557,7 +1586,7 @@ async fn transcribe_parakeet(
             Err(format!("Transcription error: {}", err))
         } else {
             let msg = format!("Unexpected sidecar response: {}", response);
-            *guard = None;
+            discard_daemon(&mut guard);
             Err(msg)
         }
     })
