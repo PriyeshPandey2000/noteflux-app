@@ -74,8 +74,8 @@ Choose your operating system below and click the download link:
 
 | Architecture | Download | Requirements |
 |-------------|----------|--------------|
-| **Apple Silicon** | [NoteFlux_7.1.1_aarch64.dmg](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_aarch64.dmg) | M1/M2/M3/M4 Macs |
-| **Intel** | [NoteFlux_7.1.1_x64.dmg](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_x64.dmg) | Intel-based Macs |
+| **Apple Silicon** | [NoteFlux_0.0.31_aarch64.dmg](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_0.0.31_aarch64.dmg) | M1/M2/M3/M4 Macs |
+| **Intel** | [NoteFlux_0.0.31_x64.dmg](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_0.0.31_x64.dmg) | Intel-based Macs |
 
 > **Not sure which Mac you have?** Click the Apple menu → About This Mac. Look for "Chip" or "Processor":
 > - Apple M1/M2/M3/M4 → Use Apple Silicon version
@@ -100,8 +100,8 @@ Choose your operating system below and click the download link:
 
 | Installer Type | Download | Description |
 |---------------|----------|-------------|
-| **MSI Installer** | [NoteFlux_7.1.1_x64_en-US.msi](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_x64_en-US.msi) | Recommended Standard Windows installer |
-| **EXE Installer** | [NoteFlux_7.1.1_x64-setup.exe](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_x64-setup.exe) | Alternative installer option |
+| **MSI Installer** | [NoteFlux_0.0.31_x64_en-US.msi](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_0.0.31_x64_en-US.msi) | Recommended Standard Windows installer |
+| **EXE Installer** | [NoteFlux_0.0.31_x64-setup.exe](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_0.0.31_x64-setup.exe) | Alternative installer option |
 
 #### Installation
 
@@ -121,29 +121,29 @@ NoteFlux will appear in your Start Menu when complete.
 
 | Package Format | Download | Compatible With |
 |---------------|----------|-----------------|
-| **AppImage** | [NoteFlux_7.1.1_amd64.AppImage](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_amd64.AppImage) | All Linux distributions |
-| **DEB Package** | [NoteFlux_7.1.1_amd64.deb](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_amd64.deb) | Debian, Ubuntu, Pop!_OS |
-| **RPM Package** | [NoteFlux-7.1.1-1.x86_64.rpm](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux-7.1.1-1.x86_64.rpm) | Fedora, RHEL, openSUSE |
+| **AppImage** | [NoteFlux_0.0.31_amd64.AppImage](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_0.0.31_amd64.AppImage) | All Linux distributions |
+| **DEB Package** | [NoteFlux_0.0.31_amd64.deb](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_0.0.31_amd64.deb) | Debian, Ubuntu, Pop!_OS |
+| **RPM Package** | [NoteFlux-0.0.31-1.x86_64.rpm](https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux-0.0.31-1.x86_64.rpm) | Fedora, RHEL, openSUSE |
 
 #### Quick Install Commands
 
 **AppImage** (Universal)
 ```bash
-wget https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_amd64.AppImage
-chmod +x NoteFlux_7.1.1_amd64.AppImage
-./NoteFlux_7.1.1_amd64.AppImage
+wget https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_0.0.31_amd64.AppImage
+chmod +x NoteFlux_0.0.31_amd64.AppImage
+./NoteFlux_0.0.31_amd64.AppImage
 ```
 
 **Debian/Ubuntu**
 ```bash
-wget https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_7.1.1_amd64.deb
-sudo dpkg -i NoteFlux_7.1.1_amd64.deb
+wget https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux_0.0.31_amd64.deb
+sudo dpkg -i NoteFlux_0.0.31_amd64.deb
 ```
 
 **Fedora/RHEL**
 ```bash
-wget https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux-7.1.1-1.x86_64.rpm
-sudo rpm -i NoteFlux-7.1.1-1.x86_64.rpm
+wget https://github.com/PriyeshPandey2000/noteflux-app/releases/latest/download/NoteFlux-0.0.31-1.x86_64.rpm
+sudo rpm -i NoteFlux-0.0.31-1.x86_64.rpm
 ```
 
 </details>
