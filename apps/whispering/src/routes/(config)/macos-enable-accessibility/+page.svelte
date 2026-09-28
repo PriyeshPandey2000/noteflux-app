@@ -33,13 +33,7 @@
 		</Card.Header>
 		<Card.Content>
 			<div class="flex flex-col items-center gap-2">
-				<video
-					class="max-w-md"
-					src="https://github.com/epicenter-so/epicenter/releases/download/_assets/macos_enable_accessibility.mp4"
-					autoplay
-					loop
-					controls
-				></video>
+				<!-- TODO: add our own walkthrough video/asset here -->
 				<ol
 					class="text-muted-foreground list-inside list-decimal space-y-1 text-sm leading-7"
 				>
