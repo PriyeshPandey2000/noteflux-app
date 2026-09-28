@@ -16,3 +16,10 @@ binaries/qwen3-asr-cli-x86_64-apple-darwin
 
 # Qwen3-ASR Swift build artifacts
 qwen3-asr-cli/.build/
+
+# Parakeet sidecar binaries (built in CI via parakeet-cli/build.sh)
+binaries/parakeet-cli-aarch64-apple-darwin
+binaries/parakeet-cli-x86_64-apple-darwin
+
+# Parakeet Swift build artifacts
+parakeet-cli/.build/
