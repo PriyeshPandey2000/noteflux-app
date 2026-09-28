@@ -13,21 +13,6 @@
         "turbo": "^2.3.3",
       },
     },
-    "apps/cli": {
-      "name": "@epicenter/cli",
-      "version": "0.0.6",
-      "bin": {
-        "epicenter": "src/index.ts",
-      },
-      "dependencies": {
-        "@epicenter/opencode": "latest",
-        "arktype": "^2.1.20",
-        "get-port": "^7.1.0",
-        "wellcrafted": "^0.21.2",
-        "yargs": "^17.7.2",
-        "zod-openapi": "^5.3.0",
-      },
-    },
     "apps/whispering": {
       "name": "noteflux",
       "version": "0.0.10",
@@ -147,8 +132,6 @@
     "@clack/core": ["@clack/core@1.0.0-alpha.1", "", { "dependencies": { "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-rFbCU83JnN7l3W1nfgCqqme4ZZvTTgsiKQ6FM0l+r0P+o2eJpExcocBUWUIwnDzL76Aca9VhUdWmB2MbUv+Qyg=="],
 
     "@clack/prompts": ["@clack/prompts@1.0.0-alpha.1", "", { "dependencies": { "@clack/core": "1.0.0-alpha.1", "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-07MNT0OsxjKOcyVfX8KhXBhJiyUbDP1vuIAcHc+nx5v93MJO23pX3X/k3bWz6T3rpM9dgWPq90i4Jq7gZAyMbw=="],
-
-    "@epicenter/cli": ["@epicenter/cli@workspace:apps/cli"],
 
     "@epicenter/opencode": ["@epicenter/opencode@0.3.128-epicenter.1", "", { "dependencies": { "@actions/core": "1.11.1", "@actions/github": "6.0.1", "@clack/prompts": "1.0.0-alpha.1", "@hono/zod-validator": "0.4.2", "@modelcontextprotocol/sdk": "1.15.1", "@octokit/graphql": "9.0.1", "@octokit/rest": "22.0.0", "@openauthjs/openauth": "0.4.3", "@opencode-ai/plugin": "0.3.128", "@opencode-ai/sdk": "0.3.128", "@standard-schema/spec": "1.0.0", "@zip.js/zip.js": "2.7.62", "ai": "5.0.0-beta.21", "decimal.js": "10.5.0", "diff": "8.0.2", "gray-matter": "4.0.3", "hono": "4.7.10", "hono-openapi": "0.4.8", "isomorphic-git": "1.32.1", "jsonc-parser": "3.3.1", "minimatch": "10.0.3", "open": "10.1.2", "remeda": "2.26.0", "tree-sitter": "0.22.4", "tree-sitter-bash": "0.23.3", "turndown": "7.2.0", "vscode-jsonrpc": "8.2.1", "xdg-basedir": "5.1.0", "yargs": "18.0.0", "zod": "3.25.49", "zod-openapi": "4.1.0" }, "bin": { "opencode": "src/index.ts" } }, "sha512-ipA3tQucWQX0vNmQMrnZkRQFnkMc119v0zvAhFkcl3GQ4wBxgfYIThfvUAbtQ7yLCy4EDswH4RDwyOFCJoSGzw=="],
 
