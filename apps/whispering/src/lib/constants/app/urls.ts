@@ -1,9 +1,10 @@
-import { APPS } from '$lib/constants/vite';
-
 /**
  * URL and pathname constants for the NoteFlux application
  */
-export const WHISPERING_URL = APPS.AUDIO.URL;
+export const WHISPERING_URL =
+	import.meta.env.MODE === 'production'
+		? 'https://noteflux.bradenwong.com'
+		: 'http://localhost:1420';
 
 export const WHISPERING_URL_WILDCARD = `${WHISPERING_URL}/*` as const;
 
