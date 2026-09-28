@@ -4,24 +4,25 @@ import Foundation
 import Darwin
 @preconcurrency import ParakeetASR
 
-// UNVERIFIED SECTION — see the note in Package.swift.
-// Everything below marked "ParakeetASR API" mirrors qwen3-asr-cli/Sources/QwenASRCLI/main.swift
-// 1:1 (same fromPretrained/transcribe shape used throughout speech-swift's other
-// products), but has not been compiled against the real package yet. Confirm:
-//   - `ParakeetASRModel.fromPretrained(modelId:offlineMode:)` exists with this signature
-//   - `ParakeetDecodingOptions(language:)` is the right options type/field name
-//   - the two model IDs below are what `fromPretrained` actually expects
-// and fix just this file if any of those are wrong — the CLI protocol (--status/
-// --delete/--download/daemon stdin-stdout loop) below is this app's own design,
-// not part of the external package, so it doesn't need re-verifying.
+// Files needed alongside config.json/*.safetensors for a complete Parakeet
+// download — mirrors the additionalFiles list `ParakeetASRModel.fromPretrained`
+// uses internally. The CLI's own --download command (below) has to pass this
+// explicitly since it calls HuggingFaceDownloader directly, not fromPretrained.
+let parakeetAdditionalFiles = [
+    "encoder.mlmodelc/**",
+    "decoder.mlmodelc/**",
+    "joint.mlmodelc/**",
+    "vocab.json",
+]
 
-// Read model ID from --model <id> arg, defaulting to the v2 (English) model.
+// Read model ID from --model <id> arg, defaulting to the only Parakeet model
+// speech-swift ships (there is no v2/English-only build).
 let modelId: String = {
     if let idx = CommandLine.arguments.firstIndex(of: "--model"),
        idx + 1 < CommandLine.arguments.count {
         return CommandLine.arguments[idx + 1]
     }
-    return "parakeet-v2"
+    return "aufklarer/Parakeet-TDT-v3-CoreML-INT8-30s"
 }()
 
 func modelIsDownloaded() -> Bool {
@@ -75,7 +76,7 @@ if CommandLine.arguments.contains("--download") {
             try await HuggingFaceDownloader.downloadWeights(
                 modelId: modelId,
                 to: cacheDir,
-                additionalFiles: [],
+                additionalFiles: parakeetAdditionalFiles,
                 progressHandler: { @Sendable fraction in
                     let pct = Int(fraction * 100)
                     if box.updated(pct) {
@@ -146,8 +147,7 @@ func loadAudio(from path: String) throws -> (samples: [Float], sampleRate: Int) 
 }
 
 // Persistent daemon mode: load model once, then read audio paths from stdin line by line.
-// Each input line: "<audio_path>\t<language>" — language empty for auto-detect
-// (only meaningful for the v3 multilingual model; v2 is English-only).
+// Each input line: "<audio_path>\t<language>" — language empty for auto-detect.
 // Each output line: "OK:<transcript>" or "ERR:<message>".
 // This avoids reloading weights on every transcription call — same daemon
 // shape as qwen3-asr-cli, so the Rust side can reuse its spawn/IPC logic.
@@ -181,8 +181,7 @@ Task {
 
             do {
                 let (samples, sampleRate) = try loadAudio(from: audioPath)
-                let options = ParakeetDecodingOptions(language: language)
-                let text = model.transcribe(audio: samples, sampleRate: sampleRate, options: options)
+                let text = try model.transcribeAudio(samples, sampleRate: sampleRate, language: language)
                 writeLine("OK:" + text.trimmingCharacters(in: .whitespacesAndNewlines))
             } catch {
                 writeLine("ERR:" + error.localizedDescription)

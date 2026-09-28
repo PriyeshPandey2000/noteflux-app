@@ -15,8 +15,7 @@
 	import ParakeetModelCard from '$lib/components/settings/ParakeetModelCard.svelte';
 	import Qwen3ASRModelCard from '$lib/components/settings/Qwen3ASRModelCard.svelte';
 	import {
-		PARAKEET_V2_LANGUAGES_OPTIONS,
-		PARAKEET_V3_LANGUAGES_OPTIONS,
+		PARAKEET_LANGUAGES_OPTIONS,
 		QWEN3_ASR_LANGUAGES_OPTIONS,
 		SUPPORTED_LANGUAGES_OPTIONS,
 	} from '$lib/constants/languages';
@@ -367,9 +366,7 @@
 		'Qwen3ASR'
 			? QWEN3_ASR_LANGUAGES_OPTIONS
 			: settings.value['transcription.selectedTranscriptionService'] === 'Parakeet'
-				? settings.value['transcription.parakeet.modelId'] === 'parakeet-v3'
-					? PARAKEET_V3_LANGUAGES_OPTIONS
-					: PARAKEET_V2_LANGUAGES_OPTIONS
+				? PARAKEET_LANGUAGES_OPTIONS
 				: SUPPORTED_LANGUAGES_OPTIONS}
 		selected={settings.value['transcription.outputLanguage']}
 		onSelectedChange={(selected) => {

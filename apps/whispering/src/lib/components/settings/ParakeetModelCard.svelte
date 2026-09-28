@@ -28,11 +28,12 @@
 		| { step: 'downloaded' }
 		| { step: 'deleting' };
 
-	// Per-model state
-	let modelStates = $state<Record<string, ModelStep>>({
-		'parakeet-v2': { step: 'checking' },
-		'parakeet-v3': { step: 'checking' },
-	});
+	// Per-model state, keyed by the real model id — populated by the $effect
+	// below for whatever's in PARAKEET_MODELS, so this works regardless of
+	// how many models speech-swift ends up shipping.
+	let modelStates = $state<Record<string, ModelStep>>(
+		Object.fromEntries(PARAKEET_MODELS.map((m) => [m.id, { step: 'checking' } as ModelStep])),
+	);
 
 	let deleteDialogOpenFor = $state<string | null>(null);
 	let macOSSupported = $state(true);

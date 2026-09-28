@@ -16,8 +16,7 @@
 	import { subscription } from '$lib/stores/subscription.svelte';
 	import { postTrialDialog } from '$lib/stores/post-trial-dialog.svelte';
 	import {
-		PARAKEET_V2_SUPPORTED_LANGUAGES,
-		PARAKEET_V3_SUPPORTED_LANGUAGES,
+		PARAKEET_SUPPORTED_LANGUAGES,
 		QWEN3_ASR_SUPPORTED_LANGUAGES,
 	} from '$lib/constants/languages';
 
@@ -49,10 +48,8 @@
 			const modelId = settings.value[
 				'transcription.parakeet.modelId'
 			] as import('$lib/services/transcription/parakeet').ParakeetModelId;
-			const supportedLanguages =
-				modelId === 'parakeet-v3' ? PARAKEET_V3_SUPPORTED_LANGUAGES : PARAKEET_V2_SUPPORTED_LANGUAGES;
 			const lang = settings.value['transcription.outputLanguage'];
-			if (!(supportedLanguages as readonly string[]).includes(lang)) {
+			if (!(PARAKEET_SUPPORTED_LANGUAGES as readonly string[]).includes(lang)) {
 				settings.updateKey('transcription.outputLanguage', 'auto');
 			}
 			services.transcriptions.parakeet

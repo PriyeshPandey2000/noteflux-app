@@ -1,7 +1,4 @@
-import {
-	PARAKEET_V2_SUPPORTED_LANGUAGES,
-	PARAKEET_V3_SUPPORTED_LANGUAGES,
-} from '$lib/constants/languages';
+import { PARAKEET_SUPPORTED_LANGUAGES } from '$lib/constants/languages';
 import { NoteFluxErr, type NoteFluxError } from '$lib/result';
 import { version as osVersion } from '@tauri-apps/plugin-os';
 import { join, tempDir } from '@tauri-apps/api/path';
@@ -28,31 +25,27 @@ export function isParakeetWarmingUp(modelId: string): boolean {
 
 export type ParakeetModelStatus = 'downloaded' | 'not_downloaded';
 
+// speech-swift ships exactly one Parakeet model — there is no v2/English-only
+// build (confirmed by grepping the package source). The id here is the real
+// HuggingFace repo id, passed straight through to the Swift sidecar's
+// `fromPretrained(modelId:)`, same pattern as Qwen3-ASR's model ids.
 export const PARAKEET_MODELS = [
 	{
-		id: 'parakeet-v2',
-		label: 'Parakeet v2',
-		size: '~2.47GB',
-		ram: '~3GB',
-		description: 'English only · fastest, lowest hang risk',
-	},
-	{
-		id: 'parakeet-v3',
+		id: 'aufklarer/Parakeet-TDT-v3-CoreML-INT8-30s',
 		label: 'Parakeet v3',
-		size: '~2.51GB',
-		ram: '~3GB',
+		size: '~634MB',
+		ram: '~900MB',
 		description: 'Multilingual · 25 European languages, auto-detect',
 	},
 ] as const;
 
 export type ParakeetModelId = (typeof PARAKEET_MODELS)[number]['id'];
 
-export const DEFAULT_PARAKEET_MODEL_ID: ParakeetModelId = 'parakeet-v2';
+export const DEFAULT_PARAKEET_MODEL_ID: ParakeetModelId =
+	'aufklarer/Parakeet-TDT-v3-CoreML-INT8-30s';
 
-function supportedLanguagesFor(modelId: ParakeetModelId): readonly string[] {
-	return modelId === 'parakeet-v3'
-		? PARAKEET_V3_SUPPORTED_LANGUAGES
-		: PARAKEET_V2_SUPPORTED_LANGUAGES;
+function supportedLanguagesFor(_modelId: ParakeetModelId): readonly string[] {
+	return PARAKEET_SUPPORTED_LANGUAGES;
 }
 
 export function createParakeetService() {
@@ -216,8 +209,8 @@ export function createParakeetService() {
 
 			if (writeError) return Err(writeError);
 
-			// v2 is English-only: anything other than 'en' falls back to auto (which
-			// v2 treats as English anyway). v3 validates against its 25-language list.
+			// Falls back to auto-detect if the selected output language isn't one
+			// of Parakeet's 25 supported languages.
 			const language =
 				options.outputLanguage !== 'auto' &&
 				supportedLanguagesFor(options.modelId).includes(options.outputLanguage)

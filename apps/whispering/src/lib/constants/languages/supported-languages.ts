@@ -178,24 +178,12 @@ export const QWEN3_ASR_LANGUAGES_OPTIONS = QWEN3_ASR_SUPPORTED_LANGUAGES.map(
 );
 
 /**
- * Languages supported by Parakeet v2 (English-only build).
- */
-export const PARAKEET_V2_SUPPORTED_LANGUAGES = [
-	'auto',
-	'en',
-] as const satisfies readonly SupportedLanguage[];
-
-export const PARAKEET_V2_LANGUAGES_OPTIONS = PARAKEET_V2_SUPPORTED_LANGUAGES.map(
-	(lang) =>
-		({ label: SUPPORTED_LANGUAGES_TO_LABEL[lang], value: lang }) as const,
-);
-
-/**
- * Languages supported by Parakeet v3 (multilingual build) — 25 European
- * languages with automatic detection.
+ * Languages supported by Parakeet (CoreML, `aufklarer/Parakeet-TDT-v3-CoreML-INT8-30s`)
+ * — 25 European languages with automatic detection. There is no v2/English-only
+ * build in speech-swift, so this is the only Parakeet model shipped.
  * Source: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
  */
-export const PARAKEET_V3_SUPPORTED_LANGUAGES = [
+export const PARAKEET_SUPPORTED_LANGUAGES = [
 	'auto',
 	'bg',
 	'cs',
@@ -224,7 +212,7 @@ export const PARAKEET_V3_SUPPORTED_LANGUAGES = [
 	'uk',
 ] as const satisfies readonly SupportedLanguage[];
 
-export const PARAKEET_V3_LANGUAGES_OPTIONS = PARAKEET_V3_SUPPORTED_LANGUAGES.map(
+export const PARAKEET_LANGUAGES_OPTIONS = PARAKEET_SUPPORTED_LANGUAGES.map(
 	(lang) =>
 		({ label: SUPPORTED_LANGUAGES_TO_LABEL[lang], value: lang }) as const,
 );

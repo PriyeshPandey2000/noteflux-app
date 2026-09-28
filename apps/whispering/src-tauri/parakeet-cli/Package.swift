@@ -1,15 +1,12 @@
 // swift-tools-version: 6.0
 import PackageDescription
 
-// NOTE: mirrors qwen3-asr-cli/Package.swift. `speech-swift` (the same package
-// that provides Qwen3ASR) also ships a `ParakeetASR` product (CoreML, batch
-// transcription) per its README. The exact product name below is unverified
-// against the actual package source — this session has no Swift toolchain to
-// `swift package resolve` and confirm it — so the first thing to check when
-// building this locally is that `ParakeetASR` is really the product name and
-// that it exposes `ParakeetASRModel.fromPretrained(modelId:)` /
-// `.transcribe(audio:sampleRate:options:)` the way main.swift assumes below.
-// If the real API differs, main.swift is the only file that needs to change.
+// Mirrors qwen3-asr-cli/Package.swift. `speech-swift` (the same package that
+// provides Qwen3ASR) ships `ParakeetASR` (CoreML, batch transcription) as a
+// separate product. Verified against the real package source: the real API
+// is `ParakeetASRModel.fromPretrained(modelId:cacheDir:offlineMode:encoderVariant:progressHandler:)`
+// and `.transcribeAudio(_:sampleRate:language:) throws -> String` — see
+// main.swift.
 let package = Package(
     name: "parakeet-cli",
     platforms: [.macOS(.v15)],
