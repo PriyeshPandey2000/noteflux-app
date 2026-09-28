@@ -665,14 +665,19 @@ NoteFlux uses [WellCrafted](https://github.com/wellcrafted-dev/wellcrafted), a l
 
 ### Run NoteFlux in Local Development Mode
 
-1. Clone the repository: `git clone https://github.com/epicenter-so/epicenter.git`
-2. Change into the project directory: `cd epicenter`
-3. Install the necessary dependencies: `pnpm i`
+1. Clone the repository: `git clone https://github.com/PriyeshPandey2000/noteflux-app.git`
+2. Change into the project directory: `cd noteflux-app`
+3. Install the necessary dependencies: `bun i`
+4. macOS only, one-time: build the local ASR sidecars (Qwen3-ASR and Parakeet run as native Swift binaries, not bundled prebuilt — `bun tauri dev`/`build` will fail with `resource path ... doesn't exist` until these exist):
+   ```bash
+   bash apps/whispering/src-tauri/qwen3-asr-cli/build.sh
+   bash apps/whispering/src-tauri/parakeet-cli/build.sh
+   ```
 
-To run the desktop app and website:
+To run the desktop app:
 ```bash
-cd apps/noteflux
-pnpm tauri dev
+cd apps/whispering
+bun tauri dev
 ```
 
 
@@ -683,12 +688,12 @@ If you have concerns about the installers or want more control, you can build th
 #### Desktop
 
 ```bash
-cd apps/noteflux
-pnpm i
-pnpm tauri build
+cd apps/whispering
+bun i
+bun tauri build
 ```
 
-Find the executable in `apps/noteflux/target/release`
+Find the executable in `apps/whispering/src-tauri/target/release`
 
 
 ### Contributing
