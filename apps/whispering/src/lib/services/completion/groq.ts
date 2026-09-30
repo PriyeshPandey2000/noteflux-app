@@ -1,17 +1,79 @@
 import Groq from 'groq-sdk';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
 
-import type { CompletionService } from './types';
-
 import { CompletionServiceErr } from './types';
 
-export type GroqCompletionService = ReturnType<
-	typeof createGroqCompletionService
->;
+const NOTEFLUX_API_URL = 'https://noteflux.app';
 
-export function createGroqCompletionService(): CompletionService {
+type CompleteOptions = {
+	// Present for BYOK (user's own key, calls Groq directly). Absent for the
+	// embedded/SaaS path, which proxies through noteflux.app using accessToken
+	// instead, so no Groq key ever ships to the client.
+	apiKey?: string;
+	accessToken?: string;
+	model: string;
+	systemPrompt: string;
+	userPrompt: string;
+};
+
+async function completeViaProxy({
+	accessToken,
+	model,
+	systemPrompt,
+	userPrompt,
+}: CompleteOptions) {
+	if (!accessToken) {
+		return CompletionServiceErr({
+			cause: undefined,
+			context: {},
+			message: 'Please sign in to use this feature.',
+		});
+	}
+
+	const { data: response, error: fetchError } = await tryAsync({
+		mapErr: (error) =>
+			CompletionServiceErr({
+				cause: error,
+				context: {},
+				message:
+					'Unable to reach the completion service. This could be a network issue or temporary service interruption.',
+			}),
+		try: () =>
+			fetch(`${NOTEFLUX_API_URL}/api/groq/chat`, {
+				method: 'POST',
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ model, systemPrompt, userPrompt }),
+			}),
+	});
+
+	if (fetchError) return Err(fetchError);
+
+	const body = await response.json();
+
+	if (!response.ok) {
+		return CompletionServiceErr({
+			cause: body,
+			context: { status: response.status },
+			message: body.description ?? `Request failed (${response.status}).`,
+		});
+	}
+
+	return Ok({
+		text: body.text,
+		inputTokens: body.inputTokens ?? 0,
+		outputTokens: body.outputTokens ?? 0,
+	});
+}
+
+export function createGroqCompletionService() {
 	return {
-		async complete({ apiKey, model, systemPrompt, userPrompt }) {
+		async complete(options: CompleteOptions) {
+			const { apiKey, model, systemPrompt, userPrompt } = options;
+			if (!apiKey) return completeViaProxy(options);
+
 			const client = new Groq({ apiKey, dangerouslyAllowBrowser: true });
 			// Call Groq API
 			const { data: completion, error: groqApiError } = await tryAsync({
@@ -150,5 +212,9 @@ export function createGroqCompletionService(): CompletionService {
 		},
 	};
 }
+
+export type GroqCompletionService = ReturnType<
+	typeof createGroqCompletionService
+>;
 
 export const GroqCompletionServiceLive = createGroqCompletionService();

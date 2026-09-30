@@ -8,9 +8,9 @@ import { DEFAULT_QWEN3_ASR_MODEL_ID, isQwen3WarmingUp } from '$lib/services/tran
 import { settings } from '$lib/stores/settings.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
 import { onboardingStore } from '$lib/stores/onboarding.svelte';
+import { auth } from '$lib/stores/auth.svelte';
 import { analytics } from '$lib/services/posthog';
 import { applyDictionary } from '$lib/utils/dictionary';
-import { getGroqApiKey } from '$lib/utils/embedded-keys';
 import { isOnboardingDemoStep } from '$lib/services/onboarding-demo-step';
 import { Err, Ok, partitionResults, type Result } from 'wellcrafted/result';
 
@@ -367,7 +367,8 @@ async function transcribeBlob(
 						});
 					}
 					return await services.transcriptions.groq.transcribe(blob, {
-						apiKey: getGroqApiKey(),
+						apiKey: settings.value['apiKeys.groq'] || undefined,
+						accessToken: auth.state.session?.access_token,
 						modelName: settings.value['transcription.groq.model'],
 						outputLanguage: settings.value['transcription.outputLanguage'],
 						prompt: settings.value['transcription.prompt'],

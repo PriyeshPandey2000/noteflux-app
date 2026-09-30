@@ -8,7 +8,6 @@
 		// OpenAiApiKeyInput,
 	} from '$lib/components/settings';
 	import { Separator } from '$lib/ui/separator';
-	import { isSaaSMode } from '$lib/utils/embedded-keys';
 </script>
 
 <svelte:head>
@@ -28,14 +27,7 @@
 	<!-- <OpenAiApiKeyInput /> -->
 	<!-- <AnthropicApiKeyInput /> -->
 	
-	<!-- Show Groq API key input only in development mode -->
-	{#if !isSaaSMode()}
-		<GroqApiKeyInput />
-	{:else}
-		<div class="text-muted-foreground text-sm italic">
-			✅ API keys are embedded in this build
-		</div>
-	{/if}
+	<GroqApiKeyInput />
 	
 	<!-- <GoogleApiKeyInput /> -->
 	<!-- <ElevenLabsApiKeyInput /> -->
