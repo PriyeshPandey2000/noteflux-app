@@ -5,10 +5,10 @@ import type { SelectionContext } from '$lib/services/clipboard/types';
 import { WHISPERING_RECORDINGS_PATHNAME } from '$lib/constants/app';
 import * as services from '$lib/services';
 import { settings } from '$lib/stores/settings.svelte';
+import { auth } from '$lib/stores/auth.svelte';
 import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
 import { Ok } from 'wellcrafted/result';
-import { getGroqApiKey } from '$lib/utils/embedded-keys';
 import { trackLlmUsage } from '$lib/services/usage-tracking';
 import { isOnboardingDemoStep } from '$lib/services/onboarding-demo-step';
 
@@ -188,17 +188,6 @@ export const delivery = {
 					return Ok(undefined);
 				}
 
-				// Guard: no API key
-				const apiKey = getGroqApiKey();
-				if (!apiKey) {
-					rpc.notify.error.execute({
-						title: '⚠️ No Groq API key',
-						description: 'Add a Groq API key in Settings to use smart editing.',
-						id: toastId,
-					});
-					return Ok(undefined);
-				}
-
 				rpc.notify.loading.execute({
 					title: '✏️ Editing selected text...',
 					description: 'Applying your instruction...',
@@ -216,7 +205,8 @@ export const delivery = {
 
 				const { data: rawEditedText, error: editError } =
 					await services.completions.groq.complete({
-						apiKey,
+						apiKey: settings.value['apiKeys.groq'] || undefined,
+						accessToken: auth.state.session?.access_token,
 						model: 'openai/gpt-oss-120b',
 						systemPrompt:
 							'You are a text replacement engine. Your output is ONLY the replacement text — nothing else.\n\nStrict rules:\n- No preamble. No "Here is...", "Sure!", "The edited text:", or any opener.\n- No surrounding quotes.\n- No code fences unless the input itself is code.\n- Use context_before and context_after (if provided) to match surrounding punctuation, capitalisation, and style — but only output the replacement for selected_text.\n- Preserve original formatting, whitespace, and line breaks unless the instruction requires changing them.\n- Preserve original language unless the instruction is to translate.\n- If the text needs no change, return the original text exactly.',

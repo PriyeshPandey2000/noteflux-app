@@ -13,7 +13,7 @@ import {
 } from '$lib/result';
 import * as services from '$lib/services';
 import { settings } from '$lib/stores/settings.svelte';
-import { getGroqApiKey } from '$lib/utils/embedded-keys';
+import { auth } from '$lib/stores/auth.svelte';
 import { trackLlmUsage } from '$lib/services/usage-tracking';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, isErr, Ok, type Result } from 'wellcrafted/result';
@@ -220,7 +220,8 @@ async function handleStep({
 					const model = step['prompt_transform.inference.provider.Groq.model'];
 					const { data: completionResponse, error: completionError } =
 						await services.completions.groq.complete({
-							apiKey: getGroqApiKey(),
+							apiKey: settings.value['apiKeys.groq'] || undefined,
+							accessToken: auth.state.session?.access_token,
 							model,
 							systemPrompt,
 							userPrompt,

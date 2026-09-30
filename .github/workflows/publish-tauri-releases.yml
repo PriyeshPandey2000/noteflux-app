@@ -208,10 +208,7 @@ jobs:
           
           # Aptabase analytics key
           APTABASE_KEY: ${{ secrets.APTABASE_KEY }}
-          
-          # Embedded Groq API key for SaaS model
-          VITE_EMBEDDED_GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          
+
           # Supabase configuration for authentication
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
