@@ -18,7 +18,6 @@
 			href: '/settings/shortcuts/global', // Direct link to global shortcuts (local shortcuts disabled)
 		},
 		{ title: 'Glance', href: '/settings/glance' },
-		// { title: 'Privacy & Analytics', href: '/settings/analytics' },
 	] satisfies {
 		/**
 		 * If provided, the item is considered active if the current pathname starts with this prefix.
