@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+		html, body {
+			width: 100%;
+			height: 100%;
+			background: transparent !important;
+			overflow: hidden;
+			font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+			-webkit-font-smoothing: antialiased;
+			user-select: none;
+		}
+		#shell {
+			width: 100%;
+			transform: translateY(-100%);
+			opacity: 0;
+			transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 180ms ease;
+		}
+		#shell.open {
+			transform: translateY(0);
+			opacity: 1;
+		}
+		#card {
+			background: #000;
+			color: #fff;
+			border-radius: 0 0 26px 26px;
+			border: 1px solid rgba(255, 255, 255, 0.07);
+			border-top: none;
+			box-shadow: 0 28px 60px -12px rgba(0, 0, 0, 0.7);
+			padding: 0 22px 12px;
+		}
+		header {
+			height: 40px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding-top: 4px;
+		}
+		.brand {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-size: 12px;
+			font-weight: 600;
+			letter-spacing: 0.02em;
+			color: rgba(255, 255, 255, 0.6);
+		}
+		.dot {
+			width: 6px;
+			height: 6px;
+			border-radius: 50%;
+			background: linear-gradient(135deg, #4ade80, #10b981);
+			box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+		}
+		.hint {
+			font-size: 11px;
+			color: rgba(255, 255, 255, 0.35);
+		}
+		kbd {
+			font-family: inherit;
+			font-size: 10.5px;
+			padding: 1px 5px;
+			border-radius: 5px;
+			background: rgba(255, 255, 255, 0.08);
+			color: rgba(255, 255, 255, 0.55);
+			margin: 0 2px;
+		}
+		#question {
+			padding: 6px 0 14px;
+			font-size: 19px;
+			font-weight: 500;
+			letter-spacing: -0.01em;
+			line-height: 1.35;
+			color: rgba(255, 255, 255, 0.92);
+			border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+			max-height: 92px;
+			overflow-y: auto;
+		}
+		#status {
+			display: none;
+			align-items: center;
+			gap: 9px;
+			padding: 16px 2px 6px;
+			font-size: 13px;
+			color: rgba(255, 255, 255, 0.5);
+		}
+		#status.visible {
+			display: flex;
+		}
+		.spinner {
+			width: 14px;
+			height: 14px;
+			border-radius: 50%;
+			border: 2px solid rgba(255, 255, 255, 0.15);
+			border-top-color: #4ade80;
+			animation: spin 0.7s linear infinite;
+		}
+		@keyframes spin {
+			to { transform: rotate(360deg); }
+		}
+		#answer {
+			display: none;
+			margin-top: 14px;
+			padding: 14px 16px;
+			border-radius: 14px;
+			background: rgba(255, 255, 255, 0.04);
+			border: 1px solid rgba(255, 255, 255, 0.07);
+			font-size: 14px;
+			line-height: 1.55;
+			color: rgba(255, 255, 255, 0.85);
+			white-space: pre-wrap;
+			max-height: 200px;
+			overflow-y: auto;
+		}
+		#answer.visible {
+			display: block;
+		}
+		#answer.error {
+			color: #fca5a5;
+			border-color: rgba(252, 165, 165, 0.25);
+		}
+	</style>
+</head>
+<body>
+	<div id="shell">
+		<div id="card">
+			<header>
+				<div class="brand"><span class="dot"></span>Noteflux</div>
+				<div class="hint"><kbd>esc</kbd> to close</div>
+			</header>
+
+			<div id="question"></div>
+
+			<div id="status">
+				<div class="spinner"></div>
+				<span>Thinking...</span>
+			</div>
+
+			<div id="answer"></div>
+		</div>
+	</div>
+
+	<script>
+		const shell = document.getElementById('shell');
+		const questionEl = document.getElementById('question');
+		const statusEl = document.getElementById('status');
+		const answerEl = document.getElementById('answer');
+
+		function hideAnswer() {
+			answerEl.classList.remove('visible', 'error');
+			answerEl.textContent = '';
+		}
+
+		window.resetAskOverlay = function (question) {
+			questionEl.textContent = question || '';
+			hideAnswer();
+			statusEl.classList.add('visible');
+			shell.classList.remove('open');
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => shell.classList.add('open'));
+			});
+		};
+
+		window.showAskResult = function (answer, error) {
+			statusEl.classList.remove('visible');
+			if (error) {
+				answerEl.textContent = error;
+				answerEl.classList.add('error');
+			} else {
+				answerEl.textContent = answer || '';
+			}
+			answerEl.classList.add('visible');
+		};
+
+		function closeOverlay() {
+			shell.classList.remove('open');
+			setTimeout(() => {
+				if (window.__TAURI__) {
+					window.__TAURI__.core.invoke('hide_ask_overlay').catch(() => {});
+				}
+			}, 200);
+		}
+
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				closeOverlay();
+			}
+		});
+	</script>
+</body>
+</html>

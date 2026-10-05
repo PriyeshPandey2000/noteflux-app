@@ -7,6 +7,8 @@ import { settings } from '$lib/stores/settings.svelte';
 import { authRequiredDialog } from '$lib/stores/auth-required-dialog.svelte';
 import { onboardingStore } from '$lib/stores/onboarding.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
+import { trackLlmUsage } from '$lib/services/usage-tracking';
+import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
 import { invoke } from '@tauri-apps/api/core';
 import { nanoid } from 'nanoid/non-secure';
 import { Err, Ok } from 'wellcrafted/result';
@@ -41,6 +43,9 @@ let manualRecordingStartTime: null | number = null;
 
 // Track how the current recording was initiated
 let recordingInitiatedVia: 'global-shortcut' | 'local' | null = null;
+
+// 'ask' recordings send the transcript to the Ask overlay instead of delivering it
+let recordingIntent: 'dictate' | 'ask' = 'dictate';
 
 // Track whether window was focused when recording started
 // Used to determine if we should keep window visible during delivery
@@ -243,6 +248,8 @@ const stopManualRecording = defineMutation({
 		// Log manual recording completion
 		let duration: number | undefined;
 		const initiatedVia = recordingInitiatedVia || 'local';
+		const intent = recordingIntent;
+		recordingIntent = 'dictate';
 		const selectionContext = selectionContextAtRecordingStart;
 		if (manualRecordingStartTime) {
 			duration = Date.now() - manualRecordingStartTime;
@@ -268,6 +275,7 @@ const stopManualRecording = defineMutation({
 				toastId,
 				initiatedVia,
 				selectionContext,
+				intent,
 			});
 		} catch (error) {
 			// Ensure overlay is hidden even if pipeline fails unexpectedly
@@ -459,6 +467,23 @@ const stopVadRecording = defineMutation({
 	},
 });
 
+const toggleAskRecording = defineMutation({
+	mutationKey: ['commands', 'toggleAskRecording'] as const,
+	resultMutationFn: async () => {
+		const { data: currentRecordingId } =
+			await recorder.getCurrentRecordingId.fetch();
+		if (currentRecordingId) {
+			return await stopManualRecording.execute(undefined);
+		}
+		recordingIntent = 'ask';
+		const result = await startManualRecording.execute({
+			initiatedVia: 'global-shortcut',
+		});
+		if (result.error) recordingIntent = 'dictate';
+		return result;
+	},
+});
+
 export const commands = {
 	// Start manual recording
 	startManualRecording,
@@ -467,6 +492,7 @@ export const commands = {
 	cancelManualRecording: defineMutation({
 		mutationKey: ['commands', 'cancelManualRecording'] as const,
 		resultMutationFn: async ({ initiatedVia = 'local' }: { initiatedVia?: 'global-shortcut' | 'local' } = {}) => {
+			recordingIntent = 'dictate';
 			const toastId = nanoid();
 			notify.loading.execute({
 				title: '⏸️ Canceling recording...',
@@ -514,6 +540,7 @@ export const commands = {
 	}),
 	startVadRecording,
 	stopManualRecording,
+	toggleAskRecording,
 
 	stopVadRecording,
 
@@ -624,6 +651,73 @@ export const commands = {
 	}),
 };
 
+const ASK_MODEL = 'openai/gpt-oss-120b';
+
+const ASK_SYSTEM_PROMPT =
+	"You are Noteflux Ask, a quick answer assistant inside a voice-first note app. Answer the user's question directly in plain text. Be concise: a few sentences unless the question needs more. Do not start with a preamble. If you cannot answer reliably, say so briefly.";
+
+/**
+ * Answers a spoken question in the Ask overlay: opens the overlay in its
+ * loading state, asks the model, then fills in the answer or the error.
+ */
+async function answerVoiceQuestion(question: string, toastId: string) {
+	const trimmedQuestion = question.trim();
+	if (!trimmedQuestion) {
+		notify.warning.execute({
+			title: '⚠️ No question heard',
+			description: 'Try asking again.',
+			id: toastId,
+		});
+		return;
+	}
+
+	if (!subscription.hasProAccess) {
+		notify.warning.execute({
+			title: '🔒 This is a Pro feature',
+			description: 'Ask requires Pro. Upgrade to keep using it.',
+			id: toastId,
+			action: {
+				type: 'button',
+				label: 'Get Pro',
+				onClick: () => proPricingDialog.open(),
+			},
+		});
+		return;
+	}
+
+	await invoke('show_ask_overlay', { question: trimmedQuestion });
+
+	const { data: completion, error: completionError } =
+		await services.completions.groq.complete({
+			apiKey: settings.value['apiKeys.groq'] || undefined,
+			accessToken: auth.state.session?.access_token,
+			model: ASK_MODEL,
+			systemPrompt: ASK_SYSTEM_PROMPT,
+			userPrompt: trimmedQuestion,
+		});
+
+	if (completionError) {
+		await invoke('set_ask_overlay_result', {
+			answer: null,
+			error: completionError.message,
+		});
+		return;
+	}
+
+	trackLlmUsage({
+		feature: 'ask',
+		provider: 'groq',
+		model: ASK_MODEL,
+		inputTokens: completion.inputTokens,
+		outputTokens: completion.outputTokens,
+	});
+
+	await invoke('set_ask_overlay_result', {
+		answer: completion.text.trim(),
+		error: null,
+	});
+}
+
 /**
  * Processes a recording through the full pipeline: save → transcribe → transform
  *
@@ -641,6 +735,7 @@ async function processRecordingPipeline({
 	toastId,
 	initiatedVia = 'local',
 	selectionContext = null,
+	intent = 'dictate',
 }: {
 	blob: Blob;
 	completionDescription: string;
@@ -648,6 +743,7 @@ async function processRecordingPipeline({
 	toastId: string;
 	initiatedVia?: 'global-shortcut' | 'local';
 	selectionContext?: SelectionContext | null;
+	intent?: 'dictate' | 'ask';
 }) {
 	const now = new Date().toISOString();
 	const newRecordingId = nanoid();
@@ -719,6 +815,12 @@ async function processRecordingPipeline({
 	}
 
 	sound.playSoundIfEnabled.execute('transcriptionComplete');
+
+	if (intent === 'ask') {
+		await hideRecordingOverlay();
+		await answerVoiceQuestion(transcribedText, transcribeToastId);
+		return;
+	}
 
 	// COMMENTED OUT: Raw text delivery when transformation is selected
 	// This ensures only transformed text goes to clipboard/cursor when transformation is applied
