@@ -7,7 +7,10 @@ import { settings } from '$lib/stores/settings.svelte';
 import { authRequiredDialog } from '$lib/stores/auth-required-dialog.svelte';
 import { onboardingStore } from '$lib/stores/onboarding.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
+import { trackLlmUsage } from '$lib/services/usage-tracking';
+import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
 import { invoke } from '@tauri-apps/api/core';
+import { readImage } from '@tauri-apps/plugin-clipboard-manager';
 import { nanoid } from 'nanoid/non-secure';
 import { Err, Ok } from 'wellcrafted/result';
 
@@ -41,6 +44,9 @@ let manualRecordingStartTime: null | number = null;
 
 // Track how the current recording was initiated
 let recordingInitiatedVia: 'global-shortcut' | 'local' | null = null;
+
+// 'ask' recordings send the transcript to the Ask overlay instead of delivering it
+let recordingIntent: 'dictate' | 'ask' = 'dictate';
 
 // Track whether window was focused when recording started
 // Used to determine if we should keep window visible during delivery
@@ -243,6 +249,8 @@ const stopManualRecording = defineMutation({
 		// Log manual recording completion
 		let duration: number | undefined;
 		const initiatedVia = recordingInitiatedVia || 'local';
+		const intent = recordingIntent;
+		recordingIntent = 'dictate';
 		const selectionContext = selectionContextAtRecordingStart;
 		if (manualRecordingStartTime) {
 			duration = Date.now() - manualRecordingStartTime;
@@ -268,6 +276,7 @@ const stopManualRecording = defineMutation({
 				toastId,
 				initiatedVia,
 				selectionContext,
+				intent,
 			});
 		} catch (error) {
 			// Ensure overlay is hidden even if pipeline fails unexpectedly
@@ -459,6 +468,23 @@ const stopVadRecording = defineMutation({
 	},
 });
 
+const toggleAskRecording = defineMutation({
+	mutationKey: ['commands', 'toggleAskRecording'] as const,
+	resultMutationFn: async () => {
+		const { data: currentRecordingId } =
+			await recorder.getCurrentRecordingId.fetch();
+		if (currentRecordingId) {
+			return await stopManualRecording.execute(undefined);
+		}
+		recordingIntent = 'ask';
+		const result = await startManualRecording.execute({
+			initiatedVia: 'global-shortcut',
+		});
+		if (result.error) recordingIntent = 'dictate';
+		return result;
+	},
+});
+
 export const commands = {
 	// Start manual recording
 	startManualRecording,
@@ -467,6 +493,7 @@ export const commands = {
 	cancelManualRecording: defineMutation({
 		mutationKey: ['commands', 'cancelManualRecording'] as const,
 		resultMutationFn: async ({ initiatedVia = 'local' }: { initiatedVia?: 'global-shortcut' | 'local' } = {}) => {
+			recordingIntent = 'dictate';
 			const toastId = nanoid();
 			notify.loading.execute({
 				title: '⏸️ Canceling recording...',
@@ -514,6 +541,7 @@ export const commands = {
 	}),
 	startVadRecording,
 	stopManualRecording,
+	toggleAskRecording,
 
 	stopVadRecording,
 
@@ -624,6 +652,168 @@ export const commands = {
 	}),
 };
 
+const ASK_MODEL = 'openai/gpt-oss-120b';
+
+const ASK_SYSTEM_PROMPT =
+	"You are Noteflux Ask, a quick answer assistant inside a voice-first note app shown in a small card. Answer the user's question directly. Be concise: a few sentences unless the question needs more. Do not start with a preamble. If you cannot answer reliably, say so briefly. Use simple markdown where it helps: bold for key terms, bullet or numbered lists for multiple items, inline code for code or commands. The card is small, so skip headings, images, and tables.";
+
+/**
+ * Answers a spoken question in the Ask overlay: opens the overlay in its
+ * loading state, asks the model, then fills in the answer or the error.
+ */
+// Recent turns of the open Ask thread, folded into the next prompt as plain
+// text (the completion service only takes a single system/user prompt, not a
+// messages array). Cleared whenever a question opens a fresh panel instead of
+// continuing one that was already on screen. Capped so the prompt doesn't
+// grow unbounded across a long thread.
+let askConversationHistory: Array<{ answer: string; question: string }> = [];
+const ASK_HISTORY_TURN_LIMIT = 6;
+// The clipboard screenshot attached to the current thread, if any. Captured
+// once when a fresh thread starts; follow-up questions in the same thread
+// keep using it rather than re-checking the clipboard each time.
+let askThreadImage: string | null = null;
+
+function buildAskUserPrompt(question: string): string {
+	if (askConversationHistory.length === 0) return question;
+	const transcript = askConversationHistory
+		.map((turn) => `Q: ${turn.question}\nA: ${turn.answer}`)
+		.join('\n\n');
+	return `Earlier in this conversation:\n\n${transcript}
+
+New question: ${question}`;
+}
+
+const ASK_IMAGE_MAX_EDGE = 1536;
+const ASK_THUMBNAIL_MAX_EDGE = 240;
+
+function resizeRgbaToDataUrl(
+	rgba: Uint8Array,
+	width: number,
+	height: number,
+	maxEdge: number,
+	quality: number,
+): string {
+	const sourceCanvas = document.createElement('canvas');
+	sourceCanvas.width = width;
+	sourceCanvas.height = height;
+	const sourceCtx = sourceCanvas.getContext('2d');
+	if (!sourceCtx) throw new Error('Could not get 2d context');
+	sourceCtx.putImageData(new ImageData(new Uint8ClampedArray(rgba), width, height), 0, 0);
+
+	const scale = Math.min(1, maxEdge / Math.max(width, height));
+	const targetWidth = Math.max(1, Math.round(width * scale));
+	const targetHeight = Math.max(1, Math.round(height * scale));
+
+	const targetCanvas = document.createElement('canvas');
+	targetCanvas.width = targetWidth;
+	targetCanvas.height = targetHeight;
+	const targetCtx = targetCanvas.getContext('2d');
+	if (!targetCtx) throw new Error('Could not get 2d context');
+	targetCtx.drawImage(sourceCanvas, 0, 0, targetWidth, targetHeight);
+
+	return targetCanvas.toDataURL('image/jpeg', quality);
+}
+
+/**
+ * Reads an image off the clipboard, if there is one, and produces two JPEGs:
+ * one downscaled for the model (Groq charges a flat per-image token cost
+ * regardless of resolution, so sending more than this buys nothing and only
+ * costs upload time) and one much smaller for the overlay's thumbnail chip.
+ * Returns null for a missing or unreadable clipboard image — that's the
+ * common case (no screenshot copied), not an error.
+ */
+async function captureClipboardImageForAsk(): Promise<{
+	forModel: string;
+	thumbnail: string;
+} | null> {
+	try {
+		const clipboardImage = await readImage();
+		const [rgba, size] = await Promise.all([clipboardImage.rgba(), clipboardImage.size()]);
+		return {
+			forModel: resizeRgbaToDataUrl(rgba, size.width, size.height, ASK_IMAGE_MAX_EDGE, 0.85),
+			thumbnail: resizeRgbaToDataUrl(
+				rgba,
+				size.width,
+				size.height,
+				ASK_THUMBNAIL_MAX_EDGE,
+				0.6,
+			),
+		};
+	} catch {
+		return null;
+	}
+}
+
+async function answerVoiceQuestion(question: string, toastId: string) {
+	const trimmedQuestion = question.trim();
+	if (!trimmedQuestion) {
+		notify.warning.execute({
+			title: '⚠️ No question heard',
+			description: 'Try asking again.',
+			id: toastId,
+		});
+		return;
+	}
+
+	// Run concurrently: the clipboard read is local and cheap, but there's no
+	// reason to wait for it before showing the overlay. If this turns out to
+	// be a follow-up, the capture is simply discarded below.
+	const [isFollowUp, capturedImage] = await Promise.all([
+		invoke<boolean>('show_ask_overlay', { question: trimmedQuestion }),
+		captureClipboardImageForAsk(),
+	]);
+
+	if (!isFollowUp) {
+		askConversationHistory = [];
+		askThreadImage = capturedImage?.forModel ?? null;
+		if (capturedImage) {
+			await invoke('set_ask_overlay_thumbnail', { thumbnail: capturedImage.thumbnail });
+		}
+	}
+
+	const { data: completion, error: completionError } =
+		await services.completions.groq.complete({
+			apiKey: settings.value['apiKeys.groq'] || undefined,
+			accessToken: auth.state.session?.access_token,
+			model: ASK_MODEL,
+			systemPrompt: ASK_SYSTEM_PROMPT,
+			userPrompt: buildAskUserPrompt(trimmedQuestion),
+			// Lets the model search the web when a question needs current
+			// information. tool_choice stays "auto" server-side, so this doesn't
+			// slow down the common case where the model already knows the answer.
+			// Mutually exclusive with an attached image — see groq.ts.
+			enableBrowserSearch: !askThreadImage,
+			imageBase64: askThreadImage ?? undefined,
+		});
+
+	if (completionError) {
+		await invoke('set_ask_overlay_result', {
+			answer: null,
+			error: completionError.message,
+		});
+		return;
+	}
+
+	trackLlmUsage({
+		feature: 'ask',
+		provider: 'groq',
+		model: ASK_MODEL,
+		inputTokens: completion.inputTokens,
+		outputTokens: completion.outputTokens,
+	});
+
+	const answerText = completion.text.trim();
+	askConversationHistory.push({ answer: answerText, question: trimmedQuestion });
+	if (askConversationHistory.length > ASK_HISTORY_TURN_LIMIT) {
+		askConversationHistory.shift();
+	}
+
+	await invoke('set_ask_overlay_result', {
+		answer: answerText,
+		error: null,
+	});
+}
+
 /**
  * Processes a recording through the full pipeline: save → transcribe → transform
  *
@@ -641,6 +831,7 @@ async function processRecordingPipeline({
 	toastId,
 	initiatedVia = 'local',
 	selectionContext = null,
+	intent = 'dictate',
 }: {
 	blob: Blob;
 	completionDescription: string;
@@ -648,6 +839,7 @@ async function processRecordingPipeline({
 	toastId: string;
 	initiatedVia?: 'global-shortcut' | 'local';
 	selectionContext?: SelectionContext | null;
+	intent?: 'dictate' | 'ask';
 }) {
 	const now = new Date().toISOString();
 	const newRecordingId = nanoid();
@@ -719,6 +911,12 @@ async function processRecordingPipeline({
 	}
 
 	sound.playSoundIfEnabled.execute('transcriptionComplete');
+
+	if (intent === 'ask') {
+		await hideRecordingOverlay();
+		await answerVoiceQuestion(transcribedText, transcribeToastId);
+		return;
+	}
 
 	// COMMENTED OUT: Raw text delivery when transformation is selected
 	// This ensures only transformed text goes to clipboard/cursor when transformation is applied

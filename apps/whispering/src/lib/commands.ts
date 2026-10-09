@@ -67,6 +67,12 @@ export const commands = [
 		id: 'cancelManualRecording',
 		on: 'Pressed',
 	},
+	{
+		title: 'Ask Noteflux by voice',
+		callback: () => rpc.commands.toggleAskRecording.execute(undefined),
+		id: 'askOverlay',
+		on: 'Pressed',
+	},
 	// {
 	// 	title: 'Start voice activated recording',
 	// 	callback: () => rpc.commands.startVadRecording.execute(undefined),
@@ -168,4 +174,5 @@ export const globalCommandCallbacks: CommandCallbacks = {
 			initiatedVia: 'global-shortcut',
 		});
 	},
+	askOverlay: () => rpc.commands.toggleAskRecording.execute(undefined),
 };

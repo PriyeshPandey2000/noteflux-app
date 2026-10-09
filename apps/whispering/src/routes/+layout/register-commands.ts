@@ -1,7 +1,7 @@
 import type { Accelerator } from '$lib/services/global-shortcut-manager';
 import type { Settings } from '$lib/settings';
 
-import { commands } from '$lib/commands';
+import { type Command, commands } from '$lib/commands';
 import { rpc } from '$lib/query';
 // Commented out - using global shortcuts only
 // import {
@@ -131,9 +131,20 @@ export async function syncGlobalShortcutsWithSettings() {
 				}
 
 				if (!accelerator) return;
+
+				// Ask follows Recording Mode: hold reports press and release (press
+				// starts, release stops), toggle reports only press.
+				const registeredCommand =
+					command.id === 'askOverlay'
+						? ({
+								...command,
+								on: recordingMode === 'hold' ? 'Both' : 'Pressed',
+							} as Command)
+						: command;
+
 				return rpc.shortcuts.registerCommandGlobally.execute({
 					accelerator,
-					command,
+					command: registeredCommand,
 				});
 			})
 			.filter((result) => result !== undefined),

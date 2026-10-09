@@ -1,4 +1,5 @@
 import Groq from 'groq-sdk';
+import type { ChatCompletion } from 'groq-sdk/resources/chat/completions';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
 
 import { CompletionServiceErr } from './types';
@@ -14,13 +15,26 @@ type CompleteOptions = {
 	model: string;
 	systemPrompt: string;
 	userPrompt: string;
+	// Groq's built-in browser_search tool (gpt-oss models only). Only Ask
+	// sets this — a transformation or inline edit has no business searching
+	// the web mid-dictation.
+	enableBrowserSearch?: boolean;
+	// A data URL (data:image/jpeg;base64,...) to attach to the question, e.g.
+	// a clipboard screenshot. Forces the vision model regardless of the
+	// requested `model`, and is mutually exclusive with enableBrowserSearch —
+	// see the proxy route for why.
+	imageBase64?: string;
 };
+
+const GROQ_VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 
 async function completeViaProxy({
 	accessToken,
 	model,
 	systemPrompt,
 	userPrompt,
+	enableBrowserSearch,
+	imageBase64,
 }: CompleteOptions) {
 	if (!accessToken) {
 		return CompletionServiceErr({
@@ -45,7 +59,13 @@ async function completeViaProxy({
 					Authorization: `Bearer ${accessToken}`,
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ model, systemPrompt, userPrompt }),
+				body: JSON.stringify({
+					model,
+					systemPrompt,
+					userPrompt,
+					enableBrowserSearch,
+					imageBase64,
+				}),
 			}),
 	});
 
@@ -71,7 +91,8 @@ async function completeViaProxy({
 export function createGroqCompletionService() {
 	return {
 		async complete(options: CompleteOptions) {
-			const { apiKey, model, systemPrompt, userPrompt } = options;
+			const { apiKey, model, systemPrompt, userPrompt, enableBrowserSearch, imageBase64 } =
+				options;
 			if (!apiKey) return completeViaProxy(options);
 
 			const client = new Groq({ apiKey, dangerouslyAllowBrowser: true });
@@ -86,14 +107,39 @@ export function createGroqCompletionService() {
 					// Return the error directly
 					return Err(error);
 				},
-				try: () =>
-					client.chat.completions.create({
-						messages: [
-							{ content: systemPrompt, role: 'system' },
-							{ content: userPrompt, role: 'user' },
-						],
-						model,
-					}),
+				try: () => {
+					// An attached image forces the vision model client-side (BYOK has
+					// no server to do this override) — mirrors the proxy route's logic.
+					const effectiveModel = imageBase64 ? GROQ_VISION_MODEL : model;
+					const messages = [
+						{ content: systemPrompt, role: 'system' as const },
+						imageBase64
+							? {
+									role: 'user' as const,
+									content: [
+										{ type: 'text' as const, text: userPrompt },
+										{ type: 'image_url' as const, image_url: { url: imageBase64 } },
+									],
+								}
+							: { content: userPrompt, role: 'user' as const },
+					];
+					// browser_search is a real Groq API tool (gpt-oss models only), but
+					// the installed groq-sdk's types predate it — ChatCompletionTool is
+					// hard-typed to type: 'function' only. The cast is for the SDK's TS
+					// surface, not the request itself; Groq's API accepts this fine.
+					// Mutually exclusive with an attached image — see the proxy route
+					// for why (a screenshot question is answered from the image, and
+					// Groq doesn't document the two working together).
+					if (enableBrowserSearch && !imageBase64) {
+						return client.chat.completions.create({
+							messages,
+							model: effectiveModel,
+							tools: [{ type: 'browser_search' }],
+							tool_choice: 'auto',
+						} as unknown as Parameters<typeof client.chat.completions.create>[0]) as unknown as Promise<ChatCompletion>;
+					}
+					return client.chat.completions.create({ messages, model: effectiveModel });
+				},
 			});
 
 			if (groqApiError) {

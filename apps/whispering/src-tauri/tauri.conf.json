@@ -11,6 +11,8 @@
 		"targets": "all",
 		"resources": [
 			"recording-overlay.html",
+			"ask-notch-strip.html",
+			"notch-status.html",
 			"default.metallib",
 			"../../../LICENSE"
 		],
@@ -62,6 +64,7 @@
 	},
 	"app": {
 		"macOSPrivateApi": true,
+		"withGlobalTauri": true,
 		"windows": [
 			{
 				"resizable": true,
