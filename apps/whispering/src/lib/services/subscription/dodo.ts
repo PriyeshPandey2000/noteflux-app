@@ -75,6 +75,31 @@ export async function createCheckoutSession(
   }
 }
 
+export async function fetchCustomerPortalUrl(
+  accessToken: string
+): Promise<string | null> {
+  try {
+    const response = await fetch(`${NOTEFLUX_API_URL}/api/customer-portal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error('Customer portal request failed:', response.status, await response.text());
+      return null;
+    }
+
+    const data = await response.json();
+    return typeof data.portalUrl === 'string' ? data.portalUrl : null;
+  } catch (error) {
+    console.error('Failed to create customer portal session:', error);
+    return null;
+  }
+}
+
 export async function openCheckoutUrl(checkoutUrl: string): Promise<void> {
   // Use Tauri opener if in desktop app
   if ((window as any).__TAURI_INTERNALS__) {
