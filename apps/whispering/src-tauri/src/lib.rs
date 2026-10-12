@@ -40,15 +40,15 @@ use recorder::commands::{
 };
 
 mod ask_overlay;
-use ask_overlay::{copy_ask_answer, hide_ask_overlay, open_ask_link, set_ask_overlay_result, set_ask_overlay_thumbnail, show_ask_overlay, ASK_OVERLAY_HEIGHT, ASK_OVERLAY_WIDTH};
+use ask_overlay::{copy_ask_answer, hide_ask_overlay, open_ask_link, set_ask_overlay_result, set_ask_overlay_thumbnail, show_ask_overlay, show_ask_overlay_toast, ASK_OVERLAY_HEIGHT, ASK_OVERLAY_WIDTH};
+
+#[cfg(target_os = "macos")]
+mod ocr;
+#[cfg(target_os = "macos")]
+use ocr::extract_text_from_clipboard;
 
 mod notch_status;
 use notch_status::{create_notch_status_at_startup, hide_notch_status, show_notch_status};
-
-#[cfg(target_os = "macos")]
-mod spike_panel;
-#[cfg(target_os = "macos")]
-use spike_panel::{create_spike_panel_at_startup, hide_spike_panel, show_spike_panel, spike_copy};
 
 // Persistent Qwen3-ASR sidecar daemon — model loads once, stays alive.
 // stdout is owned by a background reader thread; lines arrive via `reader`.
@@ -176,17 +176,7 @@ fn create_system_tray(app: &tauri::App) -> Result<(), String> {
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)
         .map_err(|e| format!("Failed to create quit menu item: {}", e))?;
 
-    // Temporary, for the Ask-card redesign spike (see src/spike_panel.rs).
-    // Remove this item along with that module once the test is done.
-    #[cfg(target_os = "macos")]
-    let spike_item = MenuItem::with_id(app, "spike_panel", "Toggle Spike Panel (test)", true, None::<&str>)
-        .map_err(|e| format!("Failed to create spike panel menu item: {}", e))?;
-
     // Create menu
-    #[cfg(target_os = "macos")]
-    let menu = Menu::with_items(app, &[&show_hide_item, &spike_item, &quit_item])
-        .map_err(|e| format!("Failed to create menu: {}", e))?;
-    #[cfg(not(target_os = "macos"))]
     let menu = Menu::with_items(app, &[&show_hide_item, &quit_item])
         .map_err(|e| format!("Failed to create menu: {}", e))?;
     
@@ -550,17 +540,15 @@ pub async fn run() {
         hide_recording_overlay,
         set_overlay_processing,
         show_ask_overlay,
+        show_ask_overlay_toast,
         hide_ask_overlay,
         set_ask_overlay_result,
         set_ask_overlay_thumbnail,
         copy_ask_answer,
         open_ask_link,
+        extract_text_from_clipboard,
         show_notch_status,
         hide_notch_status,
-        // Spike panel (temporary, see src/spike_panel.rs)
-        show_spike_panel,
-        hide_spike_panel,
-        spike_copy,
         // Fn shortcut commands
         register_fn_shortcut,
         unregister_fn_shortcut,
@@ -600,6 +588,7 @@ pub async fn run() {
         hide_recording_overlay,
         set_overlay_processing,
         show_ask_overlay,
+        show_ask_overlay_toast,
         hide_ask_overlay,
         set_ask_overlay_result,
         set_ask_overlay_thumbnail,
@@ -700,13 +689,8 @@ pub async fn run() {
 
     // Same reasoning, for the Ask overlay (UI-only mock for now).
     let _ = create_ask_overlay_at_startup(&app);
-    let _ = ask_overlay::create_ask_notch_strip_at_startup(&app);
 
     let _ = create_notch_status_at_startup(&app);
-
-    // Temporary, for the Ask-card redesign spike. Toggle from the tray menu.
-    #[cfg(target_os = "macos")]
-    let _ = create_spike_panel_at_startup(&app);
 
     // Create system tray
     let _ = create_system_tray(&app);
@@ -842,16 +826,6 @@ pub async fn run() {
                 }
                 "quit" => {
                     handler.exit(0);
-                }
-                #[cfg(target_os = "macos")]
-                "spike_panel" => {
-                    if let Some(panel) = handler.get_webview_window("spike-panel") {
-                        if panel.is_visible().unwrap_or(false) {
-                            spike_panel::hide_spike_panel_sync(handler);
-                        } else {
-                            spike_panel::show_spike_panel_sync(handler);
-                        }
-                    }
                 }
                 _ => {}
             }

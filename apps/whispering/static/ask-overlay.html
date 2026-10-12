@@ -44,7 +44,7 @@
 			padding-top: var(--drop);
 		}
 		#card {
-			background: #000;
+			background: linear-gradient(to bottom, #000 0%, #1e1e1e 100%);
 			color: #fff;
 			border-radius: 14px 14px 22px 22px;
 			border: 1px solid rgba(255, 255, 255, 0.07);
@@ -403,11 +403,19 @@
 			}
 		}
 
+		// Pending auto-dismiss for showOcrToast below — cleared if a real Ask
+		// call interrupts it, so closeOverlay() can't fire mid-conversation.
+		let ocrToastTimer = null;
+
 		// Called every time a question is asked. If the panel is already open,
 		// this is a follow-up: append to the thread instead of clearing it.
 		// Rust decides the same thing independently (was the window already
 		// visible) to reset the model's conversation history in step.
 		window.resetAskOverlay = function (question) {
+			if (ocrToastTimer) {
+				clearTimeout(ocrToastTimer);
+				ocrToastTimer = null;
+			}
 			const isFollowUp = shell.classList.contains('open');
 			if (!isFollowUp) thread.innerHTML = '';
 			const turn = createTurn(question || '');
@@ -419,6 +427,44 @@
 					requestAnimationFrame(() => shell.classList.add('open'));
 				});
 			}
+		};
+
+		// Brief, self-dismissing confirmation — used by background actions
+		// (e.g. extract-text-from-clipboard) that have no other visible
+		// result, triggered by a global shortcut while some other app is
+		// frontmost. Not a Q&A turn, so it clears the thread rather than
+		// appending to it.
+		window.showOcrToast = function (message, isError) {
+			if (ocrToastTimer) {
+				clearTimeout(ocrToastTimer);
+				ocrToastTimer = null;
+			}
+			thread.innerHTML = '';
+			const row = document.createElement('div');
+			row.className = 'turn';
+			const color = isError ? '#fca5a5' : '#4ade80';
+			const icon = isError
+				? '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>'
+				: '<polyline points="20 6 9 17 4 12"></polyline>';
+			row.innerHTML = `
+				<div style="display:flex;align-items:center;gap:10px;padding:6px 2px;">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>
+					<span style="font-size:14px;color:rgba(255,255,255,0.92);"></span>
+				</div>`;
+			row.querySelector('span').textContent = message;
+			thread.appendChild(row);
+
+			if (!shell.classList.contains('open')) {
+				shell.classList.remove('open');
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => shell.classList.add('open'));
+				});
+			}
+
+			ocrToastTimer = setTimeout(() => {
+				ocrToastTimer = null;
+				closeOverlay();
+			}, 2200);
 		};
 
 		// Called once, right after resetAskOverlay, if a clipboard screenshot

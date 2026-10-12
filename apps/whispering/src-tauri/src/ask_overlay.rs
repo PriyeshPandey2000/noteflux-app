@@ -4,8 +4,6 @@
 
 pub const ASK_OVERLAY_WIDTH: f64 = 560.0;
 pub const ASK_OVERLAY_HEIGHT: f64 = 540.0;
-pub const ASK_STRIP_WIDTH: f64 = 260.0;
-pub const ASK_STRIP_HEIGHT: f64 = 34.0;
 
 #[cfg(target_os = "macos")]
 extern "C" {
@@ -260,39 +258,25 @@ fn install_escape_monitors(app_handle: tauri::AppHandle) {
     }
 }
 
-#[tauri::command]
-pub async fn show_ask_overlay(
-    app_handle: tauri::AppHandle,
-    question: String,
-) -> Result<bool, String> {
-    use tauri::Manager;
-    debug_log("show_ask_overlay called");
-    let window = app_handle
-        .get_webview_window("ask-overlay")
-        .ok_or_else(|| "Ask overlay window not found".to_string())?;
-    // Reported back to the caller as "is this a follow-up in the same
-    // thread". Checked before anything below changes visibility.
-    let was_already_visible = window.is_visible().unwrap_or(false);
-    let main_focused = app_handle
-        .get_webview_window("main")
-        .and_then(|main| main.is_focused().ok());
-    debug_log(&format!("main window focused before show: {main_focused:?}"));
-
-    let question_json = serde_json::to_string(&question).map_err(|e| e.to_string())?;
-    window
-        .eval(&format!(
-            "window.resetAskOverlay && window.resetAskOverlay({question_json})"
-        ))
-        .map_err(|e| format!("Failed to reset ask overlay: {}", e))?;
-    // Tauri's show() on macOS calls tao's make_key_and_order_front, which also
-    // activates the app (NSApp activateIgnoringOtherApps). That activation is
-    // what handed focus back to the main window and triggered the old
-    // Focused(false) race. The macOS path below orders the panel front and
-    // makes it key directly, without going through app activation at all.
+// Shared by show_ask_overlay and show_ask_overlay_toast: pins the panel to
+// the notch and orders it front without taking key status or activating the
+// app. See show_ask_overlay's old comment history — Tauri's show() on macOS
+// activates the app via make_key_and_order_front, which used to hand focus
+// back to the main window and trigger a Focused(false) race. This path
+// avoids that entirely.
+fn position_and_order_front(
+    window: &tauri::WebviewWindow,
+    app_handle: &tauri::AppHandle,
+) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
-    window
-        .show()
-        .map_err(|e| format!("Failed to show ask overlay: {}", e))?;
+    {
+        window
+            .show()
+            .map_err(|e| format!("Failed to show ask overlay: {}", e))?;
+        window
+            .set_focus()
+            .map_err(|e| format!("Failed to focus ask overlay: {}", e))?;
+    }
 
     #[cfg(target_os = "macos")]
     {
@@ -318,83 +302,66 @@ pub async fn show_ask_overlay(
             .map_err(|e| format!("Failed to position ask overlay: {}", e))?;
     }
 
-    #[cfg(not(target_os = "macos"))]
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn show_ask_overlay(
+    app_handle: tauri::AppHandle,
+    question: String,
+) -> Result<bool, String> {
+    use tauri::Manager;
+    debug_log("show_ask_overlay called");
+    let window = app_handle
+        .get_webview_window("ask-overlay")
+        .ok_or_else(|| "Ask overlay window not found".to_string())?;
+    // Reported back to the caller as "is this a follow-up in the same
+    // thread". Checked before anything below changes visibility.
+    let was_already_visible = window.is_visible().unwrap_or(false);
+    let main_focused = app_handle
+        .get_webview_window("main")
+        .and_then(|main| main.is_focused().ok());
+    debug_log(&format!("main window focused before show: {main_focused:?}"));
+
+    let question_json = serde_json::to_string(&question).map_err(|e| e.to_string())?;
     window
-        .set_focus()
-        .map_err(|e| format!("Failed to focus ask overlay: {}", e))?;
+        .eval(&format!(
+            "window.resetAskOverlay && window.resetAskOverlay({question_json})"
+        ))
+        .map_err(|e| format!("Failed to reset ask overlay: {}", e))?;
+
+    position_and_order_front(&window, &app_handle)?;
+
     debug_log("overlay shown (no app activation on macOS)");
     Ok(was_already_visible)
 }
 
-pub fn create_ask_notch_strip_at_startup(app: &tauri::App) -> Result<(), String> {
-    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+/// Shows a brief, self-dismissing confirmation in the same notch panel used
+/// for Ask — reuses it rather than a toast because toasts live in the main
+/// window and are invisible whenever that window isn't the one on screen,
+/// which is the common case for something triggered by a global shortcut
+/// while another app is frontmost. The panel is cross-app visible exactly
+/// like Ask's voice answers already are, with no OS notification permission
+/// needed. Auto-hides itself (see showOcrToast in ask-overlay.html).
+#[tauri::command]
+pub async fn show_ask_overlay_toast(
+    app_handle: tauri::AppHandle,
+    message: String,
+    is_error: bool,
+) -> Result<(), String> {
+    use tauri::Manager;
+    let window = app_handle
+        .get_webview_window("ask-overlay")
+        .ok_or_else(|| "Ask overlay window not found".to_string())?;
 
-    let webview_url = if cfg!(dev) {
-        let exe_dir = std::env::current_exe()
-            .map_err(|e| format!("Failed to get executable path: {}", e))?
-            .parent()
-            .ok_or("Failed to get executable directory")?
-            .to_path_buf();
-        let dev_path = exe_dir
-            .parent()
-            .unwrap_or(&exe_dir)
-            .parent()
-            .unwrap_or(&exe_dir)
-            .parent()
-            .unwrap_or(&exe_dir)
-            .join("src-tauri/ask-notch-strip.html");
-        WebviewUrl::External(
-            format!("file://{}", dev_path.display())
-                .parse()
-                .map_err(|e| format!("Failed to parse URL: {}", e))?,
-        )
-    } else {
-        let app_dir = app
-            .path()
-            .resource_dir()
-            .map_err(|e| format!("Failed to get resource directory: {}", e))?;
-        let strip_path = app_dir.join("ask-notch-strip.html");
-        if !strip_path.exists() {
-            return Err(format!(
-                "Ask notch strip file not found at: {}",
-                strip_path.display()
-            ));
-        }
-        WebviewUrl::External(
-            format!("file://{}", strip_path.display())
-                .parse()
-                .map_err(|e| format!("Failed to parse URL: {}", e))?,
-        )
-    };
-
-    let window = WebviewWindowBuilder::new(app, "ask-notch-strip", webview_url)
-        .title("Ask notch")
-        .inner_size(ASK_STRIP_WIDTH, ASK_STRIP_HEIGHT)
-        .decorations(false)
-        .resizable(false)
-        .skip_taskbar(true)
-        .visible_on_all_workspaces(true)
-        .shadow(false)
-        .focused(false)
-        .visible(false)
-        .transparent(true)
-        .content_protected(false)
-        .theme(None)
-        .build()
-        .map_err(|e| format!("Failed to create ask notch strip: {}", e))?;
-
+    let message_json = serde_json::to_string(&message).map_err(|e| e.to_string())?;
     window
-        .set_always_on_top(true)
-        .map_err(|e| format!("Failed to set always on top: {}", e))?;
-    window
-        .set_ignore_cursor_events(true)
-        .map_err(|e| format!("Failed to ignore cursor events: {}", e))?;
+        .eval(&format!(
+            "window.showOcrToast && window.showOcrToast({message_json}, {is_error})"
+        ))
+        .map_err(|e| format!("Failed to show ask overlay toast: {}", e))?;
 
-    #[cfg(target_os = "macos")]
-    {
-        crate::make_window_truly_transparent(&window, 0.0);
-        configure_ask_panel(&window);
-    }
+    position_and_order_front(&window, &app_handle)?;
 
     Ok(())
 }
@@ -466,11 +433,6 @@ pub async fn hide_ask_overlay(app_handle: tauri::AppHandle) -> Result<(), String
         window
             .hide()
             .map_err(|e| format!("Failed to hide ask overlay: {}", e))?;
-    }
-    if let Some(strip) = app_handle.get_webview_window("ask-notch-strip") {
-        strip
-            .hide()
-            .map_err(|e| format!("Failed to hide ask notch strip: {}", e))?;
     }
     Ok(())
 }
