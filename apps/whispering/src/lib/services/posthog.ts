@@ -284,5 +284,39 @@ export const analytics = {
 	trackFirstPostOnboardingRecording() {
 		if (!browser) return;
 		posthog.capture('first_post_onboarding_recording', { ...platformInfo });
+	},
+
+	// Ask (voice Q&A overlay) funnel. isFollowUp/hasImage are properties
+	// rather than separate event names so the funnel stays sliceable in
+	// PostHog without an explosion of near-duplicate event types.
+	trackAskBlockedNotPro() {
+		if (!browser) return;
+		posthog.capture('ask_blocked_not_pro', { ...platformInfo });
+	},
+
+	trackAskQuestionAsked(props: { isFollowUp: boolean; hasImage: boolean }) {
+		if (!browser) return;
+		posthog.capture('ask_question_asked', { ...props, ...platformInfo });
+	},
+
+	trackAskAnswerReceived(props: { isFollowUp: boolean; hasImage: boolean }) {
+		if (!browser) return;
+		posthog.capture('ask_answer_received', { ...props, ...platformInfo });
+	},
+
+	trackAskError(reason: string) {
+		if (!browser) return;
+		posthog.capture('ask_error', { reason, ...platformInfo });
+	},
+
+	// Extract-text-from-clipboard (local OCR) funnel.
+	trackOcrSucceeded(characterCount: number) {
+		if (!browser) return;
+		posthog.capture('ocr_succeeded', { character_count: characterCount, ...platformInfo });
+	},
+
+	trackOcrFailed(reason: string) {
+		if (!browser) return;
+		posthog.capture('ocr_failed', { reason, ...platformInfo });
 	}
 };

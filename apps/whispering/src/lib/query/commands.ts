@@ -739,7 +739,13 @@ async function captureClipboardImageForAsk(): Promise<{
 				0.6,
 			),
 		};
-	} catch {
+	} catch (error) {
+		// Expected when there's genuinely no image on the clipboard — but also
+		// catches real failures (decode errors, oversized representations),
+		// which look identical from the outside without this. Logged, not
+		// surfaced to the user: a failed capture silently falls back to a
+		// text-only question rather than blocking the answer.
+		console.error('[Ask] Failed to read clipboard image:', error);
 		return null;
 	}
 }
@@ -752,6 +758,21 @@ async function answerVoiceQuestion(question: string, toastId: string) {
 			description: 'Try asking again.',
 			id: toastId,
 		});
+		return;
+	}
+
+	// Gated separately from transcription itself — a free user's voice can
+	// still get transcribed (local fallback), but the actual Q&A answer is
+	// Pro-only. Denial goes through the same cross-app-visible overlay panel
+	// used elsewhere (see show_ask_overlay_toast), not a toast — this fires
+	// from a global shortcut, so the main window (where toasts render) is
+	// often not even the frontmost one.
+	if (!subscription.hasProAccess) {
+		analytics.trackAskBlockedNotPro();
+		invoke('show_ask_overlay_toast', {
+			message: 'Ask is a Pro feature — upgrade to use voice Q&A.',
+			isError: true,
+		}).catch(() => {});
 		return;
 	}
 
@@ -771,6 +792,8 @@ async function answerVoiceQuestion(question: string, toastId: string) {
 		}
 	}
 
+	analytics.trackAskQuestionAsked({ isFollowUp, hasImage: !!askThreadImage });
+
 	const { data: completion, error: completionError } =
 		await services.completions.groq.complete({
 			apiKey: settings.value['apiKeys.groq'] || undefined,
@@ -787,6 +810,7 @@ async function answerVoiceQuestion(question: string, toastId: string) {
 		});
 
 	if (completionError) {
+		analytics.trackAskError(completionError.message);
 		await invoke('set_ask_overlay_result', {
 			answer: null,
 			error: completionError.message,
@@ -801,6 +825,7 @@ async function answerVoiceQuestion(question: string, toastId: string) {
 		inputTokens: completion.inputTokens,
 		outputTokens: completion.outputTokens,
 	});
+	analytics.trackAskAnswerReceived({ isFollowUp, hasImage: !!askThreadImage });
 
 	const answerText = completion.text.trim();
 	askConversationHistory.push({ answer: answerText, question: trimmedQuestion });

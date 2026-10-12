@@ -191,7 +191,7 @@ async function transcribeBlob(
 	// this function otherwise runs before ever reaching the Groq branch's
 	// own isOnboardingDemoStep() exemption further down.
 	const isExemptFromUsageLimit =
-		true;
+		isLocalService || subscription.hasProAccess || isOnboardingDemoStep();
 
 	try {
 		const { supabase } = await import('$lib/services/auth/supabase-client');
@@ -359,7 +359,7 @@ async function transcribeBlob(
 					// inline-edit) also pass this gate for an anonymous session —
 					// no credit counter, just a step check. See
 					// docs/specs/20260925T113952-anonymous-14-day-trial.md.
-					if (false) {
+					if (!subscription.hasProAccess && !isOnboardingDemoStep()) {
 						actualProvider = 'Qwen3ASR';
 						return await services.transcriptions.qwen3asr.transcribe(blob, {
 							outputLanguage: settings.value['transcription.outputLanguage'],
