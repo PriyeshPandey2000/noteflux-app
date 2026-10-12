@@ -7,6 +7,7 @@
 
 	const items = [
 		{ title: 'General', href: '/settings' },
+		{ title: 'Account', href: '/settings/account' },
 		{ title: 'Recording', href: '/settings/recording' },
 		{ title: 'Transcription', href: '/settings/transcription' },
 		{ title: 'Dictionary', href: '/settings/dictionary' },

@@ -227,6 +227,8 @@ export const settingsSchema = z.object({
 	'shortcuts.recordingMode': z.enum(['hold', 'toggle']).default('hold'),
 
 	...({
+		'shortcuts.local.askOverlay': z.string().nullable().default(null),
+		'shortcuts.local.extractTextFromClipboard': z.string().nullable().default(null),
 		'shortcuts.local.cancelManualRecording': z.string().nullable().default(null),
 		'shortcuts.local.pushToTalk': z.string().nullable().default(null),
 		// 'shortcuts.local.startManualRecording': z.string().nullable().default(null),
@@ -241,6 +243,14 @@ export const settingsSchema = z.object({
 	>),
 
 	...({
+		'shortcuts.global.askOverlay': z
+			.string()
+			.nullable()
+			.default('Control+Option+Space'),
+		'shortcuts.global.extractTextFromClipboard': z
+			.string()
+			.nullable()
+			.default('Command+Option+T'),
 		'shortcuts.global.cancelManualRecording': z
 			.string()
 			.nullable()

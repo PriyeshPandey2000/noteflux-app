@@ -3,7 +3,8 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": [
-    "main"
+    "main",
+    "ask-overlay"
   ],
   "permissions": [
     "core:default",
@@ -22,6 +23,7 @@
     "process:allow-exit",
     "notification:default",
     "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-read-image",
     "fs:allow-read",
     "fs:allow-write",
     "fs:allow-write-file",
@@ -65,6 +67,10 @@
     {
       "identifier": "shell:allow-execute",
       "allow": [{ "name": "parakeet-cli", "sidecar": true, "args": true }]
+    },
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [{ "name": "ocr-cli", "sidecar": true, "args": true }]
     }
   ]
 }

@@ -23,3 +23,10 @@ binaries/parakeet-cli-x86_64-apple-darwin
 
 # Parakeet Swift build artifacts
 parakeet-cli/.build/
+
+# OCR sidecar binaries (built in CI via ocr-cli/build.sh)
+binaries/ocr-cli-aarch64-apple-darwin
+binaries/ocr-cli-x86_64-apple-darwin
+
+# OCR Swift build artifacts
+ocr-cli/.build/

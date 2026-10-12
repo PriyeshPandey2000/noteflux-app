@@ -152,7 +152,7 @@ export async function trackLlmUsage({
   inputTokens,
   outputTokens,
 }: {
-  feature: 'inline-edit' | 'transformation';
+  feature: 'ask' | 'inline-edit' | 'transformation';
   provider: string;
   model: string;
   inputTokens: number;

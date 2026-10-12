@@ -11,12 +11,14 @@
 		"targets": "all",
 		"resources": [
 			"recording-overlay.html",
+			"notch-status.html",
 			"default.metallib",
 			"../../../LICENSE"
 		],
 		"externalBin": [
 			"binaries/qwen3-asr-cli",
-			"binaries/parakeet-cli"
+			"binaries/parakeet-cli",
+			"binaries/ocr-cli"
 		],
 		"icon": [
 			"icons/32x32.png",
@@ -62,6 +64,7 @@
 	},
 	"app": {
 		"macOSPrivateApi": true,
+		"withGlobalTauri": true,
 		"windows": [
 			{
 				"resizable": true,

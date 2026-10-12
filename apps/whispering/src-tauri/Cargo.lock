@@ -2856,6 +2856,7 @@ name = "noteflux"
 version = "0.0.32"
 dependencies = [
  "accessibility-sys",
+ "block",
  "cocoa",
  "core-foundation 0.9.4",
  "core-foundation-sys",

@@ -5,6 +5,7 @@ import { NoteFluxErr, type NoteFluxError } from '$lib/result';
 import * as services from '$lib/services';
 import { isParakeetWarmingUp } from '$lib/services/transcription/parakeet';
 import { DEFAULT_QWEN3_ASR_MODEL_ID, isQwen3WarmingUp } from '$lib/services/transcription/qwen3-asr';
+import { hideNotchStatus, showNotchStatus } from '$lib/utils/notch-status';
 import { settings } from '$lib/stores/settings.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
 import { onboardingStore } from '$lib/stores/onboarding.svelte';
@@ -14,7 +15,6 @@ import { applyDictionary } from '$lib/utils/dictionary';
 import { isOnboardingDemoStep } from '$lib/services/onboarding-demo-step';
 import { Err, Ok, partitionResults, type Result } from 'wellcrafted/result';
 
-import { toast } from 'svelte-sonner';
 
 import { rpc } from './';
 import { defineMutation, queryClient } from './_client';
@@ -377,29 +377,29 @@ async function transcribeBlob(
 				}
 				case 'Qwen3ASR': {
 					const qwenModelId = settings.value['transcription.qwen3asr.modelId'] as import('$lib/services/transcription/qwen3-asr').Qwen3ASRModelId;
-					if (isQwen3WarmingUp(qwenModelId)) {
-						toast.info('Setting up local model (first run only)', {
-							description: 'Transcription will begin automatically once ready. This takes 2–4 minutes.',
-							duration: 30000,
+					const isWarmingUp = isQwen3WarmingUp(qwenModelId);
+					if (isWarmingUp) await showNotchStatus('Setting up local model', 'First run only · 2–4 minutes');
+					try {
+						return await services.transcriptions.qwen3asr.transcribe(blob, {
+							outputLanguage: settings.value['transcription.outputLanguage'],
+							modelId: qwenModelId,
 						});
+					} finally {
+						if (isWarmingUp) await hideNotchStatus();
 					}
-					return await services.transcriptions.qwen3asr.transcribe(blob, {
-						outputLanguage: settings.value['transcription.outputLanguage'],
-						modelId: qwenModelId,
-					});
 				}
 				case 'Parakeet': {
 					const parakeetModelId = settings.value['transcription.parakeet.modelId'] as import('$lib/services/transcription/parakeet').ParakeetModelId;
-					if (isParakeetWarmingUp(parakeetModelId)) {
-						toast.info('Setting up local model (first run only)', {
-							description: 'Transcription will begin automatically once ready. This takes 2–4 minutes.',
-							duration: 30000,
+					const isWarmingUp = isParakeetWarmingUp(parakeetModelId);
+					if (isWarmingUp) await showNotchStatus('Setting up local model', 'First run only · 2–4 minutes');
+					try {
+						return await services.transcriptions.parakeet.transcribe(blob, {
+							outputLanguage: settings.value['transcription.outputLanguage'],
+							modelId: parakeetModelId,
 						});
+					} finally {
+						if (isWarmingUp) await hideNotchStatus();
 					}
-					return await services.transcriptions.parakeet.transcribe(blob, {
-						outputLanguage: settings.value['transcription.outputLanguage'],
-						modelId: parakeetModelId,
-					});
 				}
 				// case 'OpenAI':
 				// 	return await services.transcriptions.openai.transcribe(blob, {

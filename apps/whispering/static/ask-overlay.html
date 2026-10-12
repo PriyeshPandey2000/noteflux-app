@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<script src="vendor/marked.min.js"></script>
+	<script src="vendor/purify.min.js"></script>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+		html, body {
+			width: 100%;
+			height: 100%;
+			background: transparent !important;
+			overflow: hidden;
+			font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+			-webkit-font-smoothing: antialiased;
+			user-select: none;
+		}
+		#question,
+		#answer {
+			user-select: text;
+			-webkit-user-select: text;
+		}
+		#shell {
+			width: 100%;
+			transform: translateY(-100%);
+			opacity: 0;
+			transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 180ms ease;
+		}
+		#shell.open {
+			transform: translateY(0);
+			opacity: 1;
+		}
+		:root {
+			--drop: 38px;
+			--flare: 16px;
+			--neck-width: 232px;
+		}
+		#shell {
+			position: relative;
+			padding-top: var(--drop);
+		}
+		#card {
+			background: linear-gradient(to bottom, #000 0%, #1e1e1e 100%);
+			color: #fff;
+			border-radius: 14px 14px 22px 22px;
+			border: 1px solid rgba(255, 255, 255, 0.07);
+			border-top: none;
+			padding: 0 22px 12px;
+		}
+		/* Black tab over the notch, reaching down to the card's top edge. Its two
+		   pseudo-elements are the concave shoulders that flare it out into the card. */
+		#neck {
+			position: absolute;
+			top: 0;
+			left: calc(50% - var(--neck-width) / 2);
+			width: var(--neck-width);
+			height: var(--drop);
+			background: #000;
+		}
+		#neck::before,
+		#neck::after {
+			content: '';
+			position: absolute;
+			top: calc(100% - var(--flare));
+			width: var(--flare);
+			height: var(--flare);
+		}
+		#neck::before {
+			left: calc(var(--flare) * -1);
+			background: radial-gradient(circle at 0 0, transparent var(--flare), #000 calc(var(--flare) + 0.5px));
+		}
+		#neck::after {
+			right: calc(var(--flare) * -1);
+			background: radial-gradient(circle at 100% 0, transparent var(--flare), #000 calc(var(--flare) + 0.5px));
+		}
+		header {
+			height: 40px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding-top: 4px;
+		}
+		.brand {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-size: 12px;
+			font-weight: 600;
+			letter-spacing: 0.02em;
+			color: rgba(255, 255, 255, 0.6);
+		}
+		.dot {
+			width: 6px;
+			height: 6px;
+			border-radius: 50%;
+			background: linear-gradient(135deg, #4ade80, #10b981);
+			box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+		}
+		.header-right {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+		.hint {
+			font-size: 11px;
+			color: rgba(255, 255, 255, 0.35);
+		}
+		#close-btn {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 22px;
+			height: 22px;
+			border: none;
+			border-radius: 6px;
+			background: transparent;
+			color: rgba(255, 255, 255, 0.45);
+			cursor: pointer;
+		}
+		#close-btn:hover {
+			background: rgba(255, 255, 255, 0.08);
+			color: rgba(255, 255, 255, 0.85);
+		}
+		#close-btn svg {
+			width: 13px;
+			height: 13px;
+		}
+		kbd {
+			font-family: inherit;
+			font-size: 10.5px;
+			padding: 1px 5px;
+			border-radius: 5px;
+			background: rgba(255, 255, 255, 0.08);
+			color: rgba(255, 255, 255, 0.55);
+			margin: 0 2px;
+		}
+		#thread {
+			max-height: 420px;
+			overflow-y: auto;
+			scrollbar-width: thin;
+			scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+		}
+		#thread::-webkit-scrollbar {
+			width: 6px;
+		}
+		#thread::-webkit-scrollbar-thumb {
+			background: rgba(255, 255, 255, 0.25);
+			border-radius: 3px;
+		}
+		#thread::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		.turn {
+			padding-top: 6px;
+		}
+		.turn + .turn {
+			margin-top: 16px;
+			padding-top: 14px;
+			border-top: 1px solid rgba(255, 255, 255, 0.07);
+		}
+		.turn-question {
+			padding-bottom: 10px;
+			font-size: 14.5px;
+			font-weight: 500;
+			letter-spacing: -0.01em;
+			line-height: 1.35;
+			color: rgba(255, 255, 255, 0.92);
+			border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+		}
+		.turn-thumb {
+			display: none;
+			max-height: 72px;
+			max-width: 140px;
+			border-radius: 8px;
+			border: 1px solid rgba(255, 255, 255, 0.12);
+			margin-top: 8px;
+			object-fit: cover;
+		}
+		.turn-thumb.visible {
+			display: block;
+		}
+		.turn-status {
+			display: none;
+			align-items: center;
+			gap: 9px;
+			padding: 16px 2px 6px;
+			font-size: 13px;
+			color: rgba(255, 255, 255, 0.5);
+		}
+		.turn-status.visible {
+			display: flex;
+		}
+		.spinner {
+			width: 14px;
+			height: 14px;
+			border-radius: 50%;
+			border: 2px solid rgba(255, 255, 255, 0.15);
+			border-top-color: #4ade80;
+			animation: spin 0.7s linear infinite;
+		}
+		@keyframes spin {
+			to { transform: rotate(360deg); }
+		}
+		.turn-answer-wrap {
+			position: relative;
+		}
+		.turn-answer {
+			display: none;
+			margin-top: 14px;
+			padding: 14px 40px 14px 16px;
+			border-radius: 14px;
+			background: rgba(255, 255, 255, 0.04);
+			border: 1px solid rgba(255, 255, 255, 0.07);
+			font-size: 14px;
+		}
+		.turn-answer p {
+			margin: 0 0 10px;
+		}
+		.turn-answer p:last-child {
+			margin-bottom: 0;
+		}
+		.turn-answer ul,
+		.turn-answer ol {
+			margin: 0 0 10px;
+			padding-left: 20px;
+		}
+		.turn-answer li {
+			margin-bottom: 4px;
+		}
+		.turn-answer strong {
+			color: #fff;
+			font-weight: 600;
+		}
+		.turn-answer code {
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: 4px;
+			padding: 1px 5px;
+			font-size: 0.9em;
+			font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+		}
+		.turn-answer pre {
+			background: rgba(0, 0, 0, 0.4);
+			border-radius: 8px;
+			padding: 10px 12px;
+			overflow-x: auto;
+			margin: 0 0 10px;
+		}
+		.turn-answer pre code {
+			background: none;
+			padding: 0;
+		}
+		.turn-answer a {
+			color: #86efac;
+			text-decoration: underline;
+			cursor: pointer;
+		}
+		.turn-answer blockquote {
+			margin: 0 0 10px;
+			padding-left: 12px;
+			border-left: 2px solid rgba(255, 255, 255, 0.2);
+			color: rgba(255, 255, 255, 0.65);
+		}
+		.turn-answer table {
+			border-collapse: collapse;
+			margin: 0 0 10px;
+			font-size: 0.92em;
+			display: block;
+			overflow-x: auto;
+		}
+		.turn-answer th,
+		.turn-answer td {
+			border: 1px solid rgba(255, 255, 255, 0.12);
+			padding: 4px 8px;
+			text-align: left;
+			line-height: 1.55;
+			color: rgba(255, 255, 255, 0.85);
+			white-space: pre-wrap;
+		}
+		.turn-answer.visible {
+			display: block;
+		}
+		.turn-answer.error {
+			color: #fca5a5;
+			border-color: rgba(252, 165, 165, 0.25);
+		}
+		.turn-copy-btn {
+			display: none;
+			position: absolute;
+			top: 22px;
+			right: 10px;
+			width: 24px;
+			height: 24px;
+			align-items: center;
+			justify-content: center;
+			border: none;
+			border-radius: 6px;
+			background: transparent;
+			color: rgba(255, 255, 255, 0.45);
+			cursor: pointer;
+		}
+		.turn-copy-btn:hover {
+			background: rgba(255, 255, 255, 0.08);
+			color: rgba(255, 255, 255, 0.85);
+		}
+		.turn-copy-btn.visible {
+			display: flex;
+		}
+		.turn-copy-btn svg {
+			width: 14px;
+			height: 14px;
+		}
+	</style>
+</head>
+<body>
+	<div id="shell">
+		<div id="neck"></div>
+		<div id="card">
+			<header>
+				<div class="brand"><span class="dot"></span>Noteflux</div>
+				<div class="header-right">
+					<div class="hint"><kbd>esc</kbd> to close</div>
+					<button id="close-btn" type="button" aria-label="Close">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="18" y1="6" x2="6" y2="18"></line>
+							<line x1="6" y1="6" x2="18" y2="18"></line>
+						</svg>
+					</button>
+				</div>
+			</header>
+
+			<div id="thread"></div>
+		</div>
+	</div>
+
+	<script>
+		const shell = document.getElementById('shell');
+		const thread = document.getElementById('thread');
+
+		// Each call creates its own <div class="turn">, with its own spinner,
+		// answer box, and copy button — the thread is just these stacked up.
+		function createTurn(question) {
+			const turn = document.createElement('div');
+			turn.className = 'turn';
+			turn.innerHTML = `
+				<div class="turn-question"></div>
+				<img class="turn-thumb" alt="Attached screenshot" />
+				<div class="turn-status visible">
+					<div class="spinner"></div>
+					<span>Thinking...</span>
+				</div>
+				<div class="turn-answer-wrap">
+					<div class="turn-answer"></div>
+					<button class="turn-copy-btn" type="button" aria-label="Copy answer" title="Copy answer">
+						<svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<rect x="9" y="9" width="11" height="11" rx="2"></rect>
+							<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+						</svg>
+						<svg class="copied-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+							<polyline points="20 6 9 17 4 12"></polyline>
+						</svg>
+					</button>
+				</div>`;
+			turn.querySelector('.turn-question').textContent = question;
+			turn.querySelector('.turn-copy-btn').addEventListener('click', async () => {
+				const answerEl = turn.querySelector('.turn-answer');
+				const copyIcon = turn.querySelector('.copy-icon');
+				const copiedIcon = turn.querySelector('.copied-icon');
+				try {
+					if (window.__TAURI__) {
+						await window.__TAURI__.core.invoke('copy_ask_answer', { text: answerEl.textContent });
+					}
+					copyIcon.style.display = 'none';
+					copiedIcon.style.display = '';
+					setTimeout(() => {
+						copyIcon.style.display = '';
+						copiedIcon.style.display = 'none';
+					}, 1200);
+				} catch (e) {
+					console.error('Failed to copy answer', e);
+				}
+			});
+			return turn;
+		}
+
+		// turn.offsetTop is relative to #shell (the nearest positioned
+		// ancestor of both .turn and #thread, since #thread itself has no
+		// position set) — not relative to #thread's own scroll content. The
+		// difference against thread.offsetTop (relative to the same #shell)
+		// gives the turn's actual position inside the scroll container.
+		// Keeps the question on screen; if the answer is short enough to fit
+		// below it, the whole turn ends up visible with no scrolling needed.
+		function scrollToShowTurn(turn) {
+			const turnTop = turn.offsetTop - thread.offsetTop;
+			const turnBottom = turnTop + turn.offsetHeight;
+			const viewTop = thread.scrollTop;
+			const viewBottom = viewTop + thread.clientHeight;
+			if (turnTop < viewTop || turnBottom > viewBottom) {
+				thread.scrollTop = turnTop;
+			}
+		}
+
+		// Pending auto-dismiss for showOcrToast below — cleared if a real Ask
+		// call interrupts it, so closeOverlay() can't fire mid-conversation.
+		let ocrToastTimer = null;
+
+		// Called every time a question is asked. If the panel is already open,
+		// this is a follow-up: append to the thread instead of clearing it.
+		// Rust decides the same thing independently (was the window already
+		// visible) to reset the model's conversation history in step.
+		window.resetAskOverlay = function (question) {
+			if (ocrToastTimer) {
+				clearTimeout(ocrToastTimer);
+				ocrToastTimer = null;
+			}
+			const isFollowUp = shell.classList.contains('open');
+			if (!isFollowUp) thread.innerHTML = '';
+			const turn = createTurn(question || '');
+			thread.appendChild(turn);
+			scrollToShowTurn(turn);
+			if (!isFollowUp) {
+				shell.classList.remove('open');
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => shell.classList.add('open'));
+				});
+			}
+		};
+
+		// Brief, self-dismissing confirmation — used by background actions
+		// (e.g. extract-text-from-clipboard) that have no other visible
+		// result, triggered by a global shortcut while some other app is
+		// frontmost. Not a Q&A turn, so it clears the thread rather than
+		// appending to it.
+		window.showOcrToast = function (message, isError) {
+			if (ocrToastTimer) {
+				clearTimeout(ocrToastTimer);
+				ocrToastTimer = null;
+			}
+			thread.innerHTML = '';
+			const row = document.createElement('div');
+			row.className = 'turn';
+			const color = isError ? '#fca5a5' : '#4ade80';
+			const icon = isError
+				? '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>'
+				: '<polyline points="20 6 9 17 4 12"></polyline>';
+			row.innerHTML = `
+				<div style="display:flex;align-items:center;gap:10px;padding:6px 2px;">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>
+					<span style="font-size:14px;color:rgba(255,255,255,0.92);"></span>
+				</div>`;
+			row.querySelector('span').textContent = message;
+			thread.appendChild(row);
+
+			if (!shell.classList.contains('open')) {
+				shell.classList.remove('open');
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => shell.classList.add('open'));
+				});
+			}
+
+			ocrToastTimer = setTimeout(() => {
+				ocrToastTimer = null;
+				closeOverlay();
+			}, 2200);
+		};
+
+		// Called once, right after resetAskOverlay, if a clipboard screenshot
+		// was attached to this (fresh, non-follow-up) thread. Always targets
+		// the latest turn — the one resetAskOverlay just created.
+		window.setAskThumbnail = function (thumbnail) {
+			const turn = thread.lastElementChild;
+			if (!turn) return;
+			const thumb = turn.querySelector('.turn-thumb');
+			thumb.src = thumbnail;
+			thumb.classList.add('visible');
+			scrollToShowTurn(turn);
+		};
+
+		// The model's answer becomes HTML (so lists, bold, and code render),
+		// always through DOMPurify before it touches the DOM — model output is
+		// untrusted input the same as any other text from outside the app.
+		// Errors are our own short strings, not model output, so they stay
+		// plain text rather than going through the markdown parser.
+		const ANSWER_ALLOWED_TAGS = [
+			'p', 'br', 'strong', 'em', 'code', 'pre',
+			'ul', 'ol', 'li', 'blockquote', 'a',
+			'table', 'thead', 'tbody', 'tr', 'th', 'td',
+		];
+
+		function renderAnswerHtml(markdown) {
+			const rawHtml = marked.parse(markdown, { breaks: true, gfm: true });
+			return DOMPurify.sanitize(rawHtml, {
+				ALLOWED_TAGS: ANSWER_ALLOWED_TAGS,
+				ALLOWED_ATTR: ['href'],
+			});
+		}
+
+		// Links in a rendered answer open in the system browser instead of
+		// navigating this small overlay window or spawning a new Tauri window.
+		thread.addEventListener('click', (event) => {
+			const link = event.target.closest('a');
+			if (!link) return;
+			event.preventDefault();
+			if (window.__TAURI__) {
+				window.__TAURI__.core.invoke('open_ask_link', { url: link.href }).catch((e) =>
+					console.error('Failed to open link', e),
+				);
+			}
+		});
+
+		window.showAskResult = function (answer, error) {
+			const turn = thread.lastElementChild;
+			if (!turn) return;
+			const statusEl = turn.querySelector('.turn-status');
+			const answerEl = turn.querySelector('.turn-answer');
+			const copyBtn = turn.querySelector('.turn-copy-btn');
+			statusEl.classList.remove('visible');
+			if (error) {
+				answerEl.textContent = error;
+				answerEl.classList.add('error');
+			} else {
+				answerEl.innerHTML = renderAnswerHtml(answer || '');
+				copyBtn.classList.add('visible');
+			}
+			answerEl.classList.add('visible');
+			// The answer just changed the turn's height — re-check so a short
+			// answer that now fits fully is shown in full, no scroll needed.
+			scrollToShowTurn(turn);
+		};
+
+		function closeOverlay() {
+			shell.classList.remove('open');
+			setTimeout(() => {
+				if (window.__TAURI__) {
+					window.__TAURI__.core.invoke('hide_ask_overlay').catch(() => {});
+				}
+			}, 200);
+		}
+
+		// Called from Rust by the native Escape monitors (see ask_overlay.rs),
+		// which catch Escape regardless of whether this window is key.
+		window.closeAskOverlayFromNative = closeOverlay;
+
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				closeOverlay();
+			}
+		});
+
+		document.getElementById('close-btn').addEventListener('click', closeOverlay);
+	</script>
+</body>
+</html>

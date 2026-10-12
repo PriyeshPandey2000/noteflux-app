@@ -1,6 +1,7 @@
 import { authService } from '$lib/services/auth';
 import {
   createCheckoutSession,
+  fetchCustomerPortalUrl,
   fetchSubscriptionStatus,
   openCheckoutUrl,
   type SubscriptionPlan,
@@ -55,6 +56,7 @@ let isKnown = $state(false);
 // side-effecting UI like the post-trial notice.
 let isConfirmed = $state(false);
 let checkoutInFlight = $state(false);
+let portalInFlight = $state(false);
 let refreshInFlight = false;
 let isConfirmingCheckout = $state(false);
 
@@ -233,6 +235,10 @@ export const subscription = {
     return checkoutInFlight;
   },
 
+  get isPortalInFlight() {
+    return portalInFlight;
+  },
+
   get isConfirmingCheckout() {
     return isConfirmingCheckout;
   },
@@ -270,6 +276,35 @@ export const subscription = {
       return true;
     } finally {
       checkoutInFlight = false;
+    }
+  },
+
+  // Opens Dodo's hosted billing portal (plan changes, cancellation, invoices)
+  // for an existing customer. Returns whether it actually opened, same
+  // contract as openCheckout, so callers can show an error on failure.
+  async openBillingPortal(): Promise<boolean> {
+    if (portalInFlight) {
+      return false;
+    }
+
+    const accessToken = auth.state.session?.access_token;
+    if (!accessToken) {
+      return false;
+    }
+    // Captured before the request — if the user signs out mid-flight, the
+    // portal URL issued for their now-stale session must not still open.
+    const requestedUserId = auth.user?.id;
+
+    portalInFlight = true;
+    try {
+      const portalUrl = await fetchCustomerPortalUrl(accessToken);
+      if (!portalUrl || auth.user?.id !== requestedUserId) {
+        return false;
+      }
+      await openCheckoutUrl(portalUrl);
+      return true;
+    } finally {
+      portalInFlight = false;
     }
   },
 };

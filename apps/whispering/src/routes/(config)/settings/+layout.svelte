@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import AuthSection from '$lib/components/auth/AuthSection.svelte';
 	import { rpc } from '$lib/query';
-	import { auth } from '$lib/stores/auth.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { Button } from '$lib/ui/button';
 	import { Separator } from '$lib/ui/separator';
@@ -75,9 +73,6 @@
 			</p>
 		</div>
 		<div class="flex gap-2 items-center">
-			{#if auth.isAuthenticated}
-				<AuthSection />
-			{/if}
 			<Button
 			variant="outline"
 			size="sm"

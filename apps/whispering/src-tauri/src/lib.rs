@@ -35,9 +35,20 @@ use objc::{msg_send, sel, sel_impl};
 pub mod recorder;
 use recorder::commands::{
     cancel_recording, close_recording_session, enumerate_recording_devices,
-    get_current_recording_id, hide_recording_overlay, init_recording_session, 
+    get_current_recording_id, hide_recording_overlay, init_recording_session,
     set_overlay_processing, show_recording_overlay, start_recording, stop_recording, AppData,
 };
+
+mod ask_overlay;
+use ask_overlay::{copy_ask_answer, hide_ask_overlay, open_ask_link, set_ask_overlay_result, set_ask_overlay_thumbnail, show_ask_overlay, show_ask_overlay_toast, ASK_OVERLAY_HEIGHT, ASK_OVERLAY_WIDTH};
+
+#[cfg(target_os = "macos")]
+mod ocr;
+#[cfg(target_os = "macos")]
+use ocr::extract_text_from_clipboard;
+
+mod notch_status;
+use notch_status::{create_notch_status_at_startup, hide_notch_status, show_notch_status};
 
 // Persistent Qwen3-ASR sidecar daemon — model loads once, stays alive.
 // stdout is owned by a background reader thread; lines arrive via `reader`.
@@ -69,7 +80,7 @@ struct ParakeetDaemon {
 struct ParakeetState(std::sync::Arc<std::sync::Mutex<Option<ParakeetDaemon>>>);
 
 #[cfg(target_os = "macos")]
-fn make_window_truly_transparent(window: &tauri::WebviewWindow) {
+fn make_window_truly_transparent(window: &tauri::WebviewWindow, radius: f64) {
     unsafe {
         // Get the raw NSWindow handle
         let ns_window = window.ns_window().unwrap() as *mut objc::runtime::Object;
@@ -85,7 +96,6 @@ fn make_window_truly_transparent(window: &tauri::WebviewWindow) {
 
         // Get layer and set corner radius & masksToBounds
         let layer: *mut objc::runtime::Object = msg_send![content_view, layer];
-        let radius: f64 = 18.0; // Match your pill radius
         let _: () = msg_send![layer, setCornerRadius: radius];
         let _: () = msg_send![layer, setMasksToBounds: 1u8];
 
@@ -165,7 +175,7 @@ fn create_system_tray(app: &tauri::App) -> Result<(), String> {
         .map_err(|e| format!("Failed to create show/hide menu item: {}", e))?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)
         .map_err(|e| format!("Failed to create quit menu item: {}", e))?;
-    
+
     // Create menu
     let menu = Menu::with_items(app, &[&show_hide_item, &quit_item])
         .map_err(|e| format!("Failed to create menu: {}", e))?;
@@ -265,9 +275,81 @@ fn create_recording_overlay_at_startup(app: &tauri::App) -> Result<(), String> {
     // Apply comprehensive transparency fix for macOS
     #[cfg(target_os = "macos")]
     {
-        make_window_truly_transparent(&overlay_window);
+        make_window_truly_transparent(&overlay_window, 18.0);
         configure_overlay_for_fullscreen(&overlay_window);
     }
+
+    Ok(())
+}
+
+/// Create the Ask overlay at app startup (hidden), same reasoning as the
+/// recording overlay: build it once up front so showing it later doesn't
+/// steal focus or pay webview-creation cost mid-interaction.
+fn create_ask_overlay_at_startup(app: &tauri::App) -> Result<(), String> {
+    // Served from the SvelteKit static folder (apps/whispering/static/ask-overlay.html),
+    // through the same origin as the main window, instead of a raw file:// path. A
+    // file:// page reports Origin "null", which fails Tauri's IPC origin check and
+    // silently breaks every invoke() from this window — see ipc/protocol.rs,
+    // "Origin header is not a valid URL". That's what was making hide_ask_overlay's
+    // Esc path a no-op underneath the CSS animation that made it look like it worked.
+    let webview_url = WebviewUrl::App("ask-overlay.html".into());
+
+    // Centered horizontally, hugging the very top of the screen — the same
+    // spot the menu bar / notch lives, like Spotlight/Raycast.
+    let monitor = app.primary_monitor().ok().flatten();
+    let screen_width = monitor.as_ref().map(|m| m.size().width as f64 / m.scale_factor()).unwrap_or(1440.0);
+
+    let overlay_width = ASK_OVERLAY_WIDTH;
+    let overlay_height = ASK_OVERLAY_HEIGHT;
+    let x = (screen_width - overlay_width) / 2.0;
+    let y = 0.0;
+
+    let overlay_window = WebviewWindowBuilder::new(
+        app,
+        "ask-overlay",
+        webview_url,
+    )
+    .title("Ask")
+    .inner_size(overlay_width, overlay_height)
+    .position(x, y)
+    .decorations(false)
+    .resizable(false)
+    .skip_taskbar(true)
+    .visible_on_all_workspaces(true)
+    .visible(false) // Start hidden! Without this, the window is visible (and,
+    // since it's always-on-top across every space with no ignoresMouseEvents,
+    // click-blocking) over the top-center of every screen from app launch,
+    // regardless of whether Ask has ever been triggered. The CSS inside only
+    // hides the rendered content, not the native window's hit-testing.
+    .shadow(false)
+    .transparent(true)
+    .content_protected(false)
+    .theme(None)
+    .build()
+    .map_err(|e| format!("Failed to create ask overlay window: {}", e))?;
+
+    overlay_window
+        .set_always_on_top(true)
+        .map_err(|e| format!("Failed to set always on top: {}", e))?;
+
+    #[cfg(target_os = "macos")]
+    {
+        make_window_truly_transparent(&overlay_window, 0.0);
+        ask_overlay::configure_ask_panel(&overlay_window);
+    }
+
+    // Visibility is owned by Ask state (show_ask_overlay / hide_ask_overlay), not
+    // by focus — hiding on Focused(false) was what caused the race where this
+    // panel disappeared right after appearing whenever NoteFlux was the active
+    // app. Logging kept here to confirm in testing that the race is gone.
+    {
+        overlay_window.on_window_event(move |event| {
+            if let tauri::WindowEvent::Focused(focused) = event {
+                ask_overlay::debug_log(&format!("ask-overlay Focused({focused})"));
+            }
+        });
+    }
+
 
     Ok(())
 }
@@ -457,6 +539,16 @@ pub async fn run() {
         show_recording_overlay,
         hide_recording_overlay,
         set_overlay_processing,
+        show_ask_overlay,
+        show_ask_overlay_toast,
+        hide_ask_overlay,
+        set_ask_overlay_result,
+        set_ask_overlay_thumbnail,
+        copy_ask_answer,
+        open_ask_link,
+        extract_text_from_clipboard,
+        show_notch_status,
+        hide_notch_status,
         // Fn shortcut commands
         register_fn_shortcut,
         unregister_fn_shortcut,
@@ -495,6 +587,15 @@ pub async fn run() {
         show_recording_overlay,
         hide_recording_overlay,
         set_overlay_processing,
+        show_ask_overlay,
+        show_ask_overlay_toast,
+        hide_ask_overlay,
+        set_ask_overlay_result,
+        set_ask_overlay_thumbnail,
+        copy_ask_answer,
+        open_ask_link,
+        show_notch_status,
+        hide_notch_status,
         // Fn shortcut commands
         register_fn_shortcut,
         unregister_fn_shortcut,
@@ -586,6 +687,11 @@ pub async fn run() {
     // This prevents focus stealing when recording starts
     let _ = create_recording_overlay_at_startup(&app);
 
+    // Same reasoning, for the Ask overlay (UI-only mock for now).
+    let _ = create_ask_overlay_at_startup(&app);
+
+    let _ = create_notch_status_at_startup(&app);
+
     // Create system tray
     let _ = create_system_tray(&app);
 
@@ -670,6 +776,9 @@ pub async fn run() {
         }
         // Handle window events
         tauri::RunEvent::WindowEvent { label, event, .. } => {
+            if let tauri::WindowEvent::Focused(focused) = &event {
+                ask_overlay::debug_log(&format!("{label} Focused({focused})"));
+            }
             match event {
                 tauri::WindowEvent::CloseRequested { api, .. } if label == "main" => {
                     // Clicking the close button used to quit the entire app,
