@@ -8,15 +8,6 @@
 	import { Separator } from '$lib/ui/separator';
 	import { Loader } from '@lucide/svelte';
 
-	async function handleSignOut() {
-		try {
-			await auth.signOut();
-			goto('/');
-		} catch (error) {
-			console.error('Sign out failed:', error);
-		}
-	}
-
 	const periodEndLabel = $derived(
 		subscription.currentPeriodEnd
 			? new Date(subscription.currentPeriodEnd).toLocaleDateString(undefined, {
@@ -27,15 +18,6 @@
 			: null,
 	);
 
-	async function handleManageBilling() {
-		const opened = await subscription.openBillingPortal();
-		if (!opened) {
-			rpc.notify.error.execute({
-				title: 'Could not open billing portal',
-				description: "Make sure you've subscribed before, then try again.",
-			});
-		}
-	}
 </script>
 
 <svelte:head>
@@ -60,7 +42,19 @@
 				<div class="space-y-1">
 					<p class="text-sm text-muted-foreground">Signed in as</p>
 					<p class="font-medium">{auth.user?.email}</p>
-					<Button onclick={handleSignOut} size="sm" variant="ghost" class="-ml-3">
+					<Button
+						onclick={async () => {
+							try {
+								await auth.signOut();
+								goto('/');
+							} catch (error) {
+								console.error('Sign out failed:', error);
+							}
+						}}
+						size="sm"
+						variant="ghost"
+						class="-ml-3"
+					>
 						Sign Out
 					</Button>
 				</div>
@@ -103,7 +97,15 @@
 						Change plan, update payment method, or cancel.
 					</p>
 					<Button
-						onclick={handleManageBilling}
+						onclick={async () => {
+							const opened = await subscription.openBillingPortal();
+							if (!opened) {
+								rpc.notify.error.execute({
+									title: 'Could not open billing portal',
+									description: "Make sure you've subscribed before, then try again.",
+								});
+							}
+						}}
 						disabled={subscription.isPortalInFlight}
 						variant="outline"
 					>

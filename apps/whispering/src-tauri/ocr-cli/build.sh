@@ -8,13 +8,14 @@ BINARIES_DIR="$SCRIPT_DIR/../binaries"
 
 echo "Building ocr-cli (release)..."
 cd "$SCRIPT_DIR"
-swift build -c release
-
-BUILT_BINARY=".build/release/OCRCLI"
-TARGET_BINARY="$BINARIES_DIR/ocr-cli-aarch64-apple-darwin"
 
 mkdir -p "$BINARIES_DIR"
-cp "$BUILT_BINARY" "$TARGET_BINARY"
+for ARCH in arm64 x86_64; do
+	swift build -c release --arch "$ARCH"
+	TRIPLE=$([ "$ARCH" = arm64 ] && echo aarch64-apple-darwin || echo x86_64-apple-darwin)
+	TARGET_BINARY="$BINARIES_DIR/ocr-cli-$TRIPLE"
+	cp ".build/$ARCH-apple-macosx/release/OCRCLI" "$TARGET_BINARY"
+	echo "Binary placed at: $TARGET_BINARY"
+done
 
-echo "Binary placed at: $TARGET_BINARY"
 echo "Done."

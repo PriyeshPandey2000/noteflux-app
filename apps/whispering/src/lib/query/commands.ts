@@ -468,19 +468,43 @@ const stopVadRecording = defineMutation({
 	},
 });
 
+// Local intent flag + in-flight start promise, not a query against actual
+// recorder state — a quick tap in hold mode fires the release before
+// startManualRecording's backend call resolves, so checking
+// getCurrentRecordingId at that point still returns null and the release
+// would start a second recording instead of stopping the first one. Same
+// race pushToTalk already guards against (src/lib/commands.ts) via its own
+// isRecordingOrStarting + pendingStartPromise pair.
+let isAskRecordingOrStarting = false;
+let pendingAskStartPromise: ReturnType<typeof startManualRecording.execute> | null =
+	null;
+
 const toggleAskRecording = defineMutation({
 	mutationKey: ['commands', 'toggleAskRecording'] as const,
 	resultMutationFn: async () => {
-		const { data: currentRecordingId } =
-			await recorder.getCurrentRecordingId.fetch();
-		if (currentRecordingId) {
+		if (isAskRecordingOrStarting) {
+			isAskRecordingOrStarting = false;
+			if (pendingAskStartPromise) {
+				const { error: startError } = await pendingAskStartPromise;
+				pendingAskStartPromise = null;
+				if (startError) return Err(startError);
+			}
 			return await stopManualRecording.execute(undefined);
 		}
+
 		recordingIntent = 'ask';
-		const result = await startManualRecording.execute({
+		isAskRecordingOrStarting = true;
+		pendingAskStartPromise = startManualRecording.execute({
 			initiatedVia: 'global-shortcut',
 		});
-		if (result.error) recordingIntent = 'dictate';
+		const result = await pendingAskStartPromise;
+		if (result.error) {
+			recordingIntent = 'dictate';
+			isAskRecordingOrStarting = false;
+			pendingAskStartPromise = null;
+		} else if (isAskRecordingOrStarting) {
+			pendingAskStartPromise = null;
+		}
 		return result;
 	},
 });

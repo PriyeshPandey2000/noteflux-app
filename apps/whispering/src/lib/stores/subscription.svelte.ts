@@ -291,11 +291,14 @@ export const subscription = {
     if (!accessToken) {
       return false;
     }
+    // Captured before the request — if the user signs out mid-flight, the
+    // portal URL issued for their now-stale session must not still open.
+    const requestedUserId = auth.user?.id;
 
     portalInFlight = true;
     try {
       const portalUrl = await fetchCustomerPortalUrl(accessToken);
-      if (!portalUrl) {
+      if (!portalUrl || auth.user?.id !== requestedUserId) {
         return false;
       }
       await openCheckoutUrl(portalUrl);

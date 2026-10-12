@@ -153,6 +153,10 @@ pub fn pin_to_notch_top(window: &tauri::WebviewWindow, width: f64, height: f64, 
 /// Temporary debugging aid: appends a timestamped line to ~/Library/Logs/noteflux-ask-debug.log
 /// so we can see when the Ask overlay shows, hides, and gains or loses focus. Not on the
 /// Desktop: writing there triggers the macOS "access files in your Desktop folder" prompt.
+// Debug builds only — release builds call this on every show/hide and every
+// focus change of every window, with no size limit on the log file, so it
+// must not write anything outside local development.
+#[cfg(debug_assertions)]
 pub fn debug_log(message: &str) {
     use std::io::Write;
     let Some(home) = std::env::var_os("HOME") else {
@@ -170,6 +174,9 @@ pub fn debug_log(message: &str) {
         let _ = writeln!(file, "[{seconds:.3}] {message}");
     }
 }
+
+#[cfg(not(debug_assertions))]
+pub fn debug_log(_message: &str) {}
 
 /// Global + local Escape monitors that close the Ask card reliably, without
 /// making it key. A global monitor only sees events delivered to *other* apps;
@@ -381,6 +388,13 @@ pub async fn copy_ask_answer(app_handle: tauri::AppHandle, text: String) -> Resu
 #[tauri::command]
 pub async fn open_ask_link(app_handle: tauri::AppHandle, url: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
+    // Answers come from a model that can run browser search, so a link in one
+    // can carry a URL an attacker controls. DOMPurify blocks javascript:, but
+    // still allows file:/mailto:/other schemes — restrict to http(s) here too.
+    let lower = url.trim().to_ascii_lowercase();
+    if !(lower.starts_with("https://") || lower.starts_with("http://")) {
+        return Err("Only http(s) links can be opened".to_string());
+    }
     app_handle
         .opener()
         .open_url(url, None::<String>)
