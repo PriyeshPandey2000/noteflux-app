@@ -5,7 +5,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import MicIcon from '@lucide/svelte/icons/mic';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
-	import LoaderIcon from '@lucide/svelte/icons/loader';
+	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import LockIcon from '@lucide/svelte/icons/lock';
 	import VoiceRing from './VoiceRing.svelte';
 
@@ -231,7 +231,7 @@
 				<span class="text-xs font-medium text-green-400">Granted</span>
 			{:else if status === 'requesting'}
 				<span class="flex items-center gap-1.5 text-xs text-white/50">
-					<LoaderIcon class="w-3 h-3 animate-spin" />
+					<Loader2Icon class="w-3 h-3 animate-spin" />
 					{requestingLabel}
 				</span>
 			{:else}

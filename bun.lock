@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "whispering-app",
@@ -30,7 +31,7 @@
     },
     "apps/whispering": {
       "name": "noteflux",
-      "version": "0.0.10",
+      "version": "0.0.33",
       "dependencies": {
         "@anthropic-ai/sdk": "^0.55.0",
         "@aptabase/tauri": "^0.4.1",

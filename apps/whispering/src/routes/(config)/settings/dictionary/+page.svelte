@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { getPhoneticCode } from '$lib/utils/dictionary';
+	import { TrashIcon } from '$lib/components/icons';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { Button } from '$lib/ui/button';
 	import { Input } from '$lib/ui/input';
 	import { Separator } from '$lib/ui/separator';
-	import { TrashIcon } from '@lucide/svelte';
 
 	let newWord = $state('');
 

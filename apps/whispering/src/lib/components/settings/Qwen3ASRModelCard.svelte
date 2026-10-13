@@ -5,6 +5,7 @@
 		type Qwen3ASRModelId,
 	} from '$lib/services/transcription/qwen3-asr';
 	import * as services from '$lib/services';
+	import { TrashIcon } from '$lib/components/icons';
 	import { settings } from '$lib/stores/settings.svelte';
 	import * as AlertDialog from '$lib/ui/alert-dialog';
 	import { Button } from '$lib/ui/button';
@@ -15,7 +16,6 @@
 		CheckCircle2Icon,
 		DownloadIcon,
 		Loader2Icon,
-		Trash2Icon,
 	} from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 
@@ -204,7 +204,7 @@
 											variant="outline"
 											size="sm"
 										>
-											<Trash2Icon class="size-4 mr-2" />
+											<TrashIcon class="size-4 mr-2" />
 											Delete model
 										</Button>
 									{/snippet}

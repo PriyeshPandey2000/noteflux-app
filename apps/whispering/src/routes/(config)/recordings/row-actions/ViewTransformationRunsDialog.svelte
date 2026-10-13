@@ -1,35 +1,22 @@
 <script lang="ts">
-	import NoteFluxButton from '$lib/components/NoteFluxButton.svelte';
 	import { Runs } from '$lib/components/transformations-editor';
 	import { rpc } from '$lib/query';
 	import { Button } from '$lib/ui/button';
 	import * as Dialog from '$lib/ui/dialog';
-	import { HistoryIcon } from '@lucide/svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 
-	let { recordingId }: { recordingId: string } = $props();
+	let {
+		recordingId,
+		open = $bindable(false),
+	}: { recordingId: string; open?: boolean } = $props();
 
 	const transformationRunsByRecordingIdQuery = createQuery(
 		rpc.transformationRuns.getTransformationRunsByRecordingId(() => recordingId)
 			.options,
 	);
-
-	let isOpen = $state(false);
 </script>
 
-<Dialog.Root bind:open={isOpen}>
-	<Dialog.Trigger>
-		{#snippet child({ props })}
-			<NoteFluxButton
-				{...props}
-				variant="ghost"
-				size="icon"
-				tooltipContent="View Transformation Runs"
-			>
-				<HistoryIcon class="size-4" />
-			</NoteFluxButton>
-		{/snippet}
-	</Dialog.Trigger>
+<Dialog.Root bind:open>
 	<Dialog.Content class="sm:max-w-4xl">
 		<Dialog.Header>
 			<Dialog.Title>Transformation Runs</Dialog.Title>
@@ -49,7 +36,7 @@
 			{/if}
 		</div>
 		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (isOpen = false)}>Close</Button>
+			<Button variant="outline" onclick={() => (open = false)}>Close</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

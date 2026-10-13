@@ -15,7 +15,7 @@
 		CheckIcon,
 		FilterIcon,
 		FilterXIcon,
-		LayersIcon,
+		WandSparklesIcon,
 	} from '@lucide/svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 
@@ -128,7 +128,7 @@
 				}}
 				class="rounded-none p-2 bg-muted/50 text-muted-foreground"
 			>
-				<LayersIcon class="size-4 mx-2.5" />
+				<WandSparklesIcon class="size-4 mx-2.5" />
 				Manage transformations
 			</Command.Item>
 		</Command.Root>
