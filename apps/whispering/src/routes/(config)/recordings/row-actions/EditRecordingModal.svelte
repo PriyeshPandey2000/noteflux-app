@@ -2,7 +2,6 @@
 	import type { Recording } from '$lib/services/db';
 
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import NoteFluxButton from '$lib/components/NoteFluxButton.svelte';
 	import { rpc } from '$lib/query';
 	import { Button } from '$lib/ui/button';
 	import { Input } from '$lib/ui/input';
@@ -10,7 +9,7 @@
 	import * as Modal from '$lib/ui/modal';
 	import { Textarea } from '$lib/ui/textarea';
 	import { createBlobUrlManager } from '$lib/utils/blobUrlManager';
-	import { PencilIcon as EditIcon, Loader2Icon } from '@lucide/svelte';
+	import { Loader2Icon } from '@lucide/svelte';
 	import { createMutation } from '@tanstack/svelte-query';
 	import { onDestroy } from 'svelte';
 
@@ -22,9 +21,10 @@
 		rpc.recordings.deleteRecording.options,
 	);
 
-	let { recording }: { recording: Recording } = $props();
-
-	let isDialogOpen = $state(false);
+	let {
+		recording,
+		open = $bindable(false),
+	}: { recording: Recording; open?: boolean } = $props();
 
 	/**
 	 * A working copy of the recording that we can safely edit.
@@ -77,7 +77,7 @@
 
 	function promptUserConfirmLeave() {
 		if (!isWorkingCopyDirty) {
-			isDialogOpen = false;
+			open = false;
 			return;
 		}
 
@@ -89,7 +89,7 @@
 				workingCopy = recording;
 				isWorkingCopyDirty = false;
 
-				isDialogOpen = false;
+				open = false;
 			},
 			subtitle: 'You have unsaved changes. Are you sure you want to leave?',
 		});
@@ -100,29 +100,17 @@
 	});
 </script>
 
-<Modal.Root bind:open={isDialogOpen}>
-	<Modal.Trigger>
-		{#snippet child({ props })}
-			<NoteFluxButton
-				tooltipContent="Edit recording"
-				variant="ghost"
-				size="icon"
-				{...props}
-			>
-				<EditIcon class="size-4" />
-			</NoteFluxButton>
-		{/snippet}
-	</Modal.Trigger>
+<Modal.Root bind:open>
 	<Modal.Content
 		onEscapeKeydown={(e) => {
 			e.preventDefault();
-			if (isDialogOpen) {
+			if (open) {
 				promptUserConfirmLeave();
 			}
 		}}
 		onInteractOutside={(e) => {
 			e.preventDefault();
-			if (isDialogOpen) {
+			if (open) {
 				promptUserConfirmLeave();
 			}
 		}}
@@ -208,7 +196,7 @@
 									});
 								},
 								onSuccess: () => {
-									isDialogOpen = false;
+									open = false;
 									rpc.notify.success.execute({
 										title: 'Deleted recording!',
 										description:
@@ -246,7 +234,7 @@
 								title: 'Updated recording!',
 								description: 'Your recording has been updated successfully.',
 							});
-							isDialogOpen = false;
+							open = false;
 						},
 					});
 				}}

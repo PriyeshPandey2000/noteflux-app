@@ -26,7 +26,12 @@
 		QWEN3_ASR_MODELS,
 		type Qwen3ASRModelId,
 	} from '$lib/services/transcription/qwen3-asr';
-	import { CheckIcon, DownloadIcon, MicIcon, SettingsIcon } from '@lucide/svelte';
+	import {
+		BrainCircuitIcon,
+		CheckIcon,
+		DownloadIcon,
+		SettingsIcon,
+	} from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 
 	let { class: className }: { class?: string } = $props();
@@ -85,9 +90,8 @@
 </script>
 
 {#snippet renderServiceDisplay(service: TranscriptionService)}
-	{@const Icon = service.icon}
 	<div class="flex items-center gap-2">
-		<Icon class="size-4 shrink-0" />
+		<BrainCircuitIcon class="size-4 shrink-0" />
 		<span class="font-medium truncate">
 			{service.name}
 		</span>
@@ -110,19 +114,16 @@
 				variant="ghost"
 				size="icon"
 			>
-				{#if selectedService}
-					{@const SelectedIcon = selectedService.icon}
-					<SelectedIcon
-						class={cn(
-							'size-4',
-							isTranscriptionServiceConfigured(selectedService)
+				<BrainCircuitIcon
+					class={cn(
+						'size-4',
+						selectedService
+							? isTranscriptionServiceConfigured(selectedService)
 								? 'text-green-500'
-								: 'text-amber-500',
-						)}
-					/>
-				{:else}
-					<MicIcon class="size-4 text-muted-foreground" />
-				{/if}
+								: 'text-amber-500'
+							: 'text-muted-foreground',
+					)}
+				/>
 				{#if selectedService && !isTranscriptionServiceConfigured(selectedService)}
 					<span
 						class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
@@ -148,7 +149,6 @@
 						{#each service.models as model}
 							{@const isModelSelected =
 								isSelected && currentSelectedModelName === model.name}
-							{@const Icon = service.icon}
 							<Command.Item
 								value="{service.id}-{model.name}"
 								onSelect={() => {
@@ -167,7 +167,7 @@
 								/>
 								<div class="flex flex-col min-w-0">
 									<div class="flex items-center gap-2">
-										<Icon class="size-4 shrink-0" />
+										<BrainCircuitIcon class="size-4 shrink-0" />
 										<span class="font-medium">{model.name}</span>
 									</div>
 									{#if !isConfigured}

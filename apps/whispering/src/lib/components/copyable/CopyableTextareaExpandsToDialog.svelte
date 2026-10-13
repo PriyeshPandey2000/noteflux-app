@@ -5,6 +5,7 @@
 	import * as Card from '$lib/ui/card';
 	import * as Dialog from '$lib/ui/dialog';
 	import { Textarea } from '$lib/ui/textarea';
+	import { cn } from '$lib/ui/utils';
 	import { createMutation } from '@tanstack/svelte-query';
 	import { mergeProps } from 'bits-ui';
 
@@ -45,11 +46,14 @@
 		rows = 2,
 		/** The text content to display and copy */
 		text,
+		/** Extra classes merged onto the preview textarea */
+		textareaClass = '',
 	}: {
 		id: string;
 		label: string;
 		rows?: number;
 		text: string;
+		textareaClass?: string;
 		title: string;
 	} = $props();
 
@@ -65,7 +69,10 @@
 				{#snippet trigger({ tooltip, tooltipProps })}
 					<Textarea
 						{...mergeProps(tooltipProps, dialogTriggerProps)}
-						class="min-h-0 max-h-24 h-full resize-none text-wrap text-left !text-xs leading-snug hover:cursor-pointer hover:bg-accent hover:text-accent-foreground w-full"
+						class={cn(
+							'min-h-0 max-h-24 h-full resize-none text-wrap text-left !text-xs leading-snug hover:cursor-pointer hover:bg-accent hover:text-accent-foreground w-full',
+							textareaClass,
+						)}
 						readonly
 						value={text}
 						style="view-transition-name: {id}"

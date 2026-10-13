@@ -10,14 +10,16 @@
 	import { cn } from '$lib/ui/utils';
 	import {
 		BugIcon,
+		CheckIcon,
 		ChevronLeft,
+		CrownIcon,
 		HomeIcon,
-		LayersIcon,
 		ListIcon,
 		Loader,
 		SettingsIcon,
 		SunIcon,
 		MoonIcon,
+		WandSparklesIcon,
 	} from '@lucide/svelte';
 	import { toggleMode } from 'mode-watcher';
 
@@ -56,7 +58,7 @@
 		},
 		{
 			href: '/transformations',
-			icon: LayersIcon,
+			icon: WandSparklesIcon,
 			label: 'Transformations',
 			type: 'anchor',
 		},
@@ -148,15 +150,22 @@
 	<div class={cn('p-3 border-t border-purple-100/50 dark:border-stone-800 space-y-1', isCollapsed ? 'items-center flex flex-col' : '')}>
 		{#if subscription.isKnown && subscription.isPro}
 			<div
-				title={isCollapsed ? 'Pro' : undefined}
+				title={isCollapsed ? 'Pro — your plan is active' : undefined}
 				class={cn(
-					'flex items-center justify-center py-2.5 text-sm rounded-md border border-emerald-500/30 bg-emerald-500/5 overflow-hidden whitespace-nowrap',
-					isCollapsed ? 'px-2 w-full' : 'px-3 w-full'
+					'flex items-center gap-2.5 py-2 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.06] overflow-hidden whitespace-nowrap cursor-default',
+					isCollapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'
 				)}
 			>
-				<span class="font-semibold tracking-wide bg-gradient-to-r from-green-400 via-green-500 to-emerald-400 bg-clip-text text-transparent">
-					Pro
-				</span>
+				<CrownIcon class="size-4 shrink-0 text-emerald-400" />
+				{#if !isCollapsed}
+					<div class="flex flex-col min-w-0 gap-0 flex-1">
+						<div class="flex items-center gap-1.5">
+							<span class="text-sm font-semibold leading-tight text-foreground">Pro</span>
+							<CheckIcon class="size-4 shrink-0 text-emerald-400" />
+						</div>
+						<span class="text-[11px] leading-tight text-muted-foreground">Your plan is active</span>
+					</div>
+				{/if}
 			</div>
 		{:else if subscription.isConfirmingCheckout}
 			<div
