@@ -92,7 +92,7 @@ const timestampColumn: ColumnDef<Recording> = {
 		}),
 	id: 'Timestamp',
 	meta: {
-		cellClassName: 'pl-2 pr-4',
+		cellClassName: 'pl-2 pr-4 text-xs text-muted-foreground',
 	},
 };
 

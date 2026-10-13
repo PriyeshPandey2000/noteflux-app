@@ -51,8 +51,8 @@
 </script>
 
 <div class="space-y-4">
-	<!-- Search input -->
-	<div class="relative">
+	<!-- Search input: commented out until we have enough commands to warrant it -->
+	<!-- <div class="relative">
 		<Search
 			class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
 		/>
@@ -62,7 +62,7 @@
 			class="pl-10"
 			bind:value={searchQuery}
 		/>
-	</div>
+	</div> -->
 
 	<!-- Command list with shortcuts -->
 	<div class="overflow-x-auto rounded-lg border">

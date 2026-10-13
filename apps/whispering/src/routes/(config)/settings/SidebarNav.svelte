@@ -18,7 +18,7 @@
 			activePathPrefix: '/settings/shortcuts',
 			href: '/settings/shortcuts/global', // Direct link to global shortcuts (local shortcuts disabled)
 		},
-		{ title: 'Glance', href: '/settings/glance' },
+		// { title: 'Glance', href: '/settings/glance' },
 	] satisfies {
 		/**
 		 * If provided, the item is considered active if the current pathname starts with this prefix.

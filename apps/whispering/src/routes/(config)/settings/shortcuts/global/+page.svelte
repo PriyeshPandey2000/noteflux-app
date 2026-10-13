@@ -146,7 +146,7 @@
 				<ToggleGroup.Item
 					value="hold"
 					aria-label="Hold to record"
-					class="flex-col h-auto py-3 px-4 gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+					class="flex-col h-auto py-3 px-4 gap-1 cursor-pointer data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
 				>
 					<span class="font-medium">Push to Talk</span>
 					<span class="text-xs font-normal opacity-80">Hold key, speak, release to transcribe</span>
@@ -154,7 +154,7 @@
 				<ToggleGroup.Item
 					value="toggle"
 					aria-label="Press to toggle"
-					class="flex-col h-auto py-3 px-4 gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+					class="flex-col h-auto py-3 px-4 gap-1 cursor-pointer data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
 				>
 					<span class="font-medium">Toggle Mode</span>
 					<span class="text-xs font-normal opacity-80">Press to start, press again to stop</span>
