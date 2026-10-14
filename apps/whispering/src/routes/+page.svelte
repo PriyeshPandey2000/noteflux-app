@@ -3,6 +3,8 @@
 	import type { UnlistenFn } from '@tauri-apps/api/event';
 
 	import { commandCallbacks } from '$lib/commands';
+	import AskTutorialDialog from '$lib/components/AskTutorialDialog.svelte';
+	import OcrTutorialDialog from '$lib/components/OcrTutorialDialog.svelte';
 	import AuthSection from '$lib/components/auth/AuthSection.svelte';
 	import CopyToClipboardButton from '$lib/components/copyable/CopyToClipboardButton.svelte';
 	import { ClipboardIcon } from '$lib/components/icons';
@@ -418,7 +420,7 @@
 			</div>
 		</div>
 
-		<div class="xs:flex hidden flex-col items-center gap-3 mt-8">
+		<div class="xs:flex hidden flex-col items-center gap-3 -mt-2.5">
 			<!-- <p class="text-foreground/75 text-center text-sm">
 				Click the microphone or press
 				{' '}<NoteFluxButton
@@ -436,18 +438,26 @@
 				to start recording here.
 			</p> -->
 			{#if window.__TAURI_INTERNALS__}
-				<div class="flex flex-col items-center gap-3">
-					<div class="flex items-center gap-2">
-						<NoteFluxButton
-							href="/settings/shortcuts/global"
-							variant="outline"
-							size="sm"
-							tooltipContent="Customize keyboard shortcuts"
-						>
-							<KeyboardIcon class="size-4" />
-							Change Shortcuts
-						</NoteFluxButton>
-					</div>
+				<div class="flex flex-col items-center gap-5">
+					<NoteFluxButton
+						href="/settings/shortcuts/global"
+						variant="outline"
+						size="sm"
+						tooltipContent="Customize keyboard shortcuts"
+					>
+						<KeyboardIcon class="size-4" />
+						Change Shortcuts
+					</NoteFluxButton>
+					{#if !settings.value['onboarding.askTutorialCompleted'] || !settings.value['onboarding.ocrTutorialCompleted']}
+						<div class="flex flex-wrap items-center justify-center gap-3">
+							{#if !settings.value['onboarding.askTutorialCompleted']}
+								<AskTutorialDialog />
+							{/if}
+							{#if !settings.value['onboarding.ocrTutorialCompleted']}
+								<OcrTutorialDialog />
+							{/if}
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>

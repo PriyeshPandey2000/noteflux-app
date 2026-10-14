@@ -152,18 +152,18 @@
 			<div
 				title={isCollapsed ? 'Pro — your plan is active' : undefined}
 				class={cn(
-					'flex items-center gap-2.5 py-2 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.06] overflow-hidden whitespace-nowrap cursor-default',
+					'flex items-center gap-2.5 py-2 rounded-lg bg-gradient-to-br from-emerald-500 to-green-700 text-white shadow-sm overflow-hidden whitespace-nowrap cursor-default',
 					isCollapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'
 				)}
 			>
-				<CrownIcon class="size-4 shrink-0 text-emerald-400" />
+				<CrownIcon class="size-4 shrink-0 text-white" />
 				{#if !isCollapsed}
 					<div class="flex flex-col min-w-0 gap-0 flex-1">
 						<div class="flex items-center gap-1.5">
-							<span class="text-sm font-semibold leading-tight text-foreground">Pro</span>
-							<CheckIcon class="size-4 shrink-0 text-emerald-400" />
+							<span class="text-sm font-semibold leading-tight text-white">Pro</span>
+							<CheckIcon class="size-4 shrink-0 text-white" />
 						</div>
-						<span class="text-[11px] leading-tight text-muted-foreground">Your plan is active</span>
+						<span class="text-[11px] leading-tight text-white/80">Your plan is active</span>
 					</div>
 				{/if}
 			</div>

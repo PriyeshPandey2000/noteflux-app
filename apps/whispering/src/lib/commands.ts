@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import * as services from '$lib/services';
 import { rpc } from '$lib/query';
 import { analytics } from '$lib/services/posthog';
+import { featureTutorial } from '$lib/stores/feature-tutorial.svelte';
 import { settings } from '$lib/stores/settings.svelte';
 
 import type { ShortcutTriggerState } from './services/_shortcut-trigger-state';
@@ -27,6 +28,7 @@ function extractTextFromClipboard() {
 	invoke<string>('extract_text_from_clipboard')
 		.then((text) => {
 			analytics.trackOcrSucceeded(text.length);
+			if (featureTutorial.activeFeature === 'ocr') featureTutorial.complete('ocr');
 			invoke('show_ask_overlay_toast', {
 				message: `Copied ${text.length} character${text.length === 1 ? '' : 's'}`,
 				isError: false,

@@ -3,6 +3,7 @@ import type { SelectionContext } from '$lib/services/clipboard/types';
 import * as services from '$lib/services';
 import { analytics } from '$lib/services/posthog';
 import { auth } from '$lib/stores/auth.svelte';
+import { featureTutorial } from '$lib/stores/feature-tutorial.svelte';
 import { settings } from '$lib/stores/settings.svelte';
 import { authRequiredDialog } from '$lib/stores/auth-required-dialog.svelte';
 import { onboardingStore } from '$lib/stores/onboarding.svelte';
@@ -850,6 +851,7 @@ async function answerVoiceQuestion(question: string, toastId: string) {
 		outputTokens: completion.outputTokens,
 	});
 	analytics.trackAskAnswerReceived({ isFollowUp, hasImage: !!askThreadImage });
+	if (featureTutorial.activeFeature === 'ask') featureTutorial.complete('ask');
 
 	const answerText = completion.text.trim();
 	askConversationHistory.push({ answer: answerText, question: trimmedQuestion });
