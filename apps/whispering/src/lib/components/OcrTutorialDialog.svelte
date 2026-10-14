@@ -29,11 +29,18 @@
 	const shortcutSpelledOut = $derived(shortcutKeys.join(' + '));
 	const isComplete = $derived(featureTutorial.completedFeature === 'ocr');
 
+	// Dimensions alone can't tell two different screenshots apart when they
+	// happen to be the same size (e.g. two captures of the same app window),
+	// so the key also hashes the actual pixel bytes.
 	async function clipboardImageKey() {
 		try {
 			const image = await readImage();
-			const size = await image.size();
-			return `${size.width}x${size.height}`;
+			const [size, rgba] = await Promise.all([image.size(), image.rgba()]);
+			const digest = await crypto.subtle.digest('SHA-256', rgba.slice());
+			const hash = Array.from(new Uint8Array(digest), (byte) =>
+				byte.toString(16).padStart(2, '0'),
+			).join('');
+			return `${size.width}x${size.height}:${hash}`;
 		} catch {
 			return null; // no image on the clipboard right now — the common case
 		}
@@ -45,7 +52,11 @@
 	}
 
 	async function startPolling() {
+		stopPolling();
 		baselineImageKey = await clipboardImageKey();
+		// The dialog may have been closed during that await — don't resurrect
+		// a polling loop nothing will ever stop.
+		if (!open) return;
 		pollId = setInterval(async () => {
 			const key = await clipboardImageKey();
 			if (key && key !== baselineImageKey) {
@@ -55,15 +66,10 @@
 		}, 800);
 	}
 
-	function handleOpenChange(next: boolean) {
-		open = next;
-		if (next) {
-			hasFreshClipboardImage = false;
-			featureTutorial.start('ocr');
-			analytics.trackOcrTutorialStarted();
-			startPolling();
-			return;
-		}
+	// Shared by the explicit close path and the unmount-while-open path below
+	// (e.g. navigating away via the sidebar with the dialog still open) so
+	// completion always gets persisted exactly once, however the dialog ends.
+	function runCloseLogic() {
 		stopPolling();
 		// Completion is detected live while the dialog is open (see the
 		// trackOcrSucceeded call site in lib/commands.ts), so by the time it
@@ -77,7 +83,21 @@
 		featureTutorial.clear();
 	}
 
-	onDestroy(stopPolling);
+	function handleOpenChange(next: boolean) {
+		open = next;
+		if (next) {
+			hasFreshClipboardImage = false;
+			featureTutorial.start('ocr');
+			analytics.trackOcrTutorialStarted();
+			startPolling();
+			return;
+		}
+		runCloseLogic();
+	}
+
+	onDestroy(() => {
+		if (open) runCloseLogic();
+	});
 </script>
 
 <Dialog.Root {open} onOpenChange={handleOpenChange}>

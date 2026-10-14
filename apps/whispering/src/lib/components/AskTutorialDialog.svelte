@@ -7,6 +7,7 @@
 	import * as Dialog from '$lib/ui/dialog';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import MicIcon from '@lucide/svelte/icons/mic';
+	import { onDestroy } from 'svelte';
 
 	let open = $state(false);
 
@@ -17,13 +18,10 @@
 	const shortcutSpelledOut = $derived(shortcutKeys.join(' + '));
 	const isComplete = $derived(featureTutorial.completedFeature === 'ask');
 
-	function handleOpenChange(next: boolean) {
-		open = next;
-		if (next) {
-			featureTutorial.start('ask');
-			analytics.trackAskTutorialStarted();
-			return;
-		}
+	// Shared by the explicit close path and the unmount-while-open path below
+	// (e.g. navigating away via the sidebar with the dialog still open) so
+	// completion always gets persisted exactly once, however the dialog ends.
+	function runCloseLogic() {
 		// Completion is detected live while the dialog is open (see the
 		// trackAskAnswerReceived call site in query/commands.ts), so by the
 		// time it closes featureTutorial already knows whether it happened.
@@ -35,6 +33,20 @@
 		}
 		featureTutorial.clear();
 	}
+
+	function handleOpenChange(next: boolean) {
+		open = next;
+		if (next) {
+			featureTutorial.start('ask');
+			analytics.trackAskTutorialStarted();
+			return;
+		}
+		runCloseLogic();
+	}
+
+	onDestroy(() => {
+		if (open) runCloseLogic();
+	});
 </script>
 
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
