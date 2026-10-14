@@ -9,8 +9,10 @@ import { env } from '$env/dynamic/public';
  * - Records clicks, scrolling and layout to identify where users get stuck
  * - Masks every input before anything leaves the device. Transcripts and API
  *   keys are shown in inputs/textareas, so they never reach PostHog. The Ask
- *   overlay is a separate static page with no PostHog, so answers aren't
- *   recorded either. Mark any new plain-text transcript UI with data-private.
+ *   overlay is a separate static page with no PostHog session recording, so its
+ *   answer text is not in recordings. The main app still sends
+ *   ask_question_asked / ask_answer_received events (flags only, no text).
+ *   Mark any new plain-text transcript UI with data-private.
  * - Use PostHog dashboard to watch session replays and see where users struggle
  *
  * Events Tracked:
