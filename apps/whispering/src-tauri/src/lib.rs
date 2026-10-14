@@ -323,6 +323,7 @@ fn create_ask_overlay_at_startup(app: &tauri::App) -> Result<(), String> {
     // hides the rendered content, not the native window's hit-testing.
     .shadow(false)
     .transparent(true)
+    .accept_first_mouse(true) // Unfocused panel otherwise eats the first click (copy needed two clicks).
     .content_protected(false)
     .theme(None)
     .build()
