@@ -15,7 +15,8 @@
 	import { analytics } from '$lib/services/posthog';
 	// import { extension } from '@repo/extension';
 	import { createQuery } from '@tanstack/svelte-query';
-	import { Toaster, type ToasterProps } from 'svelte-sonner';
+	import { Toaster } from '$lib/ui/sonner';
+	import type { ToasterProps } from 'svelte-sonner';
 	import { onMount } from 'svelte';
 	import { AudioLines } from '@lucide/svelte';
 	import { mode, ModeWatcher } from 'mode-watcher';
