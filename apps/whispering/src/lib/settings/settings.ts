@@ -104,6 +104,11 @@ export const settingsSchema = z.object({
 	'onboarding.hasSeenWelcome': z.boolean().default(false),
 	'onboarding.pasteTestCompleted': z.boolean().default(false),
 	'app.onboardingCompleted': z.boolean().default(false),
+	// Homepage feature-discovery cards (Ask Q&A, Screenshot OCR). Once the
+	// user actually completes a feature's guided tutorial, its card
+	// auto-dismisses from the homepage for good.
+	'onboarding.askTutorialCompleted': z.boolean().default(false),
+	'onboarding.ocrTutorialCompleted': z.boolean().default(false),
 	// Set only when the user leaves onboarding via the "Customize Shortcut"
 	// detour (usage-guide -> settings). Read once on next app-layout mount to
 	// resume there instead of restarting from 'welcome' — the existing

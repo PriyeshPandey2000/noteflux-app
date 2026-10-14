@@ -309,6 +309,18 @@ export const analytics = {
 		posthog.capture('ask_error', { reason, ...platformInfo });
 	},
 
+	// Homepage "try it" tutorial cards, separate from the funnel above so
+	// discovery (did they find the feature?) stays sliceable from usage.
+	trackAskTutorialStarted() {
+		if (!browser) return;
+		posthog.capture('ask_tutorial_started', { ...platformInfo });
+	},
+
+	trackAskTutorialCompleted() {
+		if (!browser) return;
+		posthog.capture('ask_tutorial_completed', { ...platformInfo });
+	},
+
 	// Extract-text-from-clipboard (local OCR) funnel.
 	trackOcrSucceeded(characterCount: number) {
 		if (!browser) return;
@@ -318,5 +330,15 @@ export const analytics = {
 	trackOcrFailed(reason: string) {
 		if (!browser) return;
 		posthog.capture('ocr_failed', { reason, ...platformInfo });
+	},
+
+	trackOcrTutorialStarted() {
+		if (!browser) return;
+		posthog.capture('ocr_tutorial_started', { ...platformInfo });
+	},
+
+	trackOcrTutorialCompleted() {
+		if (!browser) return;
+		posthog.capture('ocr_tutorial_completed', { ...platformInfo });
 	}
 };
