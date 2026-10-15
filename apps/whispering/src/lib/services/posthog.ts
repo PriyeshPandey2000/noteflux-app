@@ -12,7 +12,8 @@ import { env } from '$env/dynamic/public';
  *   overlay is a separate static page with no PostHog session recording, so its
  *   answer text is not in recordings. The main app still sends
  *   ask_question_asked / ask_answer_received events (flags only, no text).
- *   Mark any new plain-text transcript UI with data-private.
+ *   Mark any new plain-text transcript UI with data-private (toasts are
+ *   already masked).
  * - Use PostHog dashboard to watch session replays and see where users struggle
  *
  * Events Tracked:
@@ -53,9 +54,11 @@ export const analytics = {
 			disable_session_recording: false,
 			session_recording: {
 				// Mask all inputs (transcripts and keys live in textareas/inputs);
-				// add data-private to any plain-text element that must be hidden
+				// add data-private to any plain-text element that must be hidden.
+				// Toasts are masked wholesale: result toasts carry the dictated or
+				// transformed text as their description.
 				maskAllInputs: true,
-				maskTextSelector: '[data-private]',
+				maskTextSelector: '[data-private], [data-sonner-toast]',
 			},
 			disable_compression: false,
 			// Capture settings

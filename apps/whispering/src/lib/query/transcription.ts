@@ -1,6 +1,7 @@
 import type { Recording } from '$lib/services/db';
 
 import { TRANSCRIPTION_SERVICES } from '$lib/constants/transcription/service-config';
+import { GROQ_MODELS } from '$lib/services/transcription/groq';
 import { NoteFluxErr, type NoteFluxError } from '$lib/result';
 import * as services from '$lib/services';
 import { isParakeetWarmingUp } from '$lib/services/transcription/parakeet';
@@ -452,14 +453,20 @@ async function transcribeBlob(
 		// silently fell back to the free local model above, and billing that
 		// as Groq usage would be wrong (and would wrongly eat into their
 		// lifetime cap for a transcription that cost nothing).
-		if (actualProvider === 'Groq') {
+		//
+		// Cloud (proxy) transcriptions are logged server-side by the website's
+		// /api/groq/transcribe, which is the cost source of truth; only direct
+		// calls with the user's own Groq key are tracked here.
+		if (actualProvider === 'Groq' && settings.value['apiKeys.groq']) {
 			try {
 				// Import usage tracking dynamically to avoid circular imports
 				const { trackUsage, getAudioDurationFromBlob } = await import('$lib/services/usage-tracking');
 				const durationMinutes = await getAudioDurationFromBlob(blob);
+				const groqModelName = settings.value['transcription.groq.model'];
 				trackUsage({
 					durationMinutes,
 					estimatedCost: 0, // Will be calculated in trackUsage
+					model: GROQ_MODELS.find((m) => m.name === groqModelName)?.modelId ?? groqModelName,
 					provider: actualProvider,
 					fileName: 'audio-recording' // Could be enhanced to use actual filename
 				});

@@ -8,7 +8,6 @@ import { settings } from '$lib/stores/settings.svelte';
 import { authRequiredDialog } from '$lib/stores/auth-required-dialog.svelte';
 import { onboardingStore } from '$lib/stores/onboarding.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
-import { trackLlmUsage } from '$lib/services/usage-tracking';
 import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
 import { invoke } from '@tauri-apps/api/core';
 import { readImage } from '@tauri-apps/plugin-clipboard-manager';
@@ -832,6 +831,7 @@ async function answerVoiceQuestion(question: string, toastId: string) {
 			// Mutually exclusive with an attached image — see groq.ts.
 			enableBrowserSearch: !askThreadImage,
 			imageBase64: askThreadImage ?? undefined,
+			feature: 'ask',
 		});
 
 	if (completionError) {
@@ -843,13 +843,6 @@ async function answerVoiceQuestion(question: string, toastId: string) {
 		return;
 	}
 
-	trackLlmUsage({
-		feature: 'ask',
-		provider: 'groq',
-		model: ASK_MODEL,
-		inputTokens: completion.inputTokens,
-		outputTokens: completion.outputTokens,
-	});
 	analytics.trackAskAnswerReceived({ isFollowUp, hasImage: !!askThreadImage });
 	if (featureTutorial.activeFeature === 'ask') featureTutorial.complete('ask');
 
