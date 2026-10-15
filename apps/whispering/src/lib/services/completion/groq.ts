@@ -24,6 +24,9 @@ type CompleteOptions = {
 	// requested `model`, and is mutually exclusive with enableBrowserSearch —
 	// see the proxy route for why.
 	imageBase64?: string;
+	// Which app feature is asking. Sent to the proxy, which logs the call's
+	// token usage and cost server-side when it's present.
+	feature?: 'ask' | 'inline-edit' | 'transformation';
 };
 
 const GROQ_VISION_MODEL = 'qwen/qwen3.8-27b';
@@ -35,6 +38,7 @@ async function completeViaProxy({
 	userPrompt,
 	enableBrowserSearch,
 	imageBase64,
+	feature,
 }: CompleteOptions) {
 	if (!accessToken) {
 		return CompletionServiceErr({
@@ -65,6 +69,7 @@ async function completeViaProxy({
 					userPrompt,
 					enableBrowserSearch,
 					imageBase64,
+					feature,
 				}),
 			}),
 	});

@@ -91,6 +91,9 @@ async function transcribeViaProxy(
 		formData.append('language', options.outputLanguage);
 	if (options.prompt) formData.append('prompt', options.prompt);
 	if (options.temperature) formData.append('temperature', options.temperature);
+	// Tells the proxy to log usage and cost server-side (see the website's
+	// lib/usage-log.ts), so the client doesn't also insert a row.
+	formData.append('feature', 'transcription');
 
 	const { data: response, error: fetchError } = await tryAsync({
 		mapErr: (error) =>

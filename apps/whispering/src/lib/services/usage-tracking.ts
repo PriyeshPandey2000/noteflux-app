@@ -9,19 +9,23 @@ export type UsageLogEntry = {
   durationMinutes: number;
   estimatedCost: number;
   fileName?: string;
+  // Groq Whisper model ID (e.g. 'whisper-large-v3'); picks the hourly rate.
+  model?: string;
   provider: string;
 };
 
 /**
- * Tracks usage for transcription services that charge by duration
- * Currently supports Groq Whisper API pricing ($0.03/hour)
+ * Tracks usage for transcription services that charge by duration.
+ * Groq Whisper rates per https://console.groq.com/docs/models, billed with
+ * a 10 second minimum per request.
  */
 export async function trackUsage({
   durationMinutes,
   fileName,
+  model,
   provider = 'Groq'
 }: UsageLogEntry): Promise<void> {
-  const estimatedCost = calculateCost(durationMinutes, provider);
+  const estimatedCost = calculateCost(durationMinutes, provider, model);
   
   // Fire-and-forget - don't block transcription
   setTimeout(async () => {
@@ -94,11 +98,20 @@ export async function trackUsage({
 /**
  * Calculate estimated cost based on provider and duration
  */
-function calculateCost(durationMinutes: number, provider: string): number {
+// Groq bills a 10 second minimum per transcription request.
+const GROQ_MIN_BILLED_MINUTES = 10 / 60;
+const GROQ_WHISPER_COST_PER_HOUR: Record<string, number> = {
+  'whisper-large-v3': 0.111,
+  'whisper-large-v3-turbo': 0.04,
+};
+
+function calculateCost(durationMinutes: number, provider: string, model?: string): number {
   switch (provider) {
-    case 'Groq':
-      // Groq Whisper pricing: $0.03/hour = $0.0005/minute
-      return durationMinutes * 0.0005;
+    case 'Groq': {
+      // Unknown model falls back to turbo, the app's default.
+      const costPerHour = GROQ_WHISPER_COST_PER_HOUR[model ?? ''] ?? 0.04;
+      return (Math.max(durationMinutes, GROQ_MIN_BILLED_MINUTES) / 60) * costPerHour;
+    }
     case 'OpenAI':
       // OpenAI Whisper pricing: $0.006/minute
       return durationMinutes * 0.006;
@@ -120,6 +133,7 @@ const LLM_COSTS_PER_MILLION_TOKENS: Record<string, { input: number; output: numb
   'groq:llama3-70b-8192':                  { input: 0.59,  output: 0.79 },
   'groq:openai/gpt-oss-120b':              { input: 0.15,  output: 0.60 },
   'groq:openai/gpt-oss-20b':               { input: 0.075, output: 0.30 },
+  'groq:qwen/qwen3.8-27b':                 { input: 0.80,  output: 4.00 },
   'openai:gpt-4o':                         { input: 2.50,  output: 10.00 },
   'openai:gpt-4o-mini':                    { input: 0.15,  output: 0.60 },
   'openai:gpt-3.5-turbo':                  { input: 0.50,  output: 1.50 },
