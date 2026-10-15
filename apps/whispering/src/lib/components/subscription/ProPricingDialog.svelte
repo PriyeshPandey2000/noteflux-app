@@ -18,7 +18,7 @@
 
 	const PRO_FEATURES = [
 		'Unlimited dictation, local and cloud',
-		'Ask anything by voice, or about a screenshot you just took: 500 questions/month',
+		'Ask AI by voice, or about a screenshot you just took: 500 questions/month',
 		'Say a change to selected text and it\'s rewritten',
 		'Custom AI cleanup, ready by default and yours to customize',
 		'Priority support',
