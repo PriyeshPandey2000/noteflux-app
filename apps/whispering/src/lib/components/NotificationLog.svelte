@@ -107,7 +107,7 @@
 							>
 								{log.title}
 							</Alert.Title>
-							<Alert.Description class="mt-1 text-sm text-muted-foreground">
+							<Alert.Description data-private class="mt-1 text-sm text-muted-foreground">
 								{log.description}
 							</Alert.Description>
 						</div>

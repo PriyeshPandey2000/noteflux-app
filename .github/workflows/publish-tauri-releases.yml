@@ -238,6 +238,10 @@ jobs:
           PUBLIC_POSTHOG_KEY: ${{ secrets.PUBLIC_POSTHOG_KEY }}
           PUBLIC_POSTHOG_HOST: ${{ secrets.PUBLIC_POSTHOG_HOST }}
 
+          # Strip console.log/info/debug from the shipped bundle (see vite.config.ts).
+          # Only set here, so local builds keep their logs.
+          STRIP_CONSOLE: 'true'
+
           # Tauri code signing (optional but recommended)
           # These enable automatic updates without security warnings
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
