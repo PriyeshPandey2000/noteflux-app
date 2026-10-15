@@ -43,25 +43,31 @@ Each change is a few lines. No new files besides SQL below.
 Column names for existing tables are inferred from the insert calls in `usage-tracking.ts`. Check them against the real schema before running.
 
 ```sql
--- 1. restate historical transcription cost with real rates
--- old rows have no model; assume turbo (the default). Billed length has a 10s floor.
-select
-  user_id,
-  created_at,
-  estimated_cost as logged_cost,
-  greatest(duration_minutes * 60, 10) / 3600.0 * 0.04 as corrected_cost
-from usage_logs;
+-- 1. one view over both log tables. Old client-written transcription rows
+-- (no model, no source) were priced at $0.03/hr with no 10s minimum, so they
+-- are restated here at the turbo rate ($0.04/hr, the default model) with the
+-- floor applied. Rows written by the proxy or new clients already carry a
+-- model and are left alone. Nothing is updated in place, so it can't be
+-- applied twice.
+create or replace view usage_cost_events as
+  select user_id, created_at, 'transcription'::text as feature, model,
+         case
+           when source is null and model is null and provider = 'Groq'
+             then greatest(duration_minutes * 60, 10) / 3600.0 * 0.04
+           else estimated_cost
+         end as estimated_cost,
+         source
+  from usage_logs
+  union all
+  select user_id, created_at, feature, model, estimated_cost, source
+  from llm_usage_logs;
 ```
 
 ```sql
 -- 2. monthly cost per user (transcription + LLM)
 create or replace view user_monthly_cost as
 select user_id, date_trunc('month', created_at) as month, sum(estimated_cost) as cost
-from (
-  select user_id, created_at, estimated_cost from usage_logs
-  union all
-  select user_id, created_at, estimated_cost from llm_usage_logs
-) t
+from usage_cost_events
 group by 1, 2;
 ```
 
