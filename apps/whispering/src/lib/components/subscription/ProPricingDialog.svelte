@@ -20,6 +20,7 @@
 		'Unlimited voice recordings — local & cloud',
 		'Custom AI cleanup — ready by default, yours to customize',
 		'Select text, say the change, it\'s rewritten',
+		'Ask anything by voice, with web search and screenshots — 500 questions/month',
 		'Priority support',
 		'Early access to new features',
 	];
