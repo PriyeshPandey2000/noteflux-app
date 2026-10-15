@@ -45,7 +45,7 @@
 		}
 	},
 	"productName": "NoteFlux",
-	"version": "0.0.36",
+	"version": "0.0.37",
 	"identifier": "com.priyeshpandey.noteflux",
 	"plugins": {
 		"deep-link": {
