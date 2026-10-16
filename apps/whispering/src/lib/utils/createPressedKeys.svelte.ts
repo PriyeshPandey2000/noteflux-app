@@ -77,6 +77,10 @@ export function createPressedKeys({
 				key = normalizeOptionKeyCharacter(key);
 			}
 
+			// Dead keys (Option+E/I/N/U on macOS) report "Dead" and can't be
+			// shortcuts; skip them so they don't corrupt the combination.
+			if (key === 'dead') return;
+
 			if (!isSupportedKey(key)) {
 				onUnsupportedKey?.(key);
 				return;
@@ -103,13 +107,15 @@ export function createPressedKeys({
 				key === 'shift'
 			) {
 				// When a modifier key is released, clear all non-modifier keys
-				// but keep other modifier keys that might still be pressedKeys
-				// This prevents keys from getting "stuck" in the pressedKeys state
+				// and the released modifier, but keep other held modifier keys.
+				// This prevents keys from getting "stuck" in the pressedKeys state.
+				pressedKeys = pressedKeys.filter(
+					(k) => ['meta', 'control', 'alt', 'shift'].includes(k) && k !== key,
+				);
+			} else {
+				// Regular key removal
 				pressedKeys = pressedKeys.filter((k) => k !== key);
 			}
-
-			// Regular key removal
-			pressedKeys = pressedKeys.filter((k) => k !== key);
 			update();
 		});
 

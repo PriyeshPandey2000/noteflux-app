@@ -89,14 +89,17 @@ export function createGlobalShortcutManager() {
 					}),
 			});
 			/**
-			 * NOTE: We often get "RegisterEventHotKey failed for <key>" errors when
-			 * registering global shortcuts, even though the shortcut was valid and
-			 * registered successfully. This is a known issue with the underlying system
-			 * API on certain platforms. We gracefully return Ok(undefined) in these
-			 * cases to avoid propagating the error as an unnecessary error toast,
-			 * allowing the shortcut system to continue functioning for other valid keys.
+			 * Some platforms (notably macOS) report a RegisterEventHotKey error
+			 * even when the shortcut registers successfully. Treat it as a real
+			 * failure only when the shortcut is actually absent afterward; otherwise
+			 * surface the error so a "saved but dead" shortcut can't happen silently.
 			 */
-			if (registerError) return Ok(undefined);
+			if (registerError) {
+				const isActuallyRegistered = await tauriIsRegistered(accelerator).catch(
+					() => false,
+				);
+				if (!isActuallyRegistered) return Err(registerError);
+			}
 
 			return Ok(undefined);
 		},
@@ -187,8 +190,13 @@ export function pressedKeysToTauriAccelerator(
 ): Result<Accelerator, InvalidAcceleratorError> {
 	const modifiers: AcceleratorModifier[] = [];
 	const keyCodes: AcceleratorKeyCode[] = [];
+	let hasFn = false;
 
 	for (const key of pressedKeys) {
+		if (key === 'fn') {
+			hasFn = true;
+			continue;
+		}
 		const modifier = convertToModifier(key);
 		if (modifier) {
 			modifiers.push(modifier);
@@ -197,6 +205,15 @@ export function pressedKeysToTauriAccelerator(
 			if (keyCode) {
 				keyCodes.push(keyCode);
 			}
+		}
+	}
+
+	// Fn is a modifier when paired with another key, a key code when alone.
+	if (hasFn) {
+		if (keyCodes.length === 0) {
+			keyCodes.push('Fn');
+		} else {
+			modifiers.push('Fn');
 		}
 	}
 
@@ -423,6 +440,7 @@ function sortModifiers(
 	modifiers: AcceleratorModifier[],
 ): AcceleratorModifier[] {
 	const order: Record<AcceleratorModifier, number> = {
+		Fn: 0,
 		Alt: 2,
 		AltGr: 3,
 		Cmd: 1,
