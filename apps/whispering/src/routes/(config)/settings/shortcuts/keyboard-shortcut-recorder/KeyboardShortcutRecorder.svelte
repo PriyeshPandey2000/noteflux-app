@@ -1,14 +1,14 @@
 <script lang="ts">
 	import type { KeyboardEventSupportedKey } from '$lib/constants/keyboard';
 
+	import Keycap from '$lib/components/onboarding/Keycap.svelte';
 	import { IS_MACOS } from '$lib/constants/platform';
 	import * as Alert from '$lib/ui/alert';
 	import { Badge } from '$lib/ui/badge';
 	import { Button } from '$lib/ui/button';
 	import * as Dialog from '$lib/ui/dialog';
-	import { Input } from '$lib/ui/input';
-	import { cn } from '$lib/ui/utils';
-	import { AlertTriangle, CheckCircle, Keyboard, Lightbulb, Pencil, XIcon } from '@lucide/svelte';
+	import { keyToLabel } from '$lib/utils/key-label';
+	import { CheckCircle, Keyboard, XIcon } from '@lucide/svelte';
 
 	import { type KeyRecorder } from './create-key-recorder.svelte';
 
@@ -31,16 +31,17 @@
 	} = $props();
 
 	let isDialogOpen = $state(false);
-	let isManualMode = $state(false);
-	let manualValue = $state(rawKeyCombination ?? '');
 	let saveStatus = $state<'none' | 'saving' | 'saved' | 'error'>('none');
 
+	let lastRawCombination = $state(rawKeyCombination);
 	$effect(() => {
-		manualValue = rawKeyCombination ?? '';
+		if (rawKeyCombination !== lastRawCombination) {
+			lastRawCombination = rawKeyCombination;
+			if (rawKeyCombination) saveStatus = 'saved';
+		}
 	});
 
 	async function resetDialog() {
-		isManualMode = false;
 		saveStatus = 'none';
 		keyRecorder.stop(); // Force stop any active recording
 
@@ -60,27 +61,6 @@
 		keyRecorder.register(keys);
 		saveStatus = 'saved';
 		// Dialog stays open - user must click Done/Cancel to close
-	}
-
-	function handleManualSave() {
-		if (manualValue) {
-			saveStatus = 'saving';
-			// Properly parse manual input by trimming spaces and normalizing
-			const keys = manualValue
-				.split('+')
-				.map(key => {
-					const trimmed = key.trim();
-					// Preserve "Fn" capitalization, lowercase everything else
-					return trimmed.toLowerCase() === 'fn' ? 'Fn' : trimmed.toLowerCase();
-				})
-				.filter(key => key.length > 0);
-			keyRecorder.register(keys as KeyboardEventSupportedKey[]);
-			saveStatus = 'saved';
-			setTimeout(() => {
-				isDialogOpen = false;
-				resetDialog();
-			}, 1500);
-		}
 	}
 
 </script>
@@ -134,16 +114,8 @@
 
 		<Dialog.Content
 			class="max-w-[90vw] sm:max-w-[90vw] z-[60]"
-			onPointerDownOutside={(e) => {
-				// Prevent closing only when actively recording
-				if (keyRecorder.isListening) {
-					e.preventDefault();
-				}
-			}}
-			onEscapeKeyDown={(e) => {
-				// Allow escape key to close even when testing
-				isDialogOpen = false;
-			}}
+			escapeKeydownBehavior={keyRecorder.isListening ? 'ignore' : 'close'}
+			interactOutsideBehavior={keyRecorder.isListening ? 'ignore' : 'close'}
 		>
 			<Dialog.Header>
 				<Dialog.Title class="text-lg">{title}</Dialog.Title>
@@ -163,14 +135,25 @@
 				<!-- Main Method: Record Keys -->
 				<div>
 					<h4 class="mb-3 text-sm font-medium">Set Your Shortcut</h4>
-					<p class="mb-3 text-sm text-muted-foreground">Once your shortcut is registered correctly, it will appear in the "Current" section below. Then press that shortcut to test if you see the recording overlay.</p>
-					<div class="mb-3 text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded-lg p-2">
-						<p class="flex items-center gap-1.5 font-medium"><Lightbulb class="size-4" /> Recording Tips:</p>
-						<p>• Click "Record by pressing keys" below → Press the letter FIRST, then hold modifier keys (Cmd/Ctrl/Option)</p>
-						<p>• For Fn key shortcuts: Use the "Type manually" option below and enter "Fn" or "Fn+A", etc.</p>
-						<p>• Same shortcut will both START and STOP recording</p>
-						<p>• Once set: Press your shortcut to test → Look for recording overlay → If you see it, shortcut works!</p>
-					</div>
+
+					{#if keyRecorder.isListening}
+						<div class="mb-3 flex min-h-[4.5rem] flex-wrap items-center justify-center gap-2 rounded-lg border border-dashed border-muted-foreground/40 bg-muted/40 p-4">
+							{#if keyRecorder.captured.length === 0}
+								<span class="text-sm text-muted-foreground">Press your shortcut…</span>
+							{:else}
+								{#each keyRecorder.captured as key, i (key)}
+									<Keycap label={keyToLabel(key)} active />
+									{#if i < keyRecorder.captured.length - 1}
+										<span class="text-sm text-muted-foreground">+</span>
+									{/if}
+								{/each}
+							{/if}
+						</div>
+						{#if keyRecorder.captured.length > 0 && keyRecorder.captured.every((k) => ['meta', 'alt', 'control', 'shift', 'altgraph', 'super'].includes(k))}
+							<p class="mb-2 text-xs text-amber-600">Add a letter or number to complete the shortcut</p>
+						{/if}
+						<p class="mb-3 text-center text-xs text-muted-foreground">Press <strong>Esc</strong> to cancel</p>
+					{/if}
 					
 					<div class="flex gap-4">
 						<Button
@@ -184,8 +167,11 @@
 						</Button>
 
 						{#if rawKeyCombination}
-							<div class="rounded-lg border bg-muted/50 p-3 flex flex-col items-center justify-center min-w-[120px]">
-								<span class="text-xs font-medium text-muted-foreground mb-1">Current:</span>
+							<div class="rounded-lg border p-3 flex flex-col items-center justify-center min-w-[120px] transition-colors {saveStatus === 'saved' ? 'border-green-300 bg-green-50' : 'bg-muted/50'}">
+								<span class="text-xs font-medium mb-1 flex items-center gap-1 {saveStatus === 'saved' ? 'text-green-700' : 'text-muted-foreground'}">
+									{#if saveStatus === 'saved'}<CheckCircle class="size-3" />{/if}
+									Current:
+								</span>
 								<Badge variant="secondary" class="font-mono text-xs">
 									{rawKeyCombination}
 								</Badge>
@@ -256,59 +242,6 @@
 					</div>
 				</div>
 
-				<!-- Advanced: Manual Entry -->
-				<div class="border-t pt-4">
-					<div class="mb-3 flex items-center justify-between">
-						<div>
-							<h4 class="text-sm font-medium text-muted-foreground">Advanced: Type manually</h4>
-							<p class="text-xs text-muted-foreground">For Fn key shortcuts or complex combinations that don't record properly</p>
-						</div>
-						{#if !isManualMode}
-							<Button
-								variant="outline"
-								size="sm"
-								onclick={() => {
-									isManualMode = true;
-									manualValue = rawKeyCombination ?? '';
-								}}
-							>
-								<Pencil class="mr-2 size-3" />
-								Type custom
-							</Button>
-						{/if}
-					</div>
-
-					{#if isManualMode}
-						<div class="space-y-3">
-							<Input
-								type="text"
-								placeholder="e.g., Fn, Fn+A, ctrl+shift+r, cmd+option+t"
-								bind:value={manualValue}
-								class="font-mono"
-								autofocus
-							/>
-							<div class="flex gap-2">
-								<Button
-									variant="outline"
-									size="sm"
-									onclick={() => {
-										isManualMode = false;
-										manualValue = rawKeyCombination ?? '';
-									}}
-								>
-									Cancel
-								</Button>
-								<Button
-									size="sm"
-									onclick={handleManualSave}
-									disabled={!manualValue || saveStatus === 'saving'}
-								>
-									{saveStatus === 'saving' ? 'Saving...' : 'Save'}
-								</Button>
-							</div>
-						</div>
-					{/if}
-				</div>
 			</div>
 
 			<Dialog.Footer>
