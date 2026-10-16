@@ -137,14 +137,14 @@ const startManualRecording = defineMutation({
 		const isAuthenticated = await checkAuthAndShowDialog();
 		if (!isAuthenticated) {
 			return NoteFluxErr({
-				title: '🔐 Authentication Required',
+				title: 'Authentication Required',
 				description: 'Please sign in to start recording',
 			});
 		}
 
 		const toastId = nanoid();
 		notify.loading.execute({
-			title: '🎙️ Preparing to record...',
+			title: 'Preparing to record...',
 			description: 'Setting up your recording environment...',
 			id: toastId,
 		});
@@ -159,7 +159,7 @@ const startManualRecording = defineMutation({
 		switch (deviceAcquisitionOutcome.outcome) {
 			case 'success': {
 				notify.success.execute({
-					title: '🎙️ NoteFlux is recording...',
+					title: 'NoteFlux is recording...',
 					description: 'Speak now and stop recording when done',
 					id: toastId,
 				});
@@ -173,7 +173,7 @@ const startManualRecording = defineMutation({
 				switch (deviceAcquisitionOutcome.reason) {
 					case 'no-device-selected': {
 						notify.info.execute({
-							title: '🎙️ Switched to available microphone',
+							title: 'Switched to available microphone',
 							description:
 								'No microphone was selected, so we automatically connected to an available one. You can update your selection in settings.',
 							action: {
@@ -187,7 +187,7 @@ const startManualRecording = defineMutation({
 					}
 					case 'preferred-device-unavailable': {
 						notify.info.execute({
-							title: '🎙️ Switched to different microphone',
+							title: 'Switched to different microphone',
 							description:
 								"Your previously selected microphone wasn't found, so we automatically connected to an available one.",
 							action: {
@@ -225,7 +225,7 @@ const stopManualRecording = defineMutation({
 	resultMutationFn: async () => {
 		const toastId = nanoid();
 		notify.loading.execute({
-			title: '⏸️ Stopping recording...',
+			title: 'Stopping recording...',
 			description: 'Finalizing your audio capture...',
 			id: toastId,
 		});
@@ -239,7 +239,7 @@ const stopManualRecording = defineMutation({
 		}
 
 		notify.success.execute({
-			title: '🎙️ Recording stopped',
+			title: 'Recording stopped',
 			description: 'Your recording has been saved',
 			id: toastId,
 		});
@@ -272,7 +272,7 @@ const stopManualRecording = defineMutation({
 			await processRecordingPipeline({
 				blob,
 				completionDescription: 'Recording saved and session closed successfully',
-				completionTitle: '✨ Recording Complete!',
+				completionTitle: 'Recording Complete!',
 				toastId,
 				initiatedVia,
 				selectionContext,
@@ -297,7 +297,7 @@ const startVadRecording = defineMutation({
 		const isAuthenticated = await checkAuthAndShowDialog();
 		if (!isAuthenticated) {
 			return NoteFluxErr({
-				title: '🔐 Authentication Required',
+				title: 'Authentication Required',
 				description: 'Please sign in to start recording',
 			});
 		}
@@ -318,7 +318,7 @@ const startVadRecording = defineMutation({
 		const toastId = nanoid();
 		console.info('Starting voice activated capture');
 		notify.loading.execute({
-			title: '🎙️ Starting voice activated capture',
+			title: 'Starting voice activated capture',
 			description: 'Your voice activated capture is starting...',
 			id: toastId,
 		});
@@ -342,7 +342,7 @@ const startVadRecording = defineMutation({
 					
 					const toastId = nanoid();
 					notify.success.execute({
-						title: '🎙️ Voice activated speech captured',
+						title: 'Voice activated speech captured',
 						description: 'Your voice activated speech has been captured.',
 						id: toastId,
 					});
@@ -363,14 +363,14 @@ const startVadRecording = defineMutation({
 						blob,
 						completionDescription:
 							'Voice activated capture complete! Ready for another take',
-						completionTitle: '✨ Voice activated capture complete!',
+						completionTitle: 'Voice activated capture complete!',
 						toastId,
 						initiatedVia: vadInitiatedVia || 'local', // Use the stored initiation context
 					});
 				},
 				onSpeechStart: () => {
 					notify.success.execute({
-						title: '🎙️ Speech started',
+						title: 'Speech started',
 						description: 'Recording started. Speak clearly and loudly.',
 					});
 				},
@@ -384,7 +384,7 @@ const startVadRecording = defineMutation({
 		switch (deviceAcquisitionOutcome.outcome) {
 			case 'success': {
 				notify.success.execute({
-					title: '🎙️ Voice activated capture started',
+					title: 'Voice activated capture started',
 					description: 'Your voice activated capture has been started.',
 					id: toastId,
 				});
@@ -398,7 +398,7 @@ const startVadRecording = defineMutation({
 				switch (deviceAcquisitionOutcome.reason) {
 					case 'no-device-selected': {
 						notify.info.execute({
-							title: '🎙️ VAD started with available microphone',
+							title: 'VAD started with available microphone',
 							description:
 								'No microphone was selected for VAD, so we automatically connected to an available one. You can update your selection in settings.',
 							action: {
@@ -412,7 +412,7 @@ const startVadRecording = defineMutation({
 					}
 					case 'preferred-device-unavailable': {
 						notify.info.execute({
-							title: '🎙️ VAD switched to different microphone',
+							title: 'VAD switched to different microphone',
 							description:
 								"Your previously selected VAD microphone wasn't found, so we automatically connected to an available one.",
 							action: {
@@ -439,7 +439,7 @@ const stopVadRecording = defineMutation({
 		const toastId = nanoid();
 		console.info('Stopping voice activated capture');
 		notify.loading.execute({
-			title: '⏸️ Stopping voice activated capture...',
+			title: 'Stopping voice activated capture...',
 			description: 'Finalizing your voice activated capture...',
 			id: toastId,
 		});
@@ -459,7 +459,7 @@ const stopVadRecording = defineMutation({
 			return Err(stopVadError);
 		}
 		notify.success.execute({
-			title: '🎙️ Voice activated capture stopped',
+			title: 'Voice activated capture stopped',
 			description: 'Your voice activated capture has been stopped.',
 			id: toastId,
 		});
@@ -520,7 +520,7 @@ export const commands = {
 			recordingIntent = 'dictate';
 			const toastId = nanoid();
 			notify.loading.execute({
-				title: '⏸️ Canceling recording...',
+				title: 'Canceling recording...',
 				description: 'Cleaning up recording session...',
 				id: toastId,
 			});
@@ -539,7 +539,7 @@ export const commands = {
 					recordingInitiatedVia = null;
 					selectionContextAtRecordingStart = null;
 					notify.success.execute({
-						title: '✅ All Done!',
+						title: 'All Done!',
 						description: 'Recording cancelled successfully',
 						id: toastId,
 					});
@@ -607,7 +607,7 @@ export const commands = {
 			const isAuthenticated = await checkAuthAndShowDialog();
 			if (!isAuthenticated) {
 				return NoteFluxErr({
-					title: '🔐 Authentication Required',
+					title: 'Authentication Required',
 					description: 'Please sign in to upload files',
 				});
 			}
@@ -628,14 +628,14 @@ export const commands = {
 
 			if (validFiles.length === 0) {
 				return NoteFluxErr({
-					title: '⚠️ No valid files',
+					title: 'No valid files',
 					description: 'No valid audio or video files found.',
 				});
 			}
 
 			if (invalidFiles.length > 0) {
 				notify.warning.execute({
-					title: '⚠️ Some files were skipped',
+					title: 'Some files were skipped',
 					description: `${invalidFiles.length} file(s) were not audio or video files`,
 				});
 			}
@@ -661,7 +661,7 @@ export const commands = {
 					await processRecordingPipeline({
 						blob: audioBlob,
 						completionDescription: file.name,
-						completionTitle: '📁 File uploaded successfully!',
+						completionTitle: 'File uploaded successfully!',
 						toastId,
 						initiatedVia: 'local', // File uploads are always local
 					});
@@ -778,7 +778,7 @@ async function answerVoiceQuestion(question: string, toastId: string) {
 	const trimmedQuestion = question.trim();
 	if (!trimmedQuestion) {
 		notify.warning.execute({
-			title: '⚠️ No question heard',
+			title: 'No question heard',
 			description: 'Try asking again.',
 			id: toastId,
 		});
@@ -904,7 +904,7 @@ async function processRecordingPipeline({
 	if (createRecordingError) {
 		notify.error.execute({
 			title:
-				'❌ Your recording was captured but could not be saved to the database.',
+				'Your recording was captured but could not be saved to the database.',
 			description: createRecordingError.message,
 			action: { error: createRecordingError, type: 'more-details' },
 			id: toastId,
@@ -930,7 +930,7 @@ async function processRecordingPipeline({
 	// fixed in place since the correct data already existed one layer down.
 
 	notify.loading.execute({
-		title: '📋 Transcribing...',
+		title: 'Transcribing...',
 		description: 'Your recording is being transcribed...',
 		id: transcribeToastId,
 	});
@@ -945,7 +945,7 @@ async function processRecordingPipeline({
 			return;
 		}
 		notify.error.execute({
-			title: '❌ Failed to transcribe recording',
+			title: 'Failed to transcribe recording',
 			description: 'Your recording could not be transcribed.',
 			action: { error: transcribeError, type: 'more-details' },
 			id: transcribeToastId,
@@ -1011,7 +1011,7 @@ async function processRecordingPipeline({
 	if (getTransformationError) {
 		notify.error.execute(
 			fromTaggedError(getTransformationError, {
-				title: '❌ Failed to get transformation',
+				title: 'Failed to get transformation',
 				action: { error: getTransformationError, type: 'more-details' },
 			}),
 		);
@@ -1022,7 +1022,7 @@ async function processRecordingPipeline({
 	if (transformationNoLongerExists) {
 		settings.updateKey('transformations.selectedTransformationId', null);
 		notify.warning.execute({
-			title: '⚠️ No matching transformation found',
+			title: 'No matching transformation found',
 			description:
 				'No matching transformation found. Please select a different transformation.',
 			action: {
@@ -1037,7 +1037,7 @@ async function processRecordingPipeline({
 
 	const transformToastId = nanoid();
 	notify.loading.execute({
-		title: '🔄 Running transformation...',
+		title: 'Running transformation...',
 		description:
 			'Applying your selected transformation to the transcribed text...',
 		id: transformToastId,
@@ -1055,7 +1055,7 @@ async function processRecordingPipeline({
 
 	if (transformationRun.status === 'failed') {
 		notify.error.execute({
-			title: '⚠️ Transformation error',
+			title: 'Transformation error',
 			description: transformationRun.error,
 			action: { error: transformationRun.error, type: 'more-details' },
 			id: transformToastId,

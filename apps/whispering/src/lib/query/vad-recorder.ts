@@ -59,7 +59,7 @@ export const vadRecorder = {
 
 			if (startListeningError) {
 				return fromTaggedErr(startListeningError, {
-					title: '❌ Failed to start voice activity detection',
+					title: 'Failed to start voice activity detection',
 					action: { error: startListeningError, type: 'more-details' },
 				});
 			}
@@ -77,7 +77,7 @@ export const vadRecorder = {
 
 			if (stopListeningError) {
 				return fromTaggedErr(stopListeningError, {
-					title: '❌ Failed to stop voice activity detection',
+					title: 'Failed to stop voice activity detection',
 					action: { error: stopListeningError, type: 'more-details' },
 				});
 			}

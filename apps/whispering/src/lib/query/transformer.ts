@@ -53,13 +53,13 @@ export const transformer = {
 
 				if (transformationRunError)
 					return fromTaggedErr(transformationRunError, {
-						title: '⚠️ Transformation failed',
+						title: 'Transformation failed',
 						action: { error: transformationRunError, type: 'more-details' },
 					});
 
 				if (transformationRun.status === 'failed') {
 					return NoteFluxErr({
-						title: '⚠️ Transformation failed',
+						title: 'Transformation failed',
 						description: transformationRun.error,
 						action: { error: transformationRun.error, type: 'more-details' },
 					});
@@ -67,7 +67,7 @@ export const transformer = {
 
 				if (!transformationRun.output) {
 					return NoteFluxErr({
-						title: '⚠️ Transformation produced no output',
+						title: 'Transformation produced no output',
 						description: 'The transformation completed but produced no output.',
 					});
 				}
@@ -108,7 +108,7 @@ export const transformer = {
 				await services.db.getRecordingById(recordingId);
 			if (getRecordingError || !recording) {
 				return NoteFluxErr({
-					title: '⚠️ Recording not found',
+					title: 'Recording not found',
 					description:
 						getRecordingError?.message ??
 						'Could not find the selected recording.',
@@ -124,7 +124,7 @@ export const transformer = {
 
 			if (transformationRunError)
 				return fromTaggedErr(transformationRunError, {
-					title: '⚠️ Transformation failed',
+					title: 'Transformation failed',
 					action: { error: transformationRunError, type: 'more-details' },
 				});
 

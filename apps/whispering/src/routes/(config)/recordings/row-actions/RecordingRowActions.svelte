@@ -86,7 +86,7 @@
 			onclick={() => {
 				const toastId = nanoid();
 				rpc.notify.loading.execute({
-					title: '📋 Transcribing...',
+					title: 'Transcribing...',
 					description: 'Your recording is being transcribed...',
 					id: toastId,
 				});
@@ -97,7 +97,7 @@
 							return;
 						}
 						rpc.notify.error.execute({
-							title: '❌ Failed to transcribe recording',
+							title: 'Failed to transcribe recording',
 							description: 'Your recording could not be transcribed.',
 							action: { error: error, type: 'more-details' },
 							id: toastId,
@@ -159,7 +159,7 @@
 					onSelect={(transformation) => {
 						const toastId = nanoid();
 						rpc.notify.loading.execute({
-							title: '🔄 Running transformation...',
+							title: 'Running transformation...',
 							description:
 								'Applying your selected transformation to the transcribed text...',
 							id: toastId,
@@ -171,7 +171,7 @@
 								onSuccess: (transformationRun) => {
 									if (transformationRun.status === 'failed') {
 										rpc.notify.error.execute({
-											title: '⚠️ Transformation error',
+											title: 'Transformation error',
 											description: transformationRun.error,
 											action: {
 												error: transformationRun.error,

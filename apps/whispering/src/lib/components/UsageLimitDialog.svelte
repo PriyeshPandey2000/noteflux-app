@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/ui/button';
 	import * as Dialog from '$lib/ui/dialog';
-	import { BugIcon } from '@lucide/svelte';
+	import { BugIcon, TriangleAlertIcon } from '@lucide/svelte';
 	import FeedbackDialog from '$lib/components/feedback/FeedbackDialog.svelte';
 
 	let { 
@@ -27,7 +27,9 @@
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2">
-				<span class="text-2xl">⚠️</span>
+				<span class="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted">
+					<TriangleAlertIcon class="size-4 text-muted-foreground" />
+				</span>
 				Usage Limit Reached
 			</Dialog.Title>
 			<Dialog.Description>

@@ -8,7 +8,7 @@
 	import * as Dialog from '$lib/ui/dialog';
 	import { Input } from '$lib/ui/input';
 	import { cn } from '$lib/ui/utils';
-	import { AlertTriangle, CheckCircle, Keyboard, Pencil, XIcon } from '@lucide/svelte';
+	import { AlertTriangle, CheckCircle, Keyboard, Lightbulb, Pencil, XIcon } from '@lucide/svelte';
 
 	import { type KeyRecorder } from './create-key-recorder.svelte';
 
@@ -165,7 +165,7 @@
 					<h4 class="mb-3 text-sm font-medium">Set Your Shortcut</h4>
 					<p class="mb-3 text-sm text-muted-foreground">Once your shortcut is registered correctly, it will appear in the "Current" section below. Then press that shortcut to test if you see the recording overlay.</p>
 					<div class="mb-3 text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded-lg p-2">
-						<p class="font-medium">💡 Recording Tips:</p>
+						<p class="flex items-center gap-1.5 font-medium"><Lightbulb class="size-4" /> Recording Tips:</p>
 						<p>• Click "Record by pressing keys" below → Press the letter FIRST, then hold modifier keys (Cmd/Ctrl/Option)</p>
 						<p>• For Fn key shortcuts: Use the "Type manually" option below and enter "Fn" or "Fn+A", etc.</p>
 						<p>• Same shortcut will both START and STOP recording</p>

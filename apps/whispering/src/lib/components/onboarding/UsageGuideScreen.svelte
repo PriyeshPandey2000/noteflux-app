@@ -182,7 +182,7 @@
 	<div class="text-center space-y-1.5">
 		<h2 class="text-2xl font-semibold tracking-tight text-white">
 			{#if hasTried}
-				Zero keystrokes. 🎉
+				Zero keystrokes.
 			{:else if isRecording}
 				I'm listening…
 			{:else}

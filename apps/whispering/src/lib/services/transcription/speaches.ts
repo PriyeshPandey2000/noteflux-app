@@ -60,7 +60,7 @@ export function createSpeachesTranscriptionService({
 				switch (postError.name) {
 					case 'ConnectionError': {
 						return NoteFluxErr({
-							title: '🌐 Connection Issue',
+							title: 'Connection Issue',
 							description:
 								'Unable to connect to the transcription service. This could be a network issue or temporary service interruption. Please try again in a moment.',
 							action: { error: postError.cause, type: 'more-details' },
@@ -69,7 +69,7 @@ export function createSpeachesTranscriptionService({
 
 					case 'ParseError':
 						return NoteFluxErr({
-							title: '🔍 Response Error',
+							title: 'Response Error',
 							description:
 								'Received an unexpected response from the transcription service. This is usually temporary - please try again.',
 							action: { error: postError.cause, type: 'more-details' },
@@ -80,7 +80,7 @@ export function createSpeachesTranscriptionService({
 
 						if (status === 401) {
 							return NoteFluxErr({
-								title: '🔑 Authentication Required',
+								title: 'Authentication Required',
 								description:
 									'Your API key appears to be invalid or expired. Please update your API key in settings to continue transcribing.',
 								action: {
@@ -93,7 +93,7 @@ export function createSpeachesTranscriptionService({
 
 						if (status === 403) {
 							return NoteFluxErr({
-								title: '⛔ Access Restricted',
+								title: 'Access Restricted',
 								description:
 									"Your account doesn't have access to this feature. This may be due to plan limitations or account restrictions. Please check your account status.",
 								action: { error: postError.cause, type: 'more-details' },
@@ -102,7 +102,7 @@ export function createSpeachesTranscriptionService({
 
 						if (status === 413) {
 							return NoteFluxErr({
-								title: '📦 Audio File Too Large',
+								title: 'Audio File Too Large',
 								description:
 									'Your audio file exceeds the maximum size limit (typically 25MB). Try splitting it into smaller segments or reducing the audio quality.',
 								action: { error: postError.cause, type: 'more-details' },
@@ -111,7 +111,7 @@ export function createSpeachesTranscriptionService({
 
 						if (status === 415) {
 							return NoteFluxErr({
-								title: '🎵 Unsupported Format',
+								title: 'Unsupported Format',
 								description:
 									"This audio format isn't supported. Please convert your file to MP3, WAV, M4A, or another common audio format.",
 								action: { error: postError.cause, type: 'more-details' },
@@ -121,7 +121,7 @@ export function createSpeachesTranscriptionService({
 						// Rate limiting
 						if (status === 429) {
 							return NoteFluxErr({
-								title: '⏱️ Rate Limit Reached',
+								title: 'Rate Limit Reached',
 								description: message,
 								action: {
 									href: '/settings/transcription',
@@ -133,14 +133,14 @@ export function createSpeachesTranscriptionService({
 
 						if (status >= 500) {
 							return NoteFluxErr({
-								title: '🔧 Service Unavailable',
+								title: 'Service Unavailable',
 								description: `The transcription service is temporarily unavailable (Error ${status}). Please try again in a few minutes.`,
 								action: { error: postError.cause, type: 'more-details' },
 							});
 						}
 
 						return NoteFluxErr({
-							title: '❌ Request Failed',
+							title: 'Request Failed',
 							description: `The request failed with error ${status}. This may be temporary - please try again. If the problem persists, please contact support.`,
 							action: { error: postError.cause, type: 'more-details' },
 						});
@@ -148,7 +148,7 @@ export function createSpeachesTranscriptionService({
 
 					default:
 						return NoteFluxErr({
-							title: '❓ Unexpected Error',
+							title: 'Unexpected Error',
 							description:
 								'An unexpected error occurred during transcription. Please try again, and contact support if the issue continues.',
 							action: { error: postError, type: 'more-details' },
@@ -158,7 +158,7 @@ export function createSpeachesTranscriptionService({
 
 			if ('error' in whisperApiResponse) {
 				return NoteFluxErr({
-					title: '🔧 Speaches Connection Issue',
+					title: 'Speaches Connection Issue',
 					description: whisperApiResponse.error.message,
 				});
 			}

@@ -77,7 +77,7 @@
 	<div class="text-center space-y-1.5">
 		<h2 class="text-2xl font-semibold tracking-tight text-white">
 			{#if hasEdited}
-				Rewritten in place. ✨
+				Rewritten in place.
 			{:else if isRecording}
 				Tell me what to change…
 			{:else}
