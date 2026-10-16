@@ -18,7 +18,7 @@
 	import { Toaster } from '$lib/ui/sonner';
 	import type { ToasterProps } from 'svelte-sonner';
 	import { onMount } from 'svelte';
-	import { AudioLines } from '@lucide/svelte';
+	import { AudioLines, Square } from '@lucide/svelte';
 	import { mode, ModeWatcher } from 'mode-watcher';
 
 	import { syncWindowAlwaysOnTopWithRecorderState } from './alwaysOnTop.svelte';
@@ -80,7 +80,7 @@
 			let revokedWarningToastId: string | undefined;
 			services.permissionMonitor.onRevoked(async () => {
 				const { data } = await rpc.notify.warning.execute({
-					title: '⌨️ Fn shortcut stopped working',
+					title: 'Fn shortcut stopped working',
 					description:
 						"Accessibility permission was turned off. Re-enable it in Settings — if toggling it doesn't work, remove NoteFlux from the list and add it back.",
 					persist: true,
@@ -123,7 +123,7 @@
 				closeNoticePending = false;
 				settings.updateKey('app.closeHidesToTrayNoticeShown', true);
 				rpc.notify.info.execute({
-					title: '👋 Still here',
+					title: 'Still here',
 					description:
 						'NoteFlux keeps running in your menu bar so Fn still works. Quit from the menu bar icon to fully exit.',
 				});
@@ -136,7 +136,7 @@
 			window.addEventListener('noteflux-auth-callback-success', () => {
 				analytics.trackAuthCallbackSuccess();
 				rpc.notify.success.execute({
-					title: '✅ Signed in',
+					title: 'Signed in',
 					description: 'Your account is ready.',
 				});
 			});
@@ -145,7 +145,7 @@
 			) => {
 				analytics.trackError(event.detail.message, 'auth_callback');
 				rpc.notify.error.execute({
-					title: '⚠️ Sign-in failed',
+					title: 'Sign-in failed',
 					description: `${event.detail.message} — try signing up again.`,
 				});
 			}) as EventListener);
@@ -200,7 +200,7 @@
 		class="text-[48px] leading-none"
 	>
 		{#if getRecorderStateQuery.data === 'RECORDING'}
-			⏹️
+			<Square class="size-11 fill-current" />
 		{:else}
 			<AudioLines class="size-12" />
 		{/if}

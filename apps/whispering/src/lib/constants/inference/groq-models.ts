@@ -2,6 +2,9 @@
  * Groq inference model constants
  * @see https://console.groq.com/docs/models
  */
+import type { Component } from 'svelte';
+import TargetIcon from '@lucide/svelte/icons/target';
+import ZapIcon from '@lucide/svelte/icons/zap';
 
 export const GROQ_INFERENCE_MODELS = [
 	// Production models (fastest first)
@@ -22,11 +25,22 @@ export const GROQ_INFERENCE_MODELS = [
 
 export const GROQ_INFERENCE_MODEL_OPTIONS = GROQ_INFERENCE_MODELS.map(
 	(model) => ({
-		label: model === 'openai/gpt-oss-20b'
-			? `${model} (⚡ Fast & simple)`
-			: model === 'openai/gpt-oss-120b'
-			? `${model} (🎯 Slower, better results)`
-			: model,
+		icon:
+			model === 'openai/gpt-oss-20b'
+				? ZapIcon
+				: model === 'openai/gpt-oss-120b'
+					? TargetIcon
+					: undefined,
+		label:
+			model === 'openai/gpt-oss-20b'
+				? `${model} (Fast & simple)`
+				: model === 'openai/gpt-oss-120b'
+					? `${model} (Slower, better results)`
+					: model,
 		value: model,
 	}),
-);
+) satisfies {
+	icon: Component | undefined;
+	label: string;
+	value: string;
+}[];

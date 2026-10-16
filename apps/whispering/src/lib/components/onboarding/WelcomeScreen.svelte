@@ -12,7 +12,7 @@
 	let { onNext }: Props = $props();
 
 	const EXAMPLES = [
-		{ app: 'Slack', text: 'sounds good, pushing the fix tonight 🚀' },
+		{ app: 'Slack', text: 'sounds good, pushing the fix tonight' },
 		{ app: 'Mail', text: 'Hi Sam, Thursday at 3 works for me.' },
 		{ app: 'Notes', text: 'oat milk, call mom, book the flights' },
 		{ app: 'Cursor', text: 'retry the request twice before failing' },

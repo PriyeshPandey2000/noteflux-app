@@ -35,7 +35,7 @@
 	import * as ToggleGroup from '$lib/ui/toggle-group';
 	import { createBlobUrlManager } from '$lib/utils/blobUrlManager';
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
-	import { KeyboardIcon, Loader2Icon, CopyIcon, AudioLines } from '@lucide/svelte';
+	import { KeyboardIcon, Loader2Icon, CopyIcon, AudioLines, XIcon } from '@lucide/svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
 		createTable as createSvelteTable,
@@ -51,6 +51,7 @@
 		rpc.recorder.getRecorderState.options,
 	);
 	const getVadStateQuery = createQuery(rpc.vadRecorder.getVadState.options);
+	const VadIcon = $derived(vadStateToIcons[getVadStateQuery.data ?? 'IDLE']);
 	const latestRecordingQuery = createQuery(
 		rpc.recordings.getLatestRecording.options,
 	);
@@ -188,7 +189,7 @@
 
 					if (validPaths.length === 0) {
 						rpc.notify.warning.execute({
-							title: '⚠️ No valid files',
+							title: 'No valid files',
 							description: 'Please drop audio or video files',
 						});
 						return;
@@ -209,7 +210,7 @@
 							files.push(file);
 						} catch (error) {
 							rpc.notify.error.execute({
-								title: '❌ Failed to read file',
+								title: 'Failed to read file',
 								description: `${path}: ${error}`,
 							});
 						}
@@ -222,7 +223,7 @@
 			);
 		} catch (error) {
 			rpc.notify.error.execute({
-				title: '❌ Failed to set up drag drop listener',
+				title: 'Failed to set up drag drop listener',
 				description: `${error}`,
 			});
 		}
@@ -347,7 +348,7 @@
 								class="cursor-pointer"
 								style="view-transition-name: cancel-icon;"
 							>
-								🚫
+								<XIcon class="size-5" />
 							</NoteFluxButton>
 						{/if}
 					{:else if settings.value['recording.mode'] === 'vad'}
@@ -363,11 +364,7 @@
 								style="filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12)); view-transition-name: microphone-icon;"
 								class="text-2xl leading-none"
 							>
-								{#if (getVadStateQuery.data ?? 'IDLE') === 'IDLE'}
-									<AudioLines class="size-6" />
-								{:else}
-									{vadStateToIcons[getVadStateQuery.data ?? 'IDLE']}
-								{/if}
+								<VadIcon class="size-6" />
 							</span>
 						</NoteFluxButton>
 					{/if}

@@ -68,7 +68,7 @@ export const delivery = {
 			// Shows transcription result and offers manual copy action
 			const offerManualCopy = () =>
 				rpc.notify.success.execute({
-					title: hasSelection ? '✏️ Inline edit result' : ' Recording transcribed!',
+					title: hasSelection ? 'Inline edit result' : 'Recording transcribed!',
 					description: finalText,
 					action: {
 						label: 'Copy to clipboard',
@@ -141,8 +141,8 @@ export const delivery = {
 			const confirmFullDelivery = (deliveredText: string) =>
 				rpc.notify.success.execute({
 					title: hasSelection
-						? '✏️ Selected text replaced!'
-						: ' Recording transcribed, copied to clipboard, and pasted!',
+						? 'Selected text replaced!'
+						: 'Recording transcribed, copied to clipboard, and pasted!',
 					description: deliveredText,
 					action: {
 						href: WHISPERING_RECORDINGS_PATHNAME,
@@ -165,7 +165,7 @@ export const delivery = {
 				// check. See docs/specs/20260925T113952-anonymous-14-day-trial.md.
 				if (!subscription.hasProAccess && !isOnboardingDemoStep()) {
 					rpc.notify.warning.execute({
-						title: '🔒 This is a Pro feature',
+						title: 'This is a Pro feature',
 						description: 'Inline editing requires Pro. Upgrade to keep using it.',
 						id: toastId,
 						action: {
@@ -180,7 +180,7 @@ export const delivery = {
 				// Guard: instruction too short to be meaningful
 				if (text.trim().length < 3) {
 					rpc.notify.error.execute({
-						title: '⚠️ Instruction too short',
+						title: 'Instruction too short',
 						description: 'Speak a clear instruction to edit the selected text.',
 						id: toastId,
 					});
@@ -188,7 +188,7 @@ export const delivery = {
 				}
 
 				rpc.notify.loading.execute({
-					title: '✏️ Editing selected text...',
+					title: 'Editing selected text...',
 					description: 'Applying your instruction...',
 					id: toastId,
 				});
@@ -215,7 +215,7 @@ export const delivery = {
 
 				if (editError) {
 					rpc.notify.error.execute({
-						title: '⚠️ Inline edit failed',
+						title: 'Inline edit failed',
 						description: editError.message,
 						id: toastId,
 					});
@@ -433,7 +433,7 @@ export const delivery = {
 			// Confirms complete delivery (both copy and paste succeeded)
 			const confirmFullDelivery = () =>
 				rpc.notify.success.execute({
-					title: ' Transformation complete, copied to clipboard, and pasted!',
+					title: 'Transformation complete, copied to clipboard, and pasted!',
 					description: text,
 					action: {
 						href: WHISPERING_RECORDINGS_PATHNAME,

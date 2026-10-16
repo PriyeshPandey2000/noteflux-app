@@ -15,7 +15,7 @@ export const download = {
 		): Promise<Result<void, DownloadServiceError | NoteFluxError>> => {
 			if (!recording.blob) {
 				return NoteFluxErr({
-					title: '⚠️ Recording blob not found',
+					title: 'Recording blob not found',
 					description: "Your recording doesn't have a blob to download.",
 				});
 			}

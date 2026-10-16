@@ -53,7 +53,7 @@ export function createOpenaiTranscriptionService() {
 			// Pre-validation: Check API key
 			if (!options.apiKey) {
 				return NoteFluxErr({
-					title: '🔑 API Key Required',
+					title: 'API Key Required',
 					description:
 						'Please enter your OpenAI API key in settings to use Whisper transcription.',
 					action: {
@@ -66,7 +66,7 @@ export function createOpenaiTranscriptionService() {
 
 			if (!options.apiKey.startsWith('sk-')) {
 				return NoteFluxErr({
-					title: '🔑 Invalid API Key Format',
+					title: 'Invalid API Key Format',
 					description:
 						'Your OpenAI API key should start with "sk-". Please check and update your API key.',
 					action: {
@@ -90,7 +90,7 @@ export function createOpenaiTranscriptionService() {
 			const { data: file, error: fileError } = trySync({
 				mapErr: (error) =>
 					NoteFluxErr({
-						title: '📁 File Creation Failed',
+						title: 'File Creation Failed',
 						description:
 							'Failed to create audio file for transcription. Please try again.',
 					}),
@@ -140,7 +140,7 @@ export function createOpenaiTranscriptionService() {
 				// 400 - BadRequestError
 				if (status === 400) {
 					return NoteFluxErr({
-						title: '❌ Bad Request',
+						title: 'Bad Request',
 						description:
 							message ??
 							`Invalid request to OpenAI API. ${error?.message ?? ''}`.trim(),
@@ -151,7 +151,7 @@ export function createOpenaiTranscriptionService() {
 				// 401 - AuthenticationError
 				if (status === 401) {
 					return NoteFluxErr({
-						title: '🔑 Authentication Required',
+						title: 'Authentication Required',
 						description:
 							message ??
 							'Your API key appears to be invalid or expired. Please update your API key in settings to continue transcribing.',
@@ -166,7 +166,7 @@ export function createOpenaiTranscriptionService() {
 				// 403 - PermissionDeniedError
 				if (status === 403) {
 					return NoteFluxErr({
-						title: '⛔ Permission Denied',
+						title: 'Permission Denied',
 						description:
 							message ??
 							"Your account doesn't have access to this feature. This may be due to plan limitations or account restrictions.",
@@ -177,7 +177,7 @@ export function createOpenaiTranscriptionService() {
 				// 404 - NotFoundError
 				if (status === 404) {
 					return NoteFluxErr({
-						title: '🔍 Not Found',
+						title: 'Not Found',
 						description:
 							message ??
 							'The requested resource was not found. This might indicate an issue with the model or API endpoint.',
@@ -188,7 +188,7 @@ export function createOpenaiTranscriptionService() {
 				// 413 - Request Entity Too Large
 				if (status === 413) {
 					return NoteFluxErr({
-						title: '📦 Audio File Too Large',
+						title: 'Audio File Too Large',
 						description:
 							message ??
 							'Your audio file exceeds the maximum size limit (25MB). Try splitting it into smaller segments or reducing the audio quality.',
@@ -199,7 +199,7 @@ export function createOpenaiTranscriptionService() {
 				// 415 - Unsupported Media Type
 				if (status === 415) {
 					return NoteFluxErr({
-						title: '🎵 Unsupported Format',
+						title: 'Unsupported Format',
 						description:
 							message ??
 							"This audio format isn't supported. Please convert your file to MP3, WAV, M4A, or another common audio format.",
@@ -210,7 +210,7 @@ export function createOpenaiTranscriptionService() {
 				// 422 - UnprocessableEntityError
 				if (status === 422) {
 					return NoteFluxErr({
-						title: '⚠️ Invalid Input',
+						title: 'Invalid Input',
 						description:
 							message ??
 							'The request was valid but the server cannot process it. Please check your audio file and parameters.',
@@ -221,7 +221,7 @@ export function createOpenaiTranscriptionService() {
 				// 429 - RateLimitError
 				if (status === 429) {
 					return NoteFluxErr({
-						title: '⏱️ Rate Limit Reached',
+						title: 'Rate Limit Reached',
 						description:
 							message ?? 'Too many requests. Please try again later.',
 						action: {
@@ -235,7 +235,7 @@ export function createOpenaiTranscriptionService() {
 				// >=500 - InternalServerError
 				if (status && status >= 500) {
 					return NoteFluxErr({
-						title: '🔧 Service Unavailable',
+						title: 'Service Unavailable',
 						description:
 							message ??
 							`The transcription service is temporarily unavailable (Error ${status}). Please try again in a few minutes.`,
@@ -246,7 +246,7 @@ export function createOpenaiTranscriptionService() {
 				// Handle APIConnectionError (no status code)
 				if (!status && name === 'APIConnectionError') {
 					return NoteFluxErr({
-						title: '🌐 Connection Issue',
+						title: 'Connection Issue',
 						description:
 							message ??
 							'Unable to connect to the OpenAI service. This could be a network issue or temporary service interruption.',
@@ -256,7 +256,7 @@ export function createOpenaiTranscriptionService() {
 
 				// Return the error directly for other API errors
 				return NoteFluxErr({
-					title: '❌ Unexpected Error',
+					title: 'Unexpected Error',
 					description:
 						message ?? 'An unexpected error occurred. Please try again.',
 					action: { error: openaiApiError, type: 'more-details' },

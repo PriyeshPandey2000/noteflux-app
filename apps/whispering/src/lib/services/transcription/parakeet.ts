@@ -90,7 +90,7 @@ export function createParakeetService() {
 			const result = await tryAsync({
 				mapErr: (error) =>
 					NoteFluxErr({
-						title: '📥 Model download failed',
+						title: 'Model download failed',
 						description:
 							error instanceof Error
 								? error.message
@@ -113,7 +113,7 @@ export function createParakeetService() {
 			const result = await tryAsync({
 				mapErr: (error) =>
 					NoteFluxErr({
-						title: '🗑️ Model delete failed',
+						title: 'Model delete failed',
 						description:
 							error instanceof Error
 								? error.message
@@ -160,7 +160,7 @@ export function createParakeetService() {
 				}
 				if (cachedMacOSMajorVersion < 15) {
 					return NoteFluxErr({
-						title: '⚙️ macOS 15+ required',
+						title: 'macOS 15+ required',
 						description:
 							'Parakeet requires macOS 15 (Sequoia) or newer. Switch to a cloud transcription service.',
 						action: {
@@ -179,7 +179,7 @@ export function createParakeetService() {
 					});
 					if (status !== 'downloaded') {
 						return NoteFluxErr({
-							title: '📥 Model not downloaded',
+							title: 'Model not downloaded',
 							description: 'The Parakeet model needs to be downloaded before use.',
 							action: {
 								href: '/settings/transcription',
@@ -197,7 +197,7 @@ export function createParakeetService() {
 			const { error: writeError } = await tryAsync({
 				mapErr: (error) =>
 					NoteFluxErr({
-						title: '📄 Failed to write audio',
+						title: 'Failed to write audio',
 						description: 'Could not write temp audio file for local transcription.',
 						action: { error, type: 'more-details' },
 					}),
@@ -220,7 +220,7 @@ export function createParakeetService() {
 			const { data: transcript, error: invokeError } = await tryAsync({
 				mapErr: (error) =>
 					NoteFluxErr({
-						title: '🎙️ Parakeet failed',
+						title: 'Parakeet failed',
 						description:
 							error instanceof Error
 								? error.message
@@ -241,7 +241,7 @@ export function createParakeetService() {
 
 			if (!transcript.trim()) {
 				return NoteFluxErr({
-					title: '🔇 No speech detected',
+					title: 'No speech detected',
 					description: 'The recording appears to be silent or too short.',
 				});
 			}

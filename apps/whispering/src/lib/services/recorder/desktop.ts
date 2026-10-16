@@ -68,7 +68,7 @@ export function createDesktopRecorderService(): RecorderService {
 			}
 
 			sendStatus({
-				title: '🛑 Cancelling',
+				title: 'Cancelling',
 				description:
 					'Safely stopping your recording and cleaning up resources...',
 			});
@@ -91,7 +91,7 @@ export function createDesktopRecorderService(): RecorderService {
 				});
 				if (removeError)
 					sendStatus({
-						title: '❌ Error Deleting Recording File',
+						title: 'Error Deleting Recording File',
 						description:
 							"We couldn't delete the recording file. Continuing with the cancellation process...",
 					});
@@ -99,7 +99,7 @@ export function createDesktopRecorderService(): RecorderService {
 
 			// Close the recording session after cancelling
 			sendStatus({
-				title: '🔄 Closing Session',
+				title: 'Closing Session',
 				description: 'Cleaning up recording resources...',
 			});
 			const { error: closeError } = await invoke<void>(
@@ -167,7 +167,7 @@ export function createDesktopRecorderService(): RecorderService {
 
 				if (!selectedDeviceId) {
 					sendStatus({
-						title: '🔍 No Device Selected',
+						title: 'No Device Selected',
 						description:
 							"No worries! We'll find the best microphone for you automatically...",
 					});
@@ -184,7 +184,7 @@ export function createDesktopRecorderService(): RecorderService {
 				if (deviceExists) return Ok({ outcome: 'success' });
 
 				sendStatus({
-					title: '⚠️ Finding a New Microphone',
+					title: 'Finding a New Microphone',
 					description:
 						"That microphone isn't available. Let's try finding another one...",
 				});
@@ -208,7 +208,7 @@ export function createDesktopRecorderService(): RecorderService {
 
 			// Now initialize recording with the chosen device
 			sendStatus({
-				title: '🎤 Setting Up',
+				title: 'Setting Up',
 				description:
 					'Initializing your recording session and checking microphone access...',
 			});
@@ -239,7 +239,7 @@ export function createDesktopRecorderService(): RecorderService {
 				});
 
 			sendStatus({
-				title: '🎙️ Starting Recording',
+				title: 'Starting Recording',
 				description:
 					'Recording session initialized, now starting to capture audio...',
 			});
@@ -285,7 +285,7 @@ export function createDesktopRecorderService(): RecorderService {
 
 			// Read the WAV file from disk
 			sendStatus({
-				title: '📁 Reading Recording',
+				title: 'Reading Recording',
 				description: 'Loading your recording from disk...',
 			});
 
@@ -305,7 +305,7 @@ export function createDesktopRecorderService(): RecorderService {
 
 			// Close the recording session after stopping
 			sendStatus({
-				title: '🔄 Closing Session',
+				title: 'Closing Session',
 				description: 'Cleaning up recording resources...',
 			});
 			const { error: closeError } = await invoke<void>(

@@ -33,7 +33,7 @@ export const recorder = {
 
 			if (cancelRecordingError) {
 				return fromTaggedErr(cancelRecordingError, {
-					title: '❌ Failed to cancel recording',
+					title: 'Failed to cancel recording',
 					action: { error: cancelRecordingError, type: 'more-details' },
 				});
 			}
@@ -58,7 +58,7 @@ export const recorder = {
 				await services.recorder.getCurrentRecordingId();
 			if (getRecordingIdError) {
 				return fromTaggedErr(getRecordingIdError, {
-					title: '❌ Failed to get current recording',
+					title: 'Failed to get current recording',
 					action: { error: getRecordingIdError, type: 'more-details' },
 				});
 			}
@@ -75,7 +75,7 @@ export const recorder = {
 				await services.recorder.getCurrentRecordingId();
 			if (getRecordingIdError) {
 				return fromTaggedErr(getRecordingIdError, {
-					title: '❌ Failed to get recorder state',
+					title: 'Failed to get recorder state',
 					action: { error: getRecordingIdError, type: 'more-details' },
 				});
 			}
@@ -116,7 +116,7 @@ export const recorder = {
 
 			if (startRecordingError) {
 				return fromTaggedErr(startRecordingError, {
-					title: '❌ Failed to start recording',
+					title: 'Failed to start recording',
 					action: { error: startRecordingError, type: 'more-details' },
 				});
 			}
@@ -137,7 +137,7 @@ export const recorder = {
 
 			if (stopRecordingError) {
 				return fromTaggedErr(stopRecordingError, {
-					title: '❌ Failed to stop recording',
+					title: 'Failed to stop recording',
 					action: { error: stopRecordingError, type: 'more-details' },
 				});
 			}

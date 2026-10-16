@@ -76,7 +76,7 @@ export function createDeepgramTranscriptionService({
             // Pre-validation: Check API key
             if (!options.apiKey) {
                 return NoteFluxErr({
-                    title: '🔑 API Key Required',
+                    title: 'API Key Required',
                     description:
                         'Please enter your Deepgram API key in settings to use Deepgram transcription.',
                     action: {
@@ -127,7 +127,7 @@ export function createDeepgramTranscriptionService({
                 switch (postError.name) {
                     case 'ConnectionError': {
                         return NoteFluxErr({
-                            title: '🌐 Connection Issue',
+                            title: 'Connection Issue',
                             description:
                                 'Unable to connect to Deepgram service. Please check your internet connection.',
                             action: { error: postError.cause, type: 'more-details' },
@@ -136,7 +136,7 @@ export function createDeepgramTranscriptionService({
 
                     case 'ParseError':
                         return NoteFluxErr({
-                            title: '🔍 Response Error',
+                            title: 'Response Error',
                             description:
                                 'Received an unexpected response from Deepgram service. Please try again.',
                             action: { error: postError.cause, type: 'more-details' },
@@ -147,7 +147,7 @@ export function createDeepgramTranscriptionService({
 
                         if (status === 400) {
                             return NoteFluxErr({
-                                title: '❌ Bad Request',
+                                title: 'Bad Request',
                                 description:
                                     message || 'Invalid request parameters. Please check your audio file and settings.',
                                 action: { error: postError.cause, type: 'more-details' },
@@ -156,7 +156,7 @@ export function createDeepgramTranscriptionService({
 
                         if (status === 401) {
                             return NoteFluxErr({
-                                title: '🔑 Authentication Failed',
+                                title: 'Authentication Failed',
                                 description:
                                     'Your Deepgram API key is invalid or expired. Please update your API key in settings.',
                                 action: {
@@ -169,7 +169,7 @@ export function createDeepgramTranscriptionService({
 
                         if (status === 403) {
                             return NoteFluxErr({
-                                title: '⛔ Access Denied',
+                                title: 'Access Denied',
                                 description:
                                     message || 'Your account does not have access to this feature or model.',
                                 action: { error: postError.cause, type: 'more-details' },
@@ -178,7 +178,7 @@ export function createDeepgramTranscriptionService({
 
                         if (status === 413) {
                             return NoteFluxErr({
-                                title: '📦 Audio File Too Large',
+                                title: 'Audio File Too Large',
                                 description:
                                     'Your audio file exceeds the maximum size limit. Try splitting it into smaller segments.',
                                 action: { error: postError.cause, type: 'more-details' },
@@ -187,7 +187,7 @@ export function createDeepgramTranscriptionService({
 
                         if (status === 415) {
                             return NoteFluxErr({
-                                title: '🎵 Unsupported Format',
+                                title: 'Unsupported Format',
                                 description:
                                     "This audio format isn't supported. Please convert your file to a supported format.",
                                 action: { error: postError.cause, type: 'more-details' },
@@ -196,7 +196,7 @@ export function createDeepgramTranscriptionService({
 
                         if (status === 429) {
                             return NoteFluxErr({
-                                title: '⏱️ Rate Limit Reached',
+                                title: 'Rate Limit Reached',
                                 description:
                                     'Too many requests. Please wait before trying again.',
                                 action: { error: postError.cause, type: 'more-details' },
@@ -205,7 +205,7 @@ export function createDeepgramTranscriptionService({
 
                         if (status && status >= 500) {
                             return NoteFluxErr({
-                                title: '🔧 Service Unavailable',
+                                title: 'Service Unavailable',
                                 description:
                                     `The Deepgram service is temporarily unavailable (Error ${status}). Please try again later.`,
                                 action: { error: postError.cause, type: 'more-details' },
@@ -213,7 +213,7 @@ export function createDeepgramTranscriptionService({
                         }
 
                         return NoteFluxErr({
-                            title: '❌ Transcription Failed',
+                            title: 'Transcription Failed',
                             description:
                                 message || 'An unexpected error occurred during transcription. Please try again.',
                             action: { error: postError.cause, type: 'more-details' },
@@ -222,7 +222,7 @@ export function createDeepgramTranscriptionService({
 
                     default:
                         return NoteFluxErr({
-                            title: '❓ Unexpected Error',
+                            title: 'Unexpected Error',
                             description:
                                 'An unexpected error occurred during transcription. Please try again.',
                             action: { error: postError, type: 'more-details' },
@@ -235,7 +235,7 @@ export function createDeepgramTranscriptionService({
 
             if (!transcript) {
                 return NoteFluxErr({
-                    title: '📝 No Transcription Found',
+                    title: 'No Transcription Found',
                     description: 'No speech was detected in the audio file. Please check your audio and try again.',
                 });
             }

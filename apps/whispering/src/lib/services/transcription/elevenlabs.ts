@@ -39,7 +39,7 @@ export function createElevenLabsTranscriptionService() {
 		): Promise<Result<string, NoteFluxError>> => {
 			if (!options.apiKey) {
 				return NoteFluxErr({
-					title: '🔑 API Key Required',
+					title: 'API Key Required',
 					description:
 						'Please enter your ElevenLabs API key in settings to use speech-to-text transcription.',
 					action: {
@@ -61,7 +61,7 @@ export function createElevenLabsTranscriptionService() {
 
 				if (blobSizeInMb > MAX_FILE_SIZE_MB) {
 					return NoteFluxErr({
-						title: '📁 File Size Too Large',
+						title: 'File Size Too Large',
 						description: `Your audio file (${blobSizeInMb.toFixed(1)}MB) exceeds the ${MAX_FILE_SIZE_MB}MB limit. Please use a smaller file or compress the audio.`,
 					});
 				}
@@ -83,7 +83,7 @@ export function createElevenLabsTranscriptionService() {
 				return Ok(transcription.text.trim());
 			} catch (error) {
 				return NoteFluxErr({
-					title: '🔧 Transcription Failed',
+					title: 'Transcription Failed',
 					description:
 						'Unable to complete the transcription using ElevenLabs. This may be due to a service issue or unsupported audio format. Please try again.',
 					action: { error, type: 'more-details' },

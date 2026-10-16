@@ -72,7 +72,7 @@ export const transcription = {
 		): Promise<Result<string, NoteFluxError>> => {
 			if (!recording.blob) {
 				return NoteFluxErr({
-					title: '⚠️ Recording blob not found',
+					title: 'Recording blob not found',
 					description: "Your recording doesn't have a blob to transcribe.",
 				});
 			}
@@ -83,8 +83,8 @@ export const transcription = {
 				});
 			if (setRecordingTranscribingError) {
 				notify.warning.execute({
-					title:
-						'⚠️ Unable to set recording transcription status to transcribing',
+				title:
+					'Unable to set recording transcription status to transcribing',
 					description: 'Continuing with the transcription process...',
 					action: {
 						error: setRecordingTranscribingError,
@@ -102,7 +102,7 @@ export const transcription = {
 					});
 				if (setRecordingTranscribingError) {
 					notify.warning.execute({
-						title: '⚠️ Unable to update recording after transcription',
+						title: 'Unable to update recording after transcription',
 						description:
 							"Transcription failed but unable to update recording's transcription status in database",
 						action: {
@@ -122,7 +122,7 @@ export const transcription = {
 				});
 			if (setRecordingTranscribedTextError) {
 				notify.warning.execute({
-					title: '⚠️ Unable to update recording after transcription',
+					title: 'Unable to update recording after transcription',
 					description:
 						"Transcription completed but unable to update recording's transcribed text and status in database",
 					action: {
@@ -142,7 +142,7 @@ export const transcription = {
 				recordings.map(async (recording) => {
 					if (!recording.blob) {
 						return NoteFluxErr({
-							title: '⚠️ Recording blob not found',
+							title: 'Recording blob not found',
 							description: "Your recording doesn't have a blob to transcribe.",
 						});
 					}
@@ -216,7 +216,7 @@ async function transcribeBlob(
 						await showBlockedDialog(checkData.total_minutes, checkData.limit_minutes);
 
 						return NoteFluxErr({
-							title: '⚠️ Account blocked',
+							title: 'Account blocked',
 							description: 'Your account has been temporarily blocked. Contact support for assistance.',
 						});
 					} else {
@@ -252,7 +252,7 @@ async function transcribeBlob(
 			authRequiredDialog.open();
 			
 			return NoteFluxErr({
-				title: '🔐 Authentication Required',
+				title: 'Authentication Required',
 				description: 'Please sign in to use transcription',
 			});
 		}
@@ -281,7 +281,7 @@ async function transcribeBlob(
 		authRequiredDialog.open();
 		
 		return NoteFluxErr({
-			title: '🔐 Authentication check failed',
+			title: 'Authentication check failed',
 			description: 'Unable to verify authentication. Please try again.',
 		});
 	}
@@ -303,7 +303,7 @@ async function transcribeBlob(
 				
 				// IMMEDIATELY return error - don't let this transcription complete
 				return NoteFluxErr({
-					title: '⚠️ Usage limit reached',
+					title: 'Usage limit reached',
 					description: `You've used ${limitCheck.totalMinutes.toFixed(0)} out of ${limitCheck.limitMinutes} minutes.`,
 				});
 			}
@@ -420,7 +420,7 @@ async function transcribeBlob(
 				// 	});
 				default:
 					return NoteFluxErr({
-						title: '⚠️ Unsupported transcription service',
+						title: 'Unsupported transcription service',
 						description: `The selected service "${selectedService}" is not supported in SaaS mode.`,
 					});
 			}
