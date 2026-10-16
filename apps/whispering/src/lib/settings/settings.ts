@@ -251,11 +251,11 @@ export const settingsSchema = z.object({
 		'shortcuts.global.askOverlay': z
 			.string()
 			.nullable()
-			.default('Control+Option+Space'),
+			.default('Shift+Z'),
 		'shortcuts.global.extractTextFromClipboard': z
 			.string()
 			.nullable()
-			.default('Command+Option+T'),
+			.default('Shift+X'),
 		'shortcuts.global.cancelManualRecording': z
 			.string()
 			.nullable()
