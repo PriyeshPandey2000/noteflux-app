@@ -13,6 +13,7 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import { onboardingStore } from '$lib/stores/onboarding.svelte';
 	import { type PressedKeys } from '$lib/utils/createPressedKeys.svelte';
+	import { keyToLabel } from '$lib/utils/key-label';
 
 	import { createKeyRecorder } from './create-key-recorder.svelte';
 	import KeyboardShortcutRecorder from './KeyboardShortcutRecorder.svelte';
@@ -46,6 +47,7 @@
 				});
 
 			if (unregisterError) {
+				console.error('[Shortcut] Failed to unregister:', unregisterError);
 				rpc.notify.error.execute(
 					fromTaggedError(unregisterError, {
 						title: 'Error clearing global shortcut',
@@ -68,11 +70,11 @@
 					});
 
 				if (unregisterError) {
+					console.error('[Shortcut] Failed to unregister:', unregisterError);
 					rpc.notify.error.execute({
 						title: 'Failed to unregister shortcut',
 						description:
 							'Could not unregister the global shortcut. It may already be in use by another application.',
-						action: { error: unregisterError, type: 'more-details' },
 					});
 				}
 			}
@@ -81,10 +83,10 @@
 				pressedKeysToTauriAccelerator(keyCombination);
 
 			if (acceleratorError) {
+				console.error('[Shortcut] Invalid combination:', keyCombination, acceleratorError);
 				rpc.notify.error.execute({
 					title: 'Invalid shortcut combination',
-					description: `The key combination "${keyCombination.join('+')}" is not valid. Please try a different combination.`,
-					action: { error: acceleratorError, type: 'more-details' },
+					description: `The key combination "${keyCombination.map(keyToLabel).join('+')}" is not valid. Please try a different combination.`,
 				});
 				return;
 			}
@@ -96,12 +98,12 @@
 				});
 
 			if (registerError) {
+				console.error('[Shortcut] Failed to register:', accelerator, registerError);
 				switch (registerError.name) {
 					case 'InvalidAcceleratorError':
 						rpc.notify.error.execute({
 							title: 'Invalid shortcut combination',
-							description: `The key combination "${keyCombination.join('+')}" is not valid. Please try a different combination.`,
-							action: { error: registerError, type: 'more-details' },
+							description: `The key combination "${keyCombination.map(keyToLabel).join('+')}" is not valid. Please try a different combination.`,
 						});
 						break;
 					default:
@@ -109,7 +111,6 @@
 							title: 'Failed to register shortcut',
 							description:
 								'Could not register the global shortcut. It may already be in use by another application.',
-							action: { error: registerError, type: 'more-details' },
 						});
 						break;
 				}

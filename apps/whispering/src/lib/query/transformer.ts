@@ -13,8 +13,7 @@ import {
 } from '$lib/result';
 import * as services from '$lib/services';
 import { settings } from '$lib/stores/settings.svelte';
-import { getGroqApiKey } from '$lib/utils/embedded-keys';
-import { trackLlmUsage } from '$lib/services/usage-tracking';
+import { auth } from '$lib/stores/auth.svelte';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { Err, isErr, Ok, type Result } from 'wellcrafted/result';
 
@@ -54,13 +53,13 @@ export const transformer = {
 
 				if (transformationRunError)
 					return fromTaggedErr(transformationRunError, {
-						title: '⚠️ Transformation failed',
+						title: 'Transformation failed',
 						action: { error: transformationRunError, type: 'more-details' },
 					});
 
 				if (transformationRun.status === 'failed') {
 					return NoteFluxErr({
-						title: '⚠️ Transformation failed',
+						title: 'Transformation failed',
 						description: transformationRun.error,
 						action: { error: transformationRun.error, type: 'more-details' },
 					});
@@ -68,7 +67,7 @@ export const transformer = {
 
 				if (!transformationRun.output) {
 					return NoteFluxErr({
-						title: '⚠️ Transformation produced no output',
+						title: 'Transformation produced no output',
 						description: 'The transformation completed but produced no output.',
 					});
 				}
@@ -109,7 +108,7 @@ export const transformer = {
 				await services.db.getRecordingById(recordingId);
 			if (getRecordingError || !recording) {
 				return NoteFluxErr({
-					title: '⚠️ Recording not found',
+					title: 'Recording not found',
 					description:
 						getRecordingError?.message ??
 						'Could not find the selected recording.',
@@ -125,7 +124,7 @@ export const transformer = {
 
 			if (transformationRunError)
 				return fromTaggedErr(transformationRunError, {
-					title: '⚠️ Transformation failed',
+					title: 'Transformation failed',
 					action: { error: transformationRunError, type: 'more-details' },
 				});
 
@@ -220,24 +219,17 @@ async function handleStep({
 					const model = step['prompt_transform.inference.provider.Groq.model'];
 					const { data: completionResponse, error: completionError } =
 						await services.completions.groq.complete({
-							apiKey: getGroqApiKey(),
+							apiKey: settings.value['apiKeys.groq'] || undefined,
+							accessToken: auth.state.session?.access_token,
 							model,
 							systemPrompt,
 							userPrompt,
+							feature: 'transformation',
 						});
 
 					if (completionError) {
 						return Err(completionError.message);
 					}
-
-					// Fire-and-forget usage tracking
-					trackLlmUsage({
-						feature: 'transformation',
-						provider: 'groq',
-						model,
-						inputTokens: completionResponse.inputTokens,
-						outputTokens: completionResponse.outputTokens,
-					});
 
 					return Ok(completionResponse.text);
 				}

@@ -26,13 +26,14 @@
 		OPENAI_INFERENCE_MODEL_OPTIONS,
 	} from '$lib/constants/inference';
 	import { generateDefaultTransformationStep } from '$lib/services/db';
+	import { TrashIcon } from '$lib/components/icons';
 	import * as Accordion from '$lib/ui/accordion';
 	import * as Alert from '$lib/ui/alert';
 	import { Button } from '$lib/ui/button';
 	import * as Card from '$lib/ui/card';
 	import * as SectionHeader from '$lib/ui/section-header';
 	import { Separator } from '$lib/ui/separator';
-	import { CopyIcon, PlusIcon, TrashIcon } from '@lucide/svelte';
+	import { CopyIcon, PlusIcon } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 
 	let { transformation = $bindable() }: { transformation: Transformation } =
@@ -253,11 +254,21 @@
 							</div>
 						{:else if step.type === 'prompt_transform'}
 							<div class="space-y-6">
+								{#snippet groqModelOption({ item }: { item: (typeof GROQ_INFERENCE_MODEL_OPTIONS)[number] })}
+									<div class="flex items-center gap-2">
+										{#if item.icon}
+											{@const Icon = item.icon}
+											<Icon class="size-4 text-muted-foreground" />
+										{/if}
+										<span>{item.label}</span>
+									</div>
+								{/snippet}
 								<div class="grid grid-cols-1 gap-4">
 									<LabeledSelect
 										id="prompt_transform.inference.provider.Groq.model"
 										label="Quality"
 										items={GROQ_INFERENCE_MODEL_OPTIONS}
+										renderOption={groqModelOption}
 										selected={step[
 											'prompt_transform.inference.provider.Groq.model'
 										]}

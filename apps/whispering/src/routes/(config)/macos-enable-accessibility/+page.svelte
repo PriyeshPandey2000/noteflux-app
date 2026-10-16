@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/ui/button';
 	import * as Card from '$lib/ui/card';
-	import { SettingsIcon } from '@lucide/svelte';
+	import { MicIcon, SettingsIcon } from '@lucide/svelte';
 	import { invoke } from '@tauri-apps/api/core';
 </script>
 
@@ -44,14 +44,15 @@
 					</li>
 
 					<li>
-						Click on <span class="text-primary font-semibold tracking-tight"
-							>🎙️ NoteFlux</span
+						Click on <span
+							class="text-primary font-semibold tracking-tight inline-flex items-center gap-1"
+							><MicIcon class="size-4" /> NoteFlux</span
 						> and remove it using the minus icon (-).
 					</li>
 					<li>
 						Re-add NoteFlux by pressing the plus icon (+) and selecting <span
-							class="text-primary font-semibold tracking-tight"
-							>🎙️ NoteFlux.app</span
+							class="text-primary font-semibold tracking-tight inline-flex items-center gap-1"
+							><MicIcon class="size-4" /> NoteFlux.app</span
 						>
 					</li>
 				</ol>

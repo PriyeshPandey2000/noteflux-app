@@ -11,11 +11,14 @@
 		"targets": "all",
 		"resources": [
 			"recording-overlay.html",
+			"notch-status.html",
 			"default.metallib",
 			"../../../LICENSE"
 		],
 		"externalBin": [
-			"binaries/qwen3-asr-cli"
+			"binaries/qwen3-asr-cli",
+			"binaries/parakeet-cli",
+			"binaries/ocr-cli"
 		],
 		"icon": [
 			"icons/32x32.png",
@@ -42,7 +45,7 @@
 		}
 	},
 	"productName": "NoteFlux",
-	"version": "0.0.31",
+	"version": "0.0.37",
 	"identifier": "com.priyeshpandey.noteflux",
 	"plugins": {
 		"deep-link": {
@@ -61,6 +64,7 @@
 	},
 	"app": {
 		"macOSPrivateApi": true,
+		"withGlobalTauri": true,
 		"windows": [
 			{
 				"resizable": true,

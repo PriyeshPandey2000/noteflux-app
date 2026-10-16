@@ -2,14 +2,14 @@
 	import type { Transformation } from '$lib/services/db';
 
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import { PencilIcon as EditIcon } from '$lib/components/icons';
+	import { PencilIcon as EditIcon, TrashIcon } from '$lib/components/icons';
 	import NoteFluxButton from '$lib/components/NoteFluxButton.svelte';
 	import { Editor } from '$lib/components/transformations-editor';
 	import { rpc } from '$lib/query';
 	import { Button } from '$lib/ui/button';
 	import * as Modal from '$lib/ui/modal';
 	import { Separator } from '$lib/ui/separator';
-	import { HistoryIcon, Loader2Icon, PlayIcon, TrashIcon } from '@lucide/svelte';
+	import { HistoryIcon, Loader2Icon, PlayIcon } from '@lucide/svelte';
 	import { createMutation } from '@tanstack/svelte-query';
 
 	import MarkTransformationActiveButton from './MarkTransformationActiveButton.svelte';

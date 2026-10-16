@@ -79,7 +79,10 @@
 			await updateDialog.update.downloadAndInstall((event) => {
 				switch (event.event) {
 					case 'Finished':
-						rpc.notify.success.execute({
+						// info, not success: the toaster paints success text green,
+						// which clashed with the "update available" toast (also info)
+						// shown just before this one.
+						rpc.notify.info.execute({
 							title: 'Update installed successfully!',
 							description: 'Restart NoteFlux to apply the update.',
 							action: {

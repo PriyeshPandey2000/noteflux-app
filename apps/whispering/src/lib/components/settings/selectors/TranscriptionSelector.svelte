@@ -17,29 +17,51 @@
 	import * as Popover from '$lib/ui/popover';
 	import { cn } from '$lib/ui/utils';
 	import {
+		DEFAULT_PARAKEET_MODEL_ID,
+		PARAKEET_MODELS,
+		type ParakeetModelId,
+	} from '$lib/services/transcription/parakeet';
+	import {
 		DEFAULT_QWEN3_ASR_MODEL_ID,
 		QWEN3_ASR_MODELS,
 		type Qwen3ASRModelId,
 	} from '$lib/services/transcription/qwen3-asr';
-	import { CheckIcon, DownloadIcon, MicIcon, SettingsIcon } from '@lucide/svelte';
+	import {
+		BrainCircuitIcon,
+		CheckIcon,
+		DownloadIcon,
+		SettingsIcon,
+	} from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 
 	let { class: className }: { class?: string } = $props();
 
 	const selectedService = $derived(getSelectedTranscriptionService());
 
-	// Local model checks — run once when dropdown opens.
-	let isLocalModelDownloaded = $state(false);
-	let isLocalModelSupported = $state(true);
+	// Local model checks — run once per local service when dropdown opens.
+	// Keyed by service id since each local service (Qwen3ASR, Parakeet) has
+	// its own macOS-support and model-downloaded state.
+	let localModelDownloaded = $state<Record<string, boolean>>({});
+	let localModelSupported = $state<Record<string, boolean>>({});
 	$effect(() => {
 		if (combobox.open) {
 			services.transcriptions.qwen3asr.isMacOSSupported().then((supported) => {
-				isLocalModelSupported = supported;
+				localModelSupported.Qwen3ASR = supported;
 				if (supported) {
 					const selectedModelId = (settings.value['transcription.qwen3asr.modelId'] ??
 						DEFAULT_QWEN3_ASR_MODEL_ID) as Qwen3ASRModelId;
 					services.transcriptions.qwen3asr.getModelStatus(selectedModelId).then((status) => {
-						isLocalModelDownloaded = status === 'downloaded';
+						localModelDownloaded.Qwen3ASR = status === 'downloaded';
+					});
+				}
+			});
+			services.transcriptions.parakeet.isMacOSSupported().then((supported) => {
+				localModelSupported.Parakeet = supported;
+				if (supported) {
+					const selectedModelId = (settings.value['transcription.parakeet.modelId'] ??
+						DEFAULT_PARAKEET_MODEL_ID) as ParakeetModelId;
+					services.transcriptions.parakeet.getModelStatus(selectedModelId).then((status) => {
+						localModelDownloaded.Parakeet = status === 'downloaded';
 					});
 				}
 			});
@@ -68,9 +90,8 @@
 </script>
 
 {#snippet renderServiceDisplay(service: TranscriptionService)}
-	{@const Icon = service.icon}
 	<div class="flex items-center gap-2">
-		<Icon class="size-4 shrink-0" />
+		<BrainCircuitIcon class="size-4 shrink-0" />
 		<span class="font-medium truncate">
 			{service.name}
 		</span>
@@ -93,19 +114,16 @@
 				variant="ghost"
 				size="icon"
 			>
-				{#if selectedService}
-					{@const SelectedIcon = selectedService.icon}
-					<SelectedIcon
-						class={cn(
-							'size-4',
-							isTranscriptionServiceConfigured(selectedService)
+				<BrainCircuitIcon
+					class={cn(
+						'size-4',
+						selectedService
+							? isTranscriptionServiceConfigured(selectedService)
 								? 'text-green-500'
-								: 'text-amber-500',
-						)}
-					/>
-				{:else}
-					<MicIcon class="size-4 text-muted-foreground" />
-				{/if}
+								: 'text-amber-500'
+							: 'text-muted-foreground',
+					)}
+				/>
 				{#if selectedService && !isTranscriptionServiceConfigured(selectedService)}
 					<span
 						class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-500 before:absolute before:left-0 before:top-0 before:h-full before:w-full before:rounded-full before:bg-amber-500/50 before:animate-ping"
@@ -131,7 +149,6 @@
 						{#each service.models as model}
 							{@const isModelSelected =
 								isSelected && currentSelectedModelName === model.name}
-							{@const Icon = service.icon}
 							<Command.Item
 								value="{service.id}-{model.name}"
 								onSelect={() => {
@@ -150,7 +167,7 @@
 								/>
 								<div class="flex flex-col min-w-0">
 									<div class="flex items-center gap-2">
-										<Icon class="size-4 shrink-0" />
+										<BrainCircuitIcon class="size-4 shrink-0" />
 										<span class="font-medium">{model.name}</span>
 									</div>
 									{#if !isConfigured}
@@ -168,19 +185,25 @@
 					{@const isSelected =
 						settings.value['transcription.selectedTranscriptionService'] ===
 						service.id}
+					{@const isSupported = localModelSupported[service.id] ?? true}
+					{@const isDownloaded = localModelDownloaded[service.id] ?? false}
+					{@const activeModel =
+						service.id === 'Parakeet'
+							? (PARAKEET_MODELS.find((m) => m.id === settings.value['transcription.parakeet.modelId']) ?? PARAKEET_MODELS[0])
+							: (QWEN3_ASR_MODELS.find((m) => m.id === settings.value['transcription.qwen3asr.modelId']) ?? QWEN3_ASR_MODELS[0])}
 
 					<Command.Group heading="On-Device">
 						<Command.Item
 							value={service.id}
 							onSelect={() => {
-								if (!isLocalModelSupported) {
+								if (!isSupported) {
 									toast.error('macOS 15 required', {
-										description: 'Qwen3-ASR requires macOS 15 (Sequoia) or later.',
+										description: `${service.name} requires macOS 15 (Sequoia) or later.`,
 									});
 									combobox.closeAndFocusTrigger();
 									return;
 								}
-								if (!isLocalModelDownloaded) {
+								if (!isDownloaded) {
 									settings.updateKey('transcription.selectedTranscriptionService', service.id);
 									goto('/settings/transcription');
 									combobox.closeAndFocusTrigger();
@@ -198,19 +221,18 @@
 							/>
 							<div class="flex flex-col min-w-0">
 								{@render renderServiceDisplay(service)}
-								{#if !isLocalModelSupported}
+								{#if !isSupported}
 									<span class="text-xs text-amber-600 ml-6">
 										Requires macOS 15 (Sequoia) or later
 									</span>
-								{:else if isLocalModelDownloaded}
+								{:else if isDownloaded}
 									<span class="text-xs text-muted-foreground ml-6">
 										Apple Silicon · macOS 15+ · no API key
 									</span>
 								{:else}
-									{@const qwenModel = QWEN3_ASR_MODELS.find((m) => m.id === settings.value['transcription.qwen3asr.modelId']) ?? QWEN3_ASR_MODELS[0]}
 									<span class="text-xs text-amber-600 ml-6 flex items-center gap-1">
 										<DownloadIcon class="size-3" />
-										Model download required ({qwenModel.size})
+										Model download required ({activeModel.size})
 									</span>
 								{/if}
 							</div>

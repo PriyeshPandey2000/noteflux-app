@@ -3,17 +3,19 @@
 	import type { UnlistenFn } from '@tauri-apps/api/event';
 
 	import { commandCallbacks } from '$lib/commands';
+	import AskTutorialDialog from '$lib/components/AskTutorialDialog.svelte';
+	import OcrTutorialDialog from '$lib/components/OcrTutorialDialog.svelte';
 	import AuthSection from '$lib/components/auth/AuthSection.svelte';
 	import CopyToClipboardButton from '$lib/components/copyable/CopyToClipboardButton.svelte';
 	import { ClipboardIcon } from '$lib/components/icons';
 	import NoteFluxButton from '$lib/components/NoteFluxButton.svelte';
+	import RecordingWaveformIcon from '$lib/components/RecordingWaveformIcon.svelte';
 	import {
 		DeviceSelector,
 		TranscriptionSelector,
 		TransformationSelector,
 	} from '$lib/components/settings';
 	import {
-		recorderStateToIcons,
 		RECORDING_MODE_OPTIONS,
 		type RecordingMode,
 		vadStateToIcons,
@@ -24,18 +26,16 @@
 	import { initializationStore } from '$lib/stores/initialization.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import InitializationScreen from '$lib/components/InitializationScreen.svelte';
-	import { Button } from '$lib/ui/button';
 	import {
 		ACCEPT_AUDIO,
 		ACCEPT_VIDEO,
 		FileDropZone,
 		MEGABYTE,
 	} from '$lib/ui/file-drop-zone';
-	import * as Popover from '$lib/ui/popover';
 	import * as ToggleGroup from '$lib/ui/toggle-group';
 	import { createBlobUrlManager } from '$lib/utils/blobUrlManager';
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
-	import { CircleHelpIcon, Loader2Icon, CopyIcon, AudioLines } from '@lucide/svelte';
+	import { KeyboardIcon, Loader2Icon, CopyIcon, AudioLines, XIcon } from '@lucide/svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
 		createTable as createSvelteTable,
@@ -47,12 +47,11 @@
 	import RecordingsTable from './(config)/recordings/RecordingsTable.svelte';
 	import { homepageRecentRecordingsColumns } from './(config)/recordings/recordingsTableColumns';
 
-	let isHelpPopoverOpen = $state(false);
-
 	const getRecorderStateQuery = createQuery(
 		rpc.recorder.getRecorderState.options,
 	);
 	const getVadStateQuery = createQuery(rpc.vadRecorder.getVadState.options);
+	const VadIcon = $derived(vadStateToIcons[getVadStateQuery.data ?? 'IDLE']);
 	const latestRecordingQuery = createQuery(
 		rpc.recordings.getLatestRecording.options,
 	);
@@ -190,7 +189,7 @@
 
 					if (validPaths.length === 0) {
 						rpc.notify.warning.execute({
-							title: '⚠️ No valid files',
+							title: 'No valid files',
 							description: 'Please drop audio or video files',
 						});
 						return;
@@ -211,7 +210,7 @@
 							files.push(file);
 						} catch (error) {
 							rpc.notify.error.execute({
-								title: '❌ Failed to read file',
+								title: 'Failed to read file',
 								description: `${path}: ${error}`,
 							});
 						}
@@ -224,7 +223,7 @@
 			);
 		} catch (error) {
 			rpc.notify.error.execute({
-				title: '❌ Failed to set up drag drop listener',
+				title: 'Failed to set up drag drop listener',
 				description: `${error}`,
 			});
 		}
@@ -303,7 +302,7 @@
 		</ToggleGroup.Root> -->
 
 		<!-- Main Content Area: Large text display with recording controls -->
-		<div class="w-full max-w-[450px] mx-auto flex flex-col gap-2">
+		<div class="w-full max-w-[450px] mx-auto rounded-xl border bg-muted/20 overflow-hidden">
 			<!-- Large Text Display Area -->
 			<div class="w-full">
 				<TranscribedTextDialog
@@ -312,13 +311,14 @@
 						? '...'
 						: latestRecording.transcribedText}
 					rows={16}
+					textareaClass="border-0 rounded-none shadow-none bg-transparent dark:bg-transparent focus-visible:ring-0 focus-visible:border-0"
 				/>
 			</div>
 
 			<!-- Recording Controls Row -->
-			<div class="flex items-center justify-between gap-4">
+			<div class="flex items-center justify-between gap-4 border-t px-2.5 py-2">
 				<!-- Left: Recording Buttons -->
-				<div class="flex items-center gap-2">
+				<div class="flex items-center gap-1">
 					{#if settings.value['recording.mode'] === 'manual'}
 						<NoteFluxButton
 							tooltipContent={getRecorderStateQuery.data === 'IDLE'
@@ -329,13 +329,13 @@
 							class="shrink-0 size-12 transform items-center justify-center duration-300 ease-in-out cursor-pointer"
 						>
 							<span
-								style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: microphone-icon;"
+								style="filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12)); view-transition-name: microphone-icon;"
 								class="text-2xl leading-none"
 							>
 								{#if (getRecorderStateQuery.data ?? 'IDLE') === 'IDLE'}
 									<AudioLines class="size-6" />
 								{:else}
-									{recorderStateToIcons[getRecorderStateQuery.data ?? 'IDLE']}
+									<RecordingWaveformIcon class="size-6 text-red-500" />
 								{/if}
 							</span>
 						</NoteFluxButton>
@@ -348,7 +348,7 @@
 								class="cursor-pointer"
 								style="view-transition-name: cancel-icon;"
 							>
-								🚫
+								<XIcon class="size-5" />
 							</NoteFluxButton>
 						{/if}
 					{:else if settings.value['recording.mode'] === 'vad'}
@@ -361,14 +361,10 @@
 							class="shrink-0 size-12 transform items-center justify-center duration-300 ease-in-out cursor-pointer"
 						>
 							<span
-								style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.5)); view-transition-name: microphone-icon;"
+								style="filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12)); view-transition-name: microphone-icon;"
 								class="text-2xl leading-none"
 							>
-								{#if (getVadStateQuery.data ?? 'IDLE') === 'IDLE'}
-									<AudioLines class="size-6" />
-								{:else}
-									{vadStateToIcons[getVadStateQuery.data ?? 'IDLE']}
-								{/if}
+								<VadIcon class="size-6" />
 							</span>
 						</NoteFluxButton>
 					{/if}
@@ -421,7 +417,7 @@
 			</div>
 		</div>
 
-		<div class="xs:flex hidden flex-col items-center gap-3 mt-8">
+		<div class="xs:flex hidden flex-col items-center gap-3 -mt-2.5">
 			<!-- <p class="text-foreground/75 text-center text-sm">
 				Click the microphone or press
 				{' '}<NoteFluxButton
@@ -439,60 +435,26 @@
 				to start recording here.
 			</p> -->
 			{#if window.__TAURI_INTERNALS__}
-				<div class="flex flex-col items-center gap-3">
-					<div class="flex items-center gap-2">
-						<NoteFluxButton
-							href="/settings/shortcuts/global"
-							variant="outline"
-							size="sm"
-							tooltipContent="Customize keyboard shortcuts"
-						>
-							⌨️ Change Shortcuts
-						</NoteFluxButton>
-
-						<Popover.Root bind:open={isHelpPopoverOpen}>
-							<Popover.Trigger>
-								<Button
-									variant="ghost"
-									size="icon"
-									class="size-8 cursor-pointer"
-									onmouseenter={() => isHelpPopoverOpen = true}
-									onmouseleave={() => isHelpPopoverOpen = false}
-								>
-									<CircleHelpIcon class="size-4" />
-								</Button>
-							</Popover.Trigger>
-							<Popover.Content
-								class="w-[500px]"
-								onmouseenter={() => isHelpPopoverOpen = true}
-								onmouseleave={() => isHelpPopoverOpen = false}
-							>
-								<div class="space-y-3">
-									{#if settings.value['shortcuts.recordingMode'] === 'hold'}
-										<p class="text-sm font-medium">
-											Hold <kbd class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-xs font-semibold">{settings.value['shortcuts.global.pushToTalk'] || 'Not set'}</kbd> and speak. Release when done.
-										</p>
-										<p class="text-sm text-muted-foreground">
-											💡 Tip: Place cursor first, then hold shortcut to paste directly.
-										</p>
-									{:else}
-										<p class="text-sm font-medium">
-											Press <kbd class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-xs font-semibold">{settings.value['shortcuts.global.toggleManualRecording'] || 'Not set'}</kbd> to start recording. Press <kbd class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-xs font-semibold">{settings.value['shortcuts.global.toggleManualRecording'] || 'Not set'}</kbd> again when done, then use <kbd class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-xs font-semibold">Cmd+V</kbd> to paste.
-										</p>
-										<p class="text-sm text-muted-foreground">
-											💡 Tip: Place cursor first for direct paste after second press.
-										</p>
-									{/if}
-									<p class="text-sm text-muted-foreground">
-										To cancel: <kbd class="bg-muted relative rounded px-[0.3rem] py-[0.15rem] font-mono text-xs font-semibold">{settings.value['shortcuts.global.cancelManualRecording'] || 'Not set'}</kbd>
-									</p>
-									<p class="text-sm text-muted-foreground">
-										✨ <strong>Faster results:</strong> Disable text formatting by clicking the filter icon and unchecking transformations.
-									</p>
-								</div>
-							</Popover.Content>
-						</Popover.Root>
-					</div>
+				<div class="flex flex-col items-center gap-5">
+					<NoteFluxButton
+						href="/settings/shortcuts/global"
+						variant="outline"
+						size="sm"
+						tooltipContent="Customize keyboard shortcuts"
+					>
+						<KeyboardIcon class="size-4" />
+						Change Shortcuts
+					</NoteFluxButton>
+					{#if !settings.value['onboarding.askTutorialCompleted'] || !settings.value['onboarding.ocrTutorialCompleted']}
+						<div class="flex flex-wrap items-center justify-center gap-3">
+							{#if !settings.value['onboarding.askTutorialCompleted']}
+								<AskTutorialDialog />
+							{/if}
+							{#if !settings.value['onboarding.ocrTutorialCompleted']}
+								<OcrTutorialDialog />
+							{/if}
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>

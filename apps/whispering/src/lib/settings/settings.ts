@@ -104,6 +104,11 @@ export const settingsSchema = z.object({
 	'onboarding.hasSeenWelcome': z.boolean().default(false),
 	'onboarding.pasteTestCompleted': z.boolean().default(false),
 	'app.onboardingCompleted': z.boolean().default(false),
+	// Homepage feature-discovery cards (Ask Q&A, Screenshot OCR). Once the
+	// user actually completes a feature's guided tutorial, its card
+	// auto-dismisses from the homepage for good.
+	'onboarding.askTutorialCompleted': z.boolean().default(false),
+	'onboarding.ocrTutorialCompleted': z.boolean().default(false),
 	// Set only when the user leaves onboarding via the "Customize Shortcut"
 	// detour (usage-guide -> settings). Read once on next app-layout mount to
 	// resume there instead of restarting from 'welcome' — the existing
@@ -207,6 +212,9 @@ export const settingsSchema = z.object({
 	'transcription.qwen3asr.modelId': z
 		.string()
 		.default('aufklarer/Qwen3-ASR-0.6B-MLX-4bit'),
+	'transcription.parakeet.modelId': z
+		.string()
+		.default('aufklarer/Parakeet-TDT-v3-CoreML-INT8-30s'),
 	'transcription.speaches.baseUrl': z.string().default('http://localhost:8000'),
 	'transcription.speaches.modelId': z
 		.string()
@@ -224,6 +232,8 @@ export const settingsSchema = z.object({
 	'shortcuts.recordingMode': z.enum(['hold', 'toggle']).default('hold'),
 
 	...({
+		'shortcuts.local.askOverlay': z.string().nullable().default(null),
+		'shortcuts.local.extractTextFromClipboard': z.string().nullable().default(null),
 		'shortcuts.local.cancelManualRecording': z.string().nullable().default(null),
 		'shortcuts.local.pushToTalk': z.string().nullable().default(null),
 		// 'shortcuts.local.startManualRecording': z.string().nullable().default(null),
@@ -238,6 +248,14 @@ export const settingsSchema = z.object({
 	>),
 
 	...({
+		'shortcuts.global.askOverlay': z
+			.string()
+			.nullable()
+			.default('Control+Option+Space'),
+		'shortcuts.global.extractTextFromClipboard': z
+			.string()
+			.nullable()
+			.default('Command+Option+T'),
 		'shortcuts.global.cancelManualRecording': z
 			.string()
 			.nullable()

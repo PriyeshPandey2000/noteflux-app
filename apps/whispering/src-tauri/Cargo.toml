@@ -1,6 +1,6 @@
 [package]
 name = "noteflux"
-version = "0.0.31"
+version = "0.0.37"
 description = "A Tauri App"
 authors = ["you"]
 repository = "https://github.com/PriyeshPandey2000/noteflux-app"
@@ -49,6 +49,7 @@ core-foundation = "0.9"
 core-graphics = "0.23"
 cocoa = "0.25"
 objc = "0.2.7"
+block = "0.1.6"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-global-shortcut = "2"

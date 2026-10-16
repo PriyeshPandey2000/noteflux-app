@@ -3,7 +3,19 @@ import type { PressedKeys } from '$lib/utils/createPressedKeys.svelte';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
-const CAPTURE_WINDOW_MS = 300; // Time to wait for additional keys in a combination
+const CAPTURE_WINDOW_MS = 1000; // Time to wait for additional keys in a combination
+
+// Keys that never complete a shortcut via the capture window alone.
+// Modifiers need a letter. Fn completes via the Fn-release event (tap = Fn alone).
+const MODIFIER_KEYS = new Set<KeyboardEventSupportedKey>([
+	'alt',
+	'altgraph',
+	'control',
+	'fn',
+	'meta',
+	'shift',
+	'super',
+]);
 
 export type KeyRecorder = ReturnType<typeof createKeyRecorder>;
 
@@ -35,9 +47,22 @@ export function createKeyRecorder({
 }) {
 	// State
 	let isListening = $state(false);
-	const capturedKeys = new Set<KeyboardEventSupportedKey>();
+	let capturedKeys = $state<KeyboardEventSupportedKey[]>([]);
 	let captureWindowTimer: NodeJS.Timeout | null = null;
 	let fnEventUnlisten: UnlistenFn | null = null;
+	let fnReleaseUnlisten: UnlistenFn | null = null;
+
+	// Helper: Detach Fn event listeners
+	function unlistenFnEvents() {
+		if (fnEventUnlisten) {
+			fnEventUnlisten();
+			fnEventUnlisten = null;
+		}
+		if (fnReleaseUnlisten) {
+			fnReleaseUnlisten();
+			fnReleaseUnlisten = null;
+		}
+	}
 
 	// Helper: Clear the capture window timer
 	function clearCaptureTimer() {
@@ -47,13 +72,8 @@ export function createKeyRecorder({
 		}
 	}
 
-	// Helper: Complete the key combination
-	async function completeRecording() {
-		if (!isListening || capturedKeys.size === 0) return;
-
-		clearCaptureTimer();
-		isListening = false;
-
+	// Helper: Stop Fn recording mode and detach its event listener
+	async function teardownRecording() {
 		// Disable Fn recording mode
 		if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
 			try {
@@ -64,16 +84,51 @@ export function createKeyRecorder({
 		}
 
 		// Unlisten from Fn events
-		if (fnEventUnlisten) {
-			fnEventUnlisten();
-			fnEventUnlisten = null;
-		}
+		unlistenFnEvents();
+	}
 
-		// Convert Set to Array for registration
-		const combination = Array.from(capturedKeys);
-		capturedKeys.clear();
+	// Helper: Whether a real (non-modifier) key has been captured
+	function hasNonModifierKey() {
+		for (const key of capturedKeys) {
+			if (!MODIFIER_KEYS.has(key)) return true;
+		}
+		return false;
+	}
+
+	// Helper: Complete the key combination
+	async function completeRecording(force = false) {
+		if (!isListening || capturedKeys.length === 0) return;
+		if (!force && !hasNonModifierKey()) return; // never register a modifier-only combo
+
+		clearCaptureTimer();
+		isListening = false;
+		await teardownRecording();
+
+		const combination = [...capturedKeys];
+		capturedKeys = [];
 
 		onRegister(combination);
+	}
+
+	// Helper: Abort recording without registering (e.g. a modifier tapped alone)
+	async function cancelRecording() {
+		if (!isListening) return;
+		clearCaptureTimer();
+		isListening = false;
+		capturedKeys = [];
+		await teardownRecording();
+	}
+
+	// Helper: Fires when the capture window expires with no further input
+	function onCaptureWindowExpired() {
+		if (!isListening) return;
+		if (hasNonModifierKey()) {
+			void completeRecording();
+		} else {
+			// Only modifiers captured so far: keep waiting for a real key to join
+			clearCaptureTimer();
+			captureWindowTimer = setTimeout(onCaptureWindowExpired, CAPTURE_WINDOW_MS);
+		}
 	}
 
 	// Main effect: Watch for key changes
@@ -82,30 +137,23 @@ export function createKeyRecorder({
 
 		// Escape key cancels recording
 		if (pressedKeys.current.includes('escape')) {
-			isListening = false;
-			clearCaptureTimer();
-			capturedKeys.clear();
+			void cancelRecording();
 			return;
 		}
 
 		// Track new keys
 		let hasNewKeys = false;
 		for (const key of pressedKeys.current) {
-			if (!capturedKeys.has(key)) {
-				capturedKeys.add(key);
+			if (!capturedKeys.includes(key)) {
+				capturedKeys.push(key);
 				hasNewKeys = true;
 			}
 		}
 
 		// New keys extend the capture window
-		if (hasNewKeys && capturedKeys.size > 0) {
+		if (hasNewKeys && capturedKeys.length > 0) {
 			clearCaptureTimer();
-			captureWindowTimer = setTimeout(completeRecording, CAPTURE_WINDOW_MS);
-		}
-
-		// All keys released = immediate completion
-		if (pressedKeys.current.length === 0 && capturedKeys.size > 0) {
-			completeRecording();
+			captureWindowTimer = setTimeout(onCaptureWindowExpired, CAPTURE_WINDOW_MS);
 		}
 	});
 
@@ -113,7 +161,7 @@ export function createKeyRecorder({
 	return {
 		async clear() {
 			isListening = false;
-			capturedKeys.clear();
+			capturedKeys = [];
 			clearCaptureTimer();
 
 			// Disable Fn recording mode
@@ -126,35 +174,44 @@ export function createKeyRecorder({
 			}
 
 			// Unlisten from Fn events
-			if (fnEventUnlisten) {
-				fnEventUnlisten();
-				fnEventUnlisten = null;
-			}
+			unlistenFnEvents();
 
 			onClear();
 		},
 		get isListening() {
 			return isListening;
 		},
+		get captured() {
+			return capturedKeys;
+		},
 		register: onRegister,
 		async start() {
 			isListening = true;
-			capturedKeys.clear();
+			capturedKeys = [];
 			clearCaptureTimer();
 
 			// Enable Fn recording mode in Tauri
 			if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
 				try {
-					await invoke('enable_fn_recording_mode');
-
 					// Listen for Fn key presses from Rust
 					fnEventUnlisten = await listen('fn-key-pressed-for-recording', () => {
-						capturedKeys.add('fn' as KeyboardEventSupportedKey);
+						if (!capturedKeys.includes('fn')) {
+							capturedKeys.push('fn' as KeyboardEventSupportedKey);
+						}
 
 						// Extend capture window
 						clearCaptureTimer();
-						captureWindowTimer = setTimeout(completeRecording, CAPTURE_WINDOW_MS);
+						captureWindowTimer = setTimeout(onCaptureWindowExpired, CAPTURE_WINDOW_MS);
 					});
+
+					// Listen for Fn key release: a tap (no other key) means "Fn alone"
+					fnReleaseUnlisten = await listen('fn-key-released-for-recording', () => {
+						if (capturedKeys.length === 1 && capturedKeys.includes('fn')) {
+							void completeRecording(true);
+						}
+					});
+
+					await invoke('enable_fn_recording_mode');
 				} catch (error) {
 					console.error('[KeyRecorder] Failed to enable Fn recording mode:', error);
 				}
@@ -162,7 +219,7 @@ export function createKeyRecorder({
 		},
 		async stop() {
 			isListening = false;
-			capturedKeys.clear();
+			capturedKeys = [];
 			clearCaptureTimer();
 
 			// Disable Fn recording mode
@@ -175,10 +232,7 @@ export function createKeyRecorder({
 			}
 
 			// Unlisten from Fn events
-			if (fnEventUnlisten) {
-				fnEventUnlisten();
-				fnEventUnlisten = null;
-			}
+			unlistenFnEvents();
 		},
 	};
 }

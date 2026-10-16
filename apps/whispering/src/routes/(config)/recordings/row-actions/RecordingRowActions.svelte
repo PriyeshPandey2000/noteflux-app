@@ -1,18 +1,20 @@
 <script lang="ts">
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
 	import CopyToClipboardButton from '$lib/components/copyable/CopyToClipboardButton.svelte';
-	import { ClipboardIcon, TrashIcon } from '$lib/components/icons';
+	import { ClipboardIcon, PencilIcon, TrashIcon } from '$lib/components/icons';
 	import NoteFluxButton from '$lib/components/NoteFluxButton.svelte';
-	import NoteFluxTooltip from '$lib/components/NoteFluxTooltip.svelte';
 	import { rpc } from '$lib/query';
 	import { Skeleton } from '$lib/ui/skeleton';
+	import * as DropdownMenu from '$lib/ui/dropdown-menu';
 	import { getRecordingTransitionId } from '$lib/utils/getRecordingTransitionId';
 	import {
 		AlertCircleIcon,
-		DownloadIcon,
+		ArrowDownToLineIcon,
+		ClipboardCopyIcon,
 		EllipsisIcon,
-		FileStackIcon,
+		ListChecksIcon,
 		Loader2Icon,
+		MoreHorizontalIcon,
 		PlayIcon,
 		RepeatIcon,
 	} from '@lucide/svelte';
@@ -39,12 +41,25 @@
 		rpc.download.downloadRecording.options,
 	);
 
+	const copyToClipboard = createMutation(
+		rpc.clipboard.copyToClipboard.options,
+	);
+
 	let { recordingId }: { recordingId: string } = $props();
+
+	let isEditOpen = $state(false);
+	let isViewRunsOpen = $state(false);
 
 	const latestTransformationRunByRecordingIdQuery = createQuery(
 		rpc.transformationRuns.getLatestTransformationRunByRecordingId(
 			() => recordingId,
 		).options,
+	);
+
+	const latestCompletedTransformOutput = $derived(
+		latestTransformationRunByRecordingIdQuery.data?.status === 'completed'
+			? latestTransformationRunByRecordingIdQuery.data.output
+			: null,
 	);
 
 	const recordingQuery = createQuery(
@@ -56,8 +71,6 @@
 
 <div class="flex items-center gap-0.5">
 	{#if !recording}
-		<Skeleton class="size-6" />
-		<Skeleton class="size-6" />
 		<Skeleton class="size-6" />
 		<Skeleton class="size-6" />
 		<Skeleton class="size-6" />
@@ -73,7 +86,7 @@
 			onclick={() => {
 				const toastId = nanoid();
 				rpc.notify.loading.execute({
-					title: '📋 Transcribing...',
+					title: 'Transcribing...',
 					description: 'Your recording is being transcribed...',
 					id: toastId,
 				});
@@ -84,7 +97,7 @@
 							return;
 						}
 						rpc.notify.error.execute({
-							title: '❌ Failed to transcribe recording',
+							title: 'Failed to transcribe recording',
 							description: 'Your recording could not be transcribed.',
 							action: { error: error, type: 'more-details' },
 							id: toastId,
@@ -115,46 +128,6 @@
 			{/if}
 		</NoteFluxButton>
 
-		<TransformationPicker
-			onSelect={(transformation) => {
-				const toastId = nanoid();
-				rpc.notify.loading.execute({
-					title: '🔄 Running transformation...',
-					description:
-						'Applying your selected transformation to the transcribed text...',
-					id: toastId,
-				});
-				transformRecording.mutate(
-					{ recordingId: recording.id, transformation },
-					{
-						onError: (error) => rpc.notify.error.execute(error),
-						onSuccess: (transformationRun) => {
-							if (transformationRun.status === 'failed') {
-								rpc.notify.error.execute({
-									title: '⚠️ Transformation error',
-									description: transformationRun.error,
-									action: {
-										error: transformationRun.error,
-										type: 'more-details',
-									},
-								});
-								return;
-							}
-
-							rpc.sound.playSoundIfEnabled.execute('transformationComplete');
-
-							rpc.delivery.deliverTransformationResult.execute({
-								text: transformationRun.output,
-								toastId,
-							});
-						},
-					},
-				);
-			}}
-		/>
-
-		<EditRecordingModal {recording} />
-
 		<CopyToClipboardButton
 			contentDescription="transcribed text"
 			textToCopy={recording.transcribedText}
@@ -166,104 +139,169 @@
 			<ClipboardIcon class="size-3" />
 		</CopyToClipboardButton>
 
-		{#if latestTransformationRunByRecordingIdQuery.isPending}
-			<Loader2Icon class="size-3 animate-spin" />
-		{:else if latestTransformationRunByRecordingIdQuery.isError}
-			<NoteFluxTooltip
-				id={getRecordingTransitionId({
-					propertyName: 'latestTransformationRunOutput',
-					recordingId,
-				})}
-				tooltipContent="Error fetching latest transformation run output"
+		<DropdownMenu.Root>
+			<DropdownMenu.Trigger
+				class="inline-flex size-6 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent"
+				aria-label="More actions"
+				title="More actions"
 			>
-				{#snippet trigger({ tooltip, tooltipProps })}
-					<AlertCircleIcon class="text-red-500" {...tooltipProps} />
-					<span class="sr-only">
-						{@render tooltip()}
-					</span>
-				{/snippet}
-			</NoteFluxTooltip>
-		{:else}
-			<CopyToClipboardButton
-				contentDescription="latest transformation run output"
-				textToCopy={latestTransformationRunByRecordingIdQuery.data?.status ===
-				'completed'
-					? latestTransformationRunByRecordingIdQuery.data.output
-					: ''}
-				viewTransitionName={getRecordingTransitionId({
-					propertyName: 'latestTransformationRunOutput',
-					recordingId,
-				})}
-			>
-				<FileStackIcon class="size-3" />
-			</CopyToClipboardButton>
-		{/if}
+				<MoreHorizontalIcon class="size-3.5" />
+			</DropdownMenu.Trigger>
+			<DropdownMenu.Content align="end" class="min-w-[190px]">
+				<DropdownMenu.Item
+					onSelect={() => setTimeout(() => (isEditOpen = true), 0)}
+				>
+					<PencilIcon class="size-4" />
+					Edit
+				</DropdownMenu.Item>
 
-		<ViewTransformationRunsDialog {recordingId} />
-
-		<NoteFluxButton
-			tooltipContent="Download recording"
-			onclick={() =>
-				downloadRecording.mutate(recording, {
-					onError: (error) => {
-						if (error.name === 'NoteFluxError') {
-							rpc.notify.error.execute(error);
-							return;
-						}
-						rpc.notify.error.execute({
-							title: 'Failed to download recording!',
-							description: 'Your recording could not be downloaded.',
-							action: { error, type: 'more-details' },
+				<TransformationPicker
+					onSelect={(transformation) => {
+						const toastId = nanoid();
+						rpc.notify.loading.execute({
+							title: 'Running transformation...',
+							description:
+								'Applying your selected transformation to the transcribed text...',
+							id: toastId,
 						});
-					},
-					onSuccess: () => {
-						rpc.notify.success.execute({
-							title: 'Recording downloaded!',
-							description: 'Your recording has been downloaded.',
-						});
-					},
-				})}
-			variant="ghost"
-			size="icon"
-			class="size-6"
-		>
-			{#if downloadRecording.isPending}
-				<Loader2Icon class="size-3 animate-spin" />
-			{:else}
-				<DownloadIcon class="size-3" />
-			{/if}
-		</NoteFluxButton>
+						transformRecording.mutate(
+							{ recordingId: recording.id, transformation },
+							{
+								onError: (error) => rpc.notify.error.execute(error),
+								onSuccess: (transformationRun) => {
+									if (transformationRun.status === 'failed') {
+										rpc.notify.error.execute({
+											title: 'Transformation error',
+											description: transformationRun.error,
+											action: {
+												error: transformationRun.error,
+												type: 'more-details',
+											},
+										});
+										return;
+									}
 
-		<NoteFluxButton
-			tooltipContent="Delete recording"
-			onclick={() => {
-				confirmationDialog.open({
-					title: 'Delete recording',
-					confirmText: 'Delete',
-					onConfirm: () =>
-						deleteRecording.mutate(recording, {
+									rpc.sound.playSoundIfEnabled.execute('transformationComplete');
+
+									rpc.delivery.deliverTransformationResult.execute({
+										text: transformationRun.output,
+										toastId,
+									});
+								},
+							},
+						);
+					}}
+				/>
+
+				{#if latestCompletedTransformOutput}
+					<DropdownMenu.Item
+						onSelect={() =>
+							copyToClipboard.mutate(
+								{ text: latestCompletedTransformOutput },
+								{
+									onError: (error) => {
+										rpc.notify.error.execute({
+											title: 'Error copying transformation output to clipboard',
+											description: error.message,
+											action: { error, type: 'more-details' },
+										});
+									},
+									onSuccess: () => {
+										rpc.notify.success.execute({
+											title: 'Copied transformation output to clipboard!',
+											description: latestCompletedTransformOutput,
+										});
+									},
+								},
+							)}
+						disabled={copyToClipboard.isPending}
+					>
+						{#if copyToClipboard.isPending}
+							<Loader2Icon class="animate-spin" />
+						{:else}
+							<ClipboardCopyIcon />
+						{/if}
+						Copy transformation output
+					</DropdownMenu.Item>
+				{/if}
+
+				<DropdownMenu.Item
+					onSelect={() => setTimeout(() => (isViewRunsOpen = true), 0)}
+				>
+					<ListChecksIcon />
+					View runs
+				</DropdownMenu.Item>
+
+				<DropdownMenu.Item
+					onSelect={() =>
+						downloadRecording.mutate(recording, {
 							onError: (error) => {
+								if (error.name === 'NoteFluxError') {
+									rpc.notify.error.execute(error);
+									return;
+								}
 								rpc.notify.error.execute({
-									title: 'Failed to delete recording!',
-									description: 'Your recording could not be deleted.',
+									title: 'Failed to download recording!',
+									description: 'Your recording could not be downloaded.',
 									action: { error, type: 'more-details' },
 								});
 							},
 							onSuccess: () => {
 								rpc.notify.success.execute({
-									title: 'Deleted recording!',
-									description: 'Your recording has been deleted.',
+									title: 'Recording downloaded!',
+									description: 'Your recording has been downloaded.',
 								});
 							},
-						}),
-					subtitle: 'Are you sure you want to delete this recording?',
-				});
-			}}
-			variant="ghost"
-			size="icon"
-			class="size-6"
-		>
-			<TrashIcon class="size-3" />
-		</NoteFluxButton>
+						})}
+					disabled={downloadRecording.isPending}
+				>
+					{#if downloadRecording.isPending}
+						<Loader2Icon class="animate-spin" />
+						Downloading…
+					{:else}
+						<ArrowDownToLineIcon />
+						Download
+					{/if}
+				</DropdownMenu.Item>
+
+				<DropdownMenu.Separator />
+
+				<DropdownMenu.Item
+					variant="destructive"
+					onSelect={() =>
+						setTimeout(() => {
+							confirmationDialog.open({
+								title: 'Delete recording',
+								confirmText: 'Delete',
+								onConfirm: () =>
+									deleteRecording.mutate(recording, {
+										onError: (error) => {
+											rpc.notify.error.execute({
+												title: 'Failed to delete recording!',
+												description:
+													'Your recording could not be deleted.',
+												action: { error, type: 'more-details' },
+											});
+										},
+										onSuccess: () => {
+											rpc.notify.success.execute({
+												title: 'Deleted recording!',
+												description: 'Your recording has been deleted.',
+											});
+										},
+									}),
+								subtitle: 'Are you sure you want to delete this recording?',
+							});
+						})
+					}
+				>
+					<TrashIcon class="size-4" />
+					Delete
+				</DropdownMenu.Item>
+			</DropdownMenu.Content>
+		</DropdownMenu.Root>
+
+		<EditRecordingModal {recording} bind:open={isEditOpen} />
+		<ViewTransformationRunsDialog {recordingId} bind:open={isViewRunsOpen} />
 	{/if}
 </div>

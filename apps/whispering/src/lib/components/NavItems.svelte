@@ -6,13 +6,13 @@
 	import { cn } from '$lib/ui/utils';
 	import {
 		BugIcon,
-		LayersIcon,
 		ListIcon,
 		Minimize2Icon,
 		MoonIcon,
 		MoreVerticalIcon,
 		SettingsIcon,
 		SunIcon,
+		WandSparklesIcon,
 	} from '@lucide/svelte';
 	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 	import { toggleMode } from 'mode-watcher';
@@ -33,7 +33,7 @@
 		},
 		{
 			href: '/transformations',
-			icon: LayersIcon,
+			icon: WandSparklesIcon,
 			label: 'Transformations',
 			type: 'anchor',
 		},

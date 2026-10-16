@@ -2,13 +2,10 @@
 	import type { Transformation } from '$lib/services/db';
 
 	import { goto } from '$app/navigation';
-	import NoteFluxButton from '$lib/components/NoteFluxButton.svelte';
 	import { rpc } from '$lib/query';
 	import { Badge } from '$lib/ui/badge';
-	import * as Command from '$lib/ui/command';
-	import { useCombobox } from '$lib/ui/hooks';
-	import * as Popover from '$lib/ui/popover';
-	import { LayersIcon } from '@lucide/svelte';
+	import * as DropdownMenu from '$lib/ui/dropdown-menu';
+	import { WandSparklesIcon } from '@lucide/svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 
 	const transformationsQuery = createQuery(
@@ -17,80 +14,43 @@
 
 	const transformations = $derived(transformationsQuery.data ?? []);
 
-	const combobox = useCombobox();
-
 	let {
-		class: className,
 		onSelect,
 	}: {
-		class?: string;
 		onSelect: (transformation: Transformation) => void;
 	} = $props();
 </script>
 
-{#snippet renderTransformationIdTitle(transformation: Transformation)}
-	<div class="flex items-center gap-2">
-		<Badge variant="id" class="shrink-0 max-w-16 truncate">
-			{transformation.id}
-		</Badge>
-		<span class="font-medium truncate">
-			{transformation.title}
-		</span>
-	</div>
-{/snippet}
-
-<Popover.Root bind:open={combobox.open}>
-	<Popover.Trigger bind:ref={combobox.triggerRef}>
-		{#snippet child({ props })}
-			<NoteFluxButton
-				{...props}
-				class={className}
-				tooltipContent="Run a post-processing transformation to run on your recording"
-				role="combobox"
-				aria-expanded={combobox.open}
-				variant="ghost"
-				size="icon"
-			>
-				<LayersIcon class="size-4" />
-			</NoteFluxButton>
-		{/snippet}
-	</Popover.Trigger>
-	<Popover.Content class="w-80 max-w-xl p-0">
-		<Command.Root loop>
-			<Command.Input placeholder="Select transcription post-processing..." />
-			<Command.Empty>No transformation found.</Command.Empty>
-			<Command.Group class="overflow-y-auto max-h-[400px]">
-				{#each transformations as transformation (transformation.id)}
-					<Command.Item
-						value="${transformation.id} - ${transformation.title} - ${transformation.description}"
-						onSelect={() => {
-							onSelect(transformation);
-							combobox.closeAndFocusTrigger();
-						}}
-						class="flex items-center gap-2 p-2"
-					>
-						<div class="flex flex-col min-w-0">
-							{@render renderTransformationIdTitle(transformation)}
-							{#if transformation.description}
-								<span class="text-sm text-muted-foreground line-clamp-2">
-									{transformation.description}
-								</span>
-							{/if}
-						</div>
-					</Command.Item>
-				{/each}
-			</Command.Group>
-			<Command.Item
-				value="Manage transformations"
-				onSelect={() => {
-					goto('/transformations');
-					combobox.closeAndFocusTrigger();
-				}}
-				class="rounded-none p-2 bg-muted/50 text-muted-foreground"
-			>
-				<LayersIcon class="size-4 mx-2.5" />
+<DropdownMenu.Sub>
+	<DropdownMenu.SubTrigger>
+		<WandSparklesIcon />
+		Transform
+	</DropdownMenu.SubTrigger>
+	<DropdownMenu.SubContent>
+		{#if transformationsQuery.isPending}
+			<DropdownMenu.Item disabled>Loading transformations…</DropdownMenu.Item>
+		{:else if transformations.length === 0}
+			<DropdownMenu.Item disabled>No transformations yet</DropdownMenu.Item>
+		{:else}
+			{#each transformations as transformation (transformation.id)}
+				<DropdownMenu.Item
+					onSelect={() => {
+						onSelect(transformation);
+					}}
+				>
+					<Badge variant="id" class="shrink-0 max-w-16 truncate">
+						{transformation.id}
+					</Badge>
+					<span class="truncate font-medium">
+						{transformation.title}
+					</span>
+				</DropdownMenu.Item>
+			{/each}
+			<DropdownMenu.Separator />
+			<DropdownMenu.Item onSelect={() => goto('/transformations')}>
+				<WandSparklesIcon />
 				Manage transformations
-			</Command.Item>
-		</Command.Root>
-	</Popover.Content>
-</Popover.Root>
+			</DropdownMenu.Item>
+		{/if}
+	</DropdownMenu.SubContent>
+</DropdownMenu.Sub>

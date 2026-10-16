@@ -2853,9 +2853,10 @@ dependencies = [
 
 [[package]]
 name = "noteflux"
-version = "0.0.31"
+version = "0.0.37"
 dependencies = [
  "accessibility-sys",
+ "block",
  "cocoa",
  "core-foundation 0.9.4",
  "core-foundation-sys",

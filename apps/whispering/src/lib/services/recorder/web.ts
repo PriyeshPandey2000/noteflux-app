@@ -45,7 +45,7 @@ export function createWebRecorderService(): RecorderService {
 			activeRecording = null; // Clear immediately
 
 			sendStatus({
-				title: '🛑 Cancelling',
+				title: 'Cancelling',
 				description: 'Discarding your recording...',
 			});
 
@@ -56,7 +56,7 @@ export function createWebRecorderService(): RecorderService {
 			cleanupRecordingStream(recording.stream);
 
 			sendStatus({
-				title: '✨ Cancelled',
+				title: 'Cancelled',
 				description: 'Recording discarded successfully!',
 			});
 
@@ -106,7 +106,7 @@ export function createWebRecorderService(): RecorderService {
 			}
 
 			sendStatus({
-				title: '🎙️ Starting Recording',
+				title: 'Starting Recording',
 				description: 'Setting up your microphone...',
 			});
 
@@ -184,7 +184,7 @@ export function createWebRecorderService(): RecorderService {
 			activeRecording = null; // Clear immediately to prevent race conditions
 
 			sendStatus({
-				title: '⏸️ Finishing Recording',
+				title: 'Finishing Recording',
 				description: 'Saving your audio...',
 			});
 
@@ -219,7 +219,7 @@ export function createWebRecorderService(): RecorderService {
 			if (stopError) return Err(stopError);
 
 			sendStatus({
-				title: '✅ Recording Saved',
+				title: 'Recording Saved',
 				description: 'Your recording is ready for transcription!',
 			});
 			return Ok(blob);

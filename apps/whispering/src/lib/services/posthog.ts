@@ -5,9 +5,15 @@ import { env } from '$env/dynamic/public';
 /**
  * PostHog analytics service for tracking user journeys and funnels.
  *
- * Session Recording: ENABLED
- * - Records user screen/interactions during onboarding to identify failure points
- * - Masks all input fields to protect sensitive data (API keys, passwords, etc.)
+ * Session Recording: ENABLED for the whole app, not just onboarding
+ * - Records clicks, scrolling and layout to identify where users get stuck
+ * - Masks every input before anything leaves the device. Transcripts and API
+ *   keys are shown in inputs/textareas, so they never reach PostHog. The Ask
+ *   overlay is a separate static page with no PostHog session recording, so its
+ *   answer text is not in recordings. The main app still sends
+ *   ask_question_asked / ask_answer_received events (flags only, no text).
+ *   Mark any new plain-text transcript UI with data-private (toasts are
+ *   already masked).
  * - Use PostHog dashboard to watch session replays and see where users struggle
  *
  * Events Tracked:
@@ -44,12 +50,15 @@ export const analytics = {
 
 		posthog.init(apiKey, {
 			api_host: host,
-			// Session recording enabled to see onboarding user behavior
+			// Session recording enabled to see where users get stuck
 			disable_session_recording: false,
 			session_recording: {
-				// Mask sensitive inputs
+				// Mask all inputs (transcripts and keys live in textareas/inputs);
+				// add data-private to any plain-text element that must be hidden.
+				// Toasts are masked wholesale: result toasts carry the dictated or
+				// transformed text as their description.
 				maskAllInputs: true,
-				maskTextSelector: '[data-private]',
+				maskTextSelector: '[data-private], [data-sonner-toast]',
 			},
 			disable_compression: false,
 			// Capture settings
@@ -284,5 +293,61 @@ export const analytics = {
 	trackFirstPostOnboardingRecording() {
 		if (!browser) return;
 		posthog.capture('first_post_onboarding_recording', { ...platformInfo });
+	},
+
+	// Ask (voice Q&A overlay) funnel. isFollowUp/hasImage are properties
+	// rather than separate event names so the funnel stays sliceable in
+	// PostHog without an explosion of near-duplicate event types.
+	trackAskBlockedNotPro() {
+		if (!browser) return;
+		posthog.capture('ask_blocked_not_pro', { ...platformInfo });
+	},
+
+	trackAskQuestionAsked(props: { isFollowUp: boolean; hasImage: boolean }) {
+		if (!browser) return;
+		posthog.capture('ask_question_asked', { ...props, ...platformInfo });
+	},
+
+	trackAskAnswerReceived(props: { isFollowUp: boolean; hasImage: boolean }) {
+		if (!browser) return;
+		posthog.capture('ask_answer_received', { ...props, ...platformInfo });
+	},
+
+	trackAskError(reason: string) {
+		if (!browser) return;
+		posthog.capture('ask_error', { reason, ...platformInfo });
+	},
+
+	// Homepage "try it" tutorial cards, separate from the funnel above so
+	// discovery (did they find the feature?) stays sliceable from usage.
+	trackAskTutorialStarted() {
+		if (!browser) return;
+		posthog.capture('ask_tutorial_started', { ...platformInfo });
+	},
+
+	trackAskTutorialCompleted() {
+		if (!browser) return;
+		posthog.capture('ask_tutorial_completed', { ...platformInfo });
+	},
+
+	// Extract-text-from-clipboard (local OCR) funnel.
+	trackOcrSucceeded(characterCount: number) {
+		if (!browser) return;
+		posthog.capture('ocr_succeeded', { character_count: characterCount, ...platformInfo });
+	},
+
+	trackOcrFailed(reason: string) {
+		if (!browser) return;
+		posthog.capture('ocr_failed', { reason, ...platformInfo });
+	},
+
+	trackOcrTutorialStarted() {
+		if (!browser) return;
+		posthog.capture('ocr_tutorial_started', { ...platformInfo });
+	},
+
+	trackOcrTutorialCompleted() {
+		if (!browser) return;
+		posthog.capture('ocr_tutorial_completed', { ...platformInfo });
 	}
 };

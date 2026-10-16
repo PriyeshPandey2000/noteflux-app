@@ -27,6 +27,7 @@ export const TRANSCRIPTION_SERVICE_IDS = [
 	'ElevenLabs',
 	'Deepgram',
 	'Qwen3ASR',
+	'Parakeet',
 ] as const;
 
 type ApiTranscriptionService = BaseTranscriptionService & {
@@ -74,6 +75,12 @@ export const TRANSCRIPTION_SERVICES = [
 		icon: HexagonIcon,
 		id: 'Qwen3ASR',
 		name: 'Qwen3-ASR (Local)',
+		type: 'local',
+	},
+	{
+		icon: HexagonIcon,
+		id: 'Parakeet',
+		name: 'Parakeet (Local)',
 		type: 'local',
 	},
 	// COMMENTED OUT: BYOK providers - using only Groq for SaaS model

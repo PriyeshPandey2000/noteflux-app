@@ -41,7 +41,7 @@ export const settings = {
 				// Even if stopping fails, we should still switch modes
 				console.error('Failed to stop active recordings:', errs);
 				rpc.notify.warning.execute({
-					title: '⚠️ Recording may still be active',
+					title: 'Recording may still be active',
 					description:
 						'Previous recording could not be stopped automatically. Please stop it manually.',
 					id: toastId,
@@ -54,7 +54,7 @@ export const settings = {
 
 				// Show success notification
 				rpc.notify.success.execute({
-					title: '✅ Recording mode switched',
+					title: 'Recording mode switched',
 					description: `Switched to ${newMode} recording mode`,
 					id: toastId,
 				});

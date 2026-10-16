@@ -1,19 +1,21 @@
 import type { Recording } from '$lib/services/db';
 
 import { TRANSCRIPTION_SERVICES } from '$lib/constants/transcription/service-config';
+import { GROQ_MODELS } from '$lib/services/transcription/groq';
 import { NoteFluxErr, type NoteFluxError } from '$lib/result';
 import * as services from '$lib/services';
+import { isParakeetWarmingUp } from '$lib/services/transcription/parakeet';
 import { DEFAULT_QWEN3_ASR_MODEL_ID, isQwen3WarmingUp } from '$lib/services/transcription/qwen3-asr';
+import { hideNotchStatus, showNotchStatus } from '$lib/utils/notch-status';
 import { settings } from '$lib/stores/settings.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
 import { onboardingStore } from '$lib/stores/onboarding.svelte';
+import { auth } from '$lib/stores/auth.svelte';
 import { analytics } from '$lib/services/posthog';
 import { applyDictionary } from '$lib/utils/dictionary';
-import { getGroqApiKey } from '$lib/utils/embedded-keys';
 import { isOnboardingDemoStep } from '$lib/services/onboarding-demo-step';
 import { Err, Ok, partitionResults, type Result } from 'wellcrafted/result';
 
-import { toast } from 'svelte-sonner';
 
 import { rpc } from './';
 import { defineMutation, queryClient } from './_client';
@@ -70,7 +72,7 @@ export const transcription = {
 		): Promise<Result<string, NoteFluxError>> => {
 			if (!recording.blob) {
 				return NoteFluxErr({
-					title: '⚠️ Recording blob not found',
+					title: 'Recording blob not found',
 					description: "Your recording doesn't have a blob to transcribe.",
 				});
 			}
@@ -81,8 +83,8 @@ export const transcription = {
 				});
 			if (setRecordingTranscribingError) {
 				notify.warning.execute({
-					title:
-						'⚠️ Unable to set recording transcription status to transcribing',
+				title:
+					'Unable to set recording transcription status to transcribing',
 					description: 'Continuing with the transcription process...',
 					action: {
 						error: setRecordingTranscribingError,
@@ -100,7 +102,7 @@ export const transcription = {
 					});
 				if (setRecordingTranscribingError) {
 					notify.warning.execute({
-						title: '⚠️ Unable to update recording after transcription',
+						title: 'Unable to update recording after transcription',
 						description:
 							"Transcription failed but unable to update recording's transcription status in database",
 						action: {
@@ -120,7 +122,7 @@ export const transcription = {
 				});
 			if (setRecordingTranscribedTextError) {
 				notify.warning.execute({
-					title: '⚠️ Unable to update recording after transcription',
+					title: 'Unable to update recording after transcription',
 					description:
 						"Transcription completed but unable to update recording's transcribed text and status in database",
 					action: {
@@ -140,7 +142,7 @@ export const transcription = {
 				recordings.map(async (recording) => {
 					if (!recording.blob) {
 						return NoteFluxErr({
-							title: '⚠️ Recording blob not found',
+							title: 'Recording blob not found',
 							description: "Your recording doesn't have a blob to transcribe.",
 						});
 					}
@@ -214,7 +216,7 @@ async function transcribeBlob(
 						await showBlockedDialog(checkData.total_minutes, checkData.limit_minutes);
 
 						return NoteFluxErr({
-							title: '⚠️ Account blocked',
+							title: 'Account blocked',
 							description: 'Your account has been temporarily blocked. Contact support for assistance.',
 						});
 					} else {
@@ -250,7 +252,7 @@ async function transcribeBlob(
 			authRequiredDialog.open();
 			
 			return NoteFluxErr({
-				title: '🔐 Authentication Required',
+				title: 'Authentication Required',
 				description: 'Please sign in to use transcription',
 			});
 		}
@@ -279,7 +281,7 @@ async function transcribeBlob(
 		authRequiredDialog.open();
 		
 		return NoteFluxErr({
-			title: '🔐 Authentication check failed',
+			title: 'Authentication check failed',
 			description: 'Unable to verify authentication. Please try again.',
 		});
 	}
@@ -301,7 +303,7 @@ async function transcribeBlob(
 				
 				// IMMEDIATELY return error - don't let this transcription complete
 				return NoteFluxErr({
-					title: '⚠️ Usage limit reached',
+					title: 'Usage limit reached',
 					description: `You've used ${limitCheck.totalMinutes.toFixed(0)} out of ${limitCheck.limitMinutes} minutes.`,
 				});
 			}
@@ -366,7 +368,8 @@ async function transcribeBlob(
 						});
 					}
 					return await services.transcriptions.groq.transcribe(blob, {
-						apiKey: getGroqApiKey(),
+						apiKey: settings.value['apiKeys.groq'] || undefined,
+						accessToken: auth.state.session?.access_token,
 						modelName: settings.value['transcription.groq.model'],
 						outputLanguage: settings.value['transcription.outputLanguage'],
 						prompt: settings.value['transcription.prompt'],
@@ -375,16 +378,29 @@ async function transcribeBlob(
 				}
 				case 'Qwen3ASR': {
 					const qwenModelId = settings.value['transcription.qwen3asr.modelId'] as import('$lib/services/transcription/qwen3-asr').Qwen3ASRModelId;
-					if (isQwen3WarmingUp(qwenModelId)) {
-						toast.info('Setting up local model (first run only)', {
-							description: 'Transcription will begin automatically once ready. This takes 2–4 minutes.',
-							duration: 30000,
+					const isWarmingUp = isQwen3WarmingUp(qwenModelId);
+					if (isWarmingUp) await showNotchStatus('Setting up local model', 'First run only · 2–4 minutes');
+					try {
+						return await services.transcriptions.qwen3asr.transcribe(blob, {
+							outputLanguage: settings.value['transcription.outputLanguage'],
+							modelId: qwenModelId,
 						});
+					} finally {
+						if (isWarmingUp) await hideNotchStatus();
 					}
-					return await services.transcriptions.qwen3asr.transcribe(blob, {
-						outputLanguage: settings.value['transcription.outputLanguage'],
-						modelId: qwenModelId,
-					});
+				}
+				case 'Parakeet': {
+					const parakeetModelId = settings.value['transcription.parakeet.modelId'] as import('$lib/services/transcription/parakeet').ParakeetModelId;
+					const isWarmingUp = isParakeetWarmingUp(parakeetModelId);
+					if (isWarmingUp) await showNotchStatus('Setting up local model', 'First run only · 2–4 minutes');
+					try {
+						return await services.transcriptions.parakeet.transcribe(blob, {
+							outputLanguage: settings.value['transcription.outputLanguage'],
+							modelId: parakeetModelId,
+						});
+					} finally {
+						if (isWarmingUp) await hideNotchStatus();
+					}
 				}
 				// case 'OpenAI':
 				// 	return await services.transcriptions.openai.transcribe(blob, {
@@ -404,7 +420,7 @@ async function transcribeBlob(
 				// 	});
 				default:
 					return NoteFluxErr({
-						title: '⚠️ Unsupported transcription service',
+						title: 'Unsupported transcription service',
 						description: `The selected service "${selectedService}" is not supported in SaaS mode.`,
 					});
 			}
@@ -437,14 +453,20 @@ async function transcribeBlob(
 		// silently fell back to the free local model above, and billing that
 		// as Groq usage would be wrong (and would wrongly eat into their
 		// lifetime cap for a transcription that cost nothing).
-		if (actualProvider === 'Groq') {
+		//
+		// Cloud (proxy) transcriptions are logged server-side by the website's
+		// /api/groq/transcribe, which is the cost source of truth; only direct
+		// calls with the user's own Groq key are tracked here.
+		if (actualProvider === 'Groq' && settings.value['apiKeys.groq']) {
 			try {
 				// Import usage tracking dynamically to avoid circular imports
 				const { trackUsage, getAudioDurationFromBlob } = await import('$lib/services/usage-tracking');
 				const durationMinutes = await getAudioDurationFromBlob(blob);
+				const groqModelName = settings.value['transcription.groq.model'];
 				trackUsage({
 					durationMinutes,
 					estimatedCost: 0, // Will be calculated in trackUsage
+					model: GROQ_MODELS.find((m) => m.name === groqModelName)?.modelId ?? groqModelName,
 					provider: actualProvider,
 					fileName: 'audio-recording' // Could be enhanced to use actual filename
 				});

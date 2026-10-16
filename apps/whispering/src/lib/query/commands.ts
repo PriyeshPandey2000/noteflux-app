@@ -3,11 +3,14 @@ import type { SelectionContext } from '$lib/services/clipboard/types';
 import * as services from '$lib/services';
 import { analytics } from '$lib/services/posthog';
 import { auth } from '$lib/stores/auth.svelte';
+import { featureTutorial } from '$lib/stores/feature-tutorial.svelte';
 import { settings } from '$lib/stores/settings.svelte';
 import { authRequiredDialog } from '$lib/stores/auth-required-dialog.svelte';
 import { onboardingStore } from '$lib/stores/onboarding.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
+import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
 import { invoke } from '@tauri-apps/api/core';
+import { readImage } from '@tauri-apps/plugin-clipboard-manager';
 import { nanoid } from 'nanoid/non-secure';
 import { Err, Ok } from 'wellcrafted/result';
 
@@ -41,6 +44,9 @@ let manualRecordingStartTime: null | number = null;
 
 // Track how the current recording was initiated
 let recordingInitiatedVia: 'global-shortcut' | 'local' | null = null;
+
+// 'ask' recordings send the transcript to the Ask overlay instead of delivering it
+let recordingIntent: 'dictate' | 'ask' = 'dictate';
 
 // Track whether window was focused when recording started
 // Used to determine if we should keep window visible during delivery
@@ -131,14 +137,14 @@ const startManualRecording = defineMutation({
 		const isAuthenticated = await checkAuthAndShowDialog();
 		if (!isAuthenticated) {
 			return NoteFluxErr({
-				title: '🔐 Authentication Required',
+				title: 'Authentication Required',
 				description: 'Please sign in to start recording',
 			});
 		}
 
 		const toastId = nanoid();
 		notify.loading.execute({
-			title: '🎙️ Preparing to record...',
+			title: 'Preparing to record...',
 			description: 'Setting up your recording environment...',
 			id: toastId,
 		});
@@ -153,7 +159,7 @@ const startManualRecording = defineMutation({
 		switch (deviceAcquisitionOutcome.outcome) {
 			case 'success': {
 				notify.success.execute({
-					title: '🎙️ NoteFlux is recording...',
+					title: 'NoteFlux is recording...',
 					description: 'Speak now and stop recording when done',
 					id: toastId,
 				});
@@ -167,7 +173,7 @@ const startManualRecording = defineMutation({
 				switch (deviceAcquisitionOutcome.reason) {
 					case 'no-device-selected': {
 						notify.info.execute({
-							title: '🎙️ Switched to available microphone',
+							title: 'Switched to available microphone',
 							description:
 								'No microphone was selected, so we automatically connected to an available one. You can update your selection in settings.',
 							action: {
@@ -181,7 +187,7 @@ const startManualRecording = defineMutation({
 					}
 					case 'preferred-device-unavailable': {
 						notify.info.execute({
-							title: '🎙️ Switched to different microphone',
+							title: 'Switched to different microphone',
 							description:
 								"Your previously selected microphone wasn't found, so we automatically connected to an available one.",
 							action: {
@@ -219,7 +225,7 @@ const stopManualRecording = defineMutation({
 	resultMutationFn: async () => {
 		const toastId = nanoid();
 		notify.loading.execute({
-			title: '⏸️ Stopping recording...',
+			title: 'Stopping recording...',
 			description: 'Finalizing your audio capture...',
 			id: toastId,
 		});
@@ -233,7 +239,7 @@ const stopManualRecording = defineMutation({
 		}
 
 		notify.success.execute({
-			title: '🎙️ Recording stopped',
+			title: 'Recording stopped',
 			description: 'Your recording has been saved',
 			id: toastId,
 		});
@@ -243,6 +249,8 @@ const stopManualRecording = defineMutation({
 		// Log manual recording completion
 		let duration: number | undefined;
 		const initiatedVia = recordingInitiatedVia || 'local';
+		const intent = recordingIntent;
+		recordingIntent = 'dictate';
 		const selectionContext = selectionContextAtRecordingStart;
 		if (manualRecordingStartTime) {
 			duration = Date.now() - manualRecordingStartTime;
@@ -264,10 +272,11 @@ const stopManualRecording = defineMutation({
 			await processRecordingPipeline({
 				blob,
 				completionDescription: 'Recording saved and session closed successfully',
-				completionTitle: '✨ Recording Complete!',
+				completionTitle: 'Recording Complete!',
 				toastId,
 				initiatedVia,
 				selectionContext,
+				intent,
 			});
 		} catch (error) {
 			// Ensure overlay is hidden even if pipeline fails unexpectedly
@@ -288,7 +297,7 @@ const startVadRecording = defineMutation({
 		const isAuthenticated = await checkAuthAndShowDialog();
 		if (!isAuthenticated) {
 			return NoteFluxErr({
-				title: '🔐 Authentication Required',
+				title: 'Authentication Required',
 				description: 'Please sign in to start recording',
 			});
 		}
@@ -309,7 +318,7 @@ const startVadRecording = defineMutation({
 		const toastId = nanoid();
 		console.info('Starting voice activated capture');
 		notify.loading.execute({
-			title: '🎙️ Starting voice activated capture',
+			title: 'Starting voice activated capture',
 			description: 'Your voice activated capture is starting...',
 			id: toastId,
 		});
@@ -333,7 +342,7 @@ const startVadRecording = defineMutation({
 					
 					const toastId = nanoid();
 					notify.success.execute({
-						title: '🎙️ Voice activated speech captured',
+						title: 'Voice activated speech captured',
 						description: 'Your voice activated speech has been captured.',
 						id: toastId,
 					});
@@ -354,14 +363,14 @@ const startVadRecording = defineMutation({
 						blob,
 						completionDescription:
 							'Voice activated capture complete! Ready for another take',
-						completionTitle: '✨ Voice activated capture complete!',
+						completionTitle: 'Voice activated capture complete!',
 						toastId,
 						initiatedVia: vadInitiatedVia || 'local', // Use the stored initiation context
 					});
 				},
 				onSpeechStart: () => {
 					notify.success.execute({
-						title: '🎙️ Speech started',
+						title: 'Speech started',
 						description: 'Recording started. Speak clearly and loudly.',
 					});
 				},
@@ -375,7 +384,7 @@ const startVadRecording = defineMutation({
 		switch (deviceAcquisitionOutcome.outcome) {
 			case 'success': {
 				notify.success.execute({
-					title: '🎙️ Voice activated capture started',
+					title: 'Voice activated capture started',
 					description: 'Your voice activated capture has been started.',
 					id: toastId,
 				});
@@ -389,7 +398,7 @@ const startVadRecording = defineMutation({
 				switch (deviceAcquisitionOutcome.reason) {
 					case 'no-device-selected': {
 						notify.info.execute({
-							title: '🎙️ VAD started with available microphone',
+							title: 'VAD started with available microphone',
 							description:
 								'No microphone was selected for VAD, so we automatically connected to an available one. You can update your selection in settings.',
 							action: {
@@ -403,7 +412,7 @@ const startVadRecording = defineMutation({
 					}
 					case 'preferred-device-unavailable': {
 						notify.info.execute({
-							title: '🎙️ VAD switched to different microphone',
+							title: 'VAD switched to different microphone',
 							description:
 								"Your previously selected VAD microphone wasn't found, so we automatically connected to an available one.",
 							action: {
@@ -430,7 +439,7 @@ const stopVadRecording = defineMutation({
 		const toastId = nanoid();
 		console.info('Stopping voice activated capture');
 		notify.loading.execute({
-			title: '⏸️ Stopping voice activated capture...',
+			title: 'Stopping voice activated capture...',
 			description: 'Finalizing your voice activated capture...',
 			id: toastId,
 		});
@@ -450,12 +459,53 @@ const stopVadRecording = defineMutation({
 			return Err(stopVadError);
 		}
 		notify.success.execute({
-			title: '🎙️ Voice activated capture stopped',
+			title: 'Voice activated capture stopped',
 			description: 'Your voice activated capture has been stopped.',
 			id: toastId,
 		});
 		// sound.playSoundIfEnabled.execute('vad-stop'); // Commented out until VAD mode is re-enabled
 		return Ok(undefined);
+	},
+});
+
+// Local intent flag + in-flight start promise, not a query against actual
+// recorder state — a quick tap in hold mode fires the release before
+// startManualRecording's backend call resolves, so checking
+// getCurrentRecordingId at that point still returns null and the release
+// would start a second recording instead of stopping the first one. Same
+// race pushToTalk already guards against (src/lib/commands.ts) via its own
+// isRecordingOrStarting + pendingStartPromise pair.
+let isAskRecordingOrStarting = false;
+let pendingAskStartPromise: ReturnType<typeof startManualRecording.execute> | null =
+	null;
+
+const toggleAskRecording = defineMutation({
+	mutationKey: ['commands', 'toggleAskRecording'] as const,
+	resultMutationFn: async () => {
+		if (isAskRecordingOrStarting) {
+			isAskRecordingOrStarting = false;
+			if (pendingAskStartPromise) {
+				const { error: startError } = await pendingAskStartPromise;
+				pendingAskStartPromise = null;
+				if (startError) return Err(startError);
+			}
+			return await stopManualRecording.execute(undefined);
+		}
+
+		recordingIntent = 'ask';
+		isAskRecordingOrStarting = true;
+		pendingAskStartPromise = startManualRecording.execute({
+			initiatedVia: 'global-shortcut',
+		});
+		const result = await pendingAskStartPromise;
+		if (result.error) {
+			recordingIntent = 'dictate';
+			isAskRecordingOrStarting = false;
+			pendingAskStartPromise = null;
+		} else if (isAskRecordingOrStarting) {
+			pendingAskStartPromise = null;
+		}
+		return result;
 	},
 });
 
@@ -467,9 +517,10 @@ export const commands = {
 	cancelManualRecording: defineMutation({
 		mutationKey: ['commands', 'cancelManualRecording'] as const,
 		resultMutationFn: async ({ initiatedVia = 'local' }: { initiatedVia?: 'global-shortcut' | 'local' } = {}) => {
+			recordingIntent = 'dictate';
 			const toastId = nanoid();
 			notify.loading.execute({
-				title: '⏸️ Canceling recording...',
+				title: 'Canceling recording...',
 				description: 'Cleaning up recording session...',
 				id: toastId,
 			});
@@ -488,7 +539,7 @@ export const commands = {
 					recordingInitiatedVia = null;
 					selectionContextAtRecordingStart = null;
 					notify.success.execute({
-						title: '✅ All Done!',
+						title: 'All Done!',
 						description: 'Recording cancelled successfully',
 						id: toastId,
 					});
@@ -514,6 +565,7 @@ export const commands = {
 	}),
 	startVadRecording,
 	stopManualRecording,
+	toggleAskRecording,
 
 	stopVadRecording,
 
@@ -555,7 +607,7 @@ export const commands = {
 			const isAuthenticated = await checkAuthAndShowDialog();
 			if (!isAuthenticated) {
 				return NoteFluxErr({
-					title: '🔐 Authentication Required',
+					title: 'Authentication Required',
 					description: 'Please sign in to upload files',
 				});
 			}
@@ -576,14 +628,14 @@ export const commands = {
 
 			if (validFiles.length === 0) {
 				return NoteFluxErr({
-					title: '⚠️ No valid files',
+					title: 'No valid files',
 					description: 'No valid audio or video files found.',
 				});
 			}
 
 			if (invalidFiles.length > 0) {
 				notify.warning.execute({
-					title: '⚠️ Some files were skipped',
+					title: 'Some files were skipped',
 					description: `${invalidFiles.length} file(s) were not audio or video files`,
 				});
 			}
@@ -609,7 +661,7 @@ export const commands = {
 					await processRecordingPipeline({
 						blob: audioBlob,
 						completionDescription: file.name,
-						completionTitle: '📁 File uploaded successfully!',
+						completionTitle: 'File uploaded successfully!',
 						toastId,
 						initiatedVia: 'local', // File uploads are always local
 					});
@@ -623,6 +675,188 @@ export const commands = {
 		},
 	}),
 };
+
+const ASK_MODEL = 'openai/gpt-oss-120b';
+
+const ASK_SYSTEM_PROMPT =
+	"You are Noteflux Ask, a quick answer assistant inside a voice-first note app shown in a small card. Answer the user's question directly. Be concise: a few sentences unless the question needs more. Do not start with a preamble. If you cannot answer reliably, say so briefly. Use simple markdown where it helps: bold for key terms, bullet or numbered lists for multiple items, inline code for code or commands. The card is small, so skip headings, images, and tables.";
+
+/**
+ * Answers a spoken question in the Ask overlay: opens the overlay in its
+ * loading state, asks the model, then fills in the answer or the error.
+ */
+// Recent turns of the open Ask thread, folded into the next prompt as plain
+// text (the completion service only takes a single system/user prompt, not a
+// messages array). Cleared whenever a question opens a fresh panel instead of
+// continuing one that was already on screen. Capped so the prompt doesn't
+// grow unbounded across a long thread.
+let askConversationHistory: Array<{ answer: string; question: string }> = [];
+const ASK_HISTORY_TURN_LIMIT = 6;
+// The clipboard screenshot attached to the current thread, if any. Captured
+// once when a fresh thread starts; follow-up questions in the same thread
+// keep using it rather than re-checking the clipboard each time.
+let askThreadImage: string | null = null;
+
+function buildAskUserPrompt(question: string): string {
+	if (askConversationHistory.length === 0) return question;
+	const transcript = askConversationHistory
+		.map((turn) => `Q: ${turn.question}\nA: ${turn.answer}`)
+		.join('\n\n');
+	return `Earlier in this conversation:\n\n${transcript}
+
+New question: ${question}`;
+}
+
+const ASK_IMAGE_MAX_EDGE = 1536;
+const ASK_THUMBNAIL_MAX_EDGE = 240;
+
+function resizeRgbaToDataUrl(
+	rgba: Uint8Array,
+	width: number,
+	height: number,
+	maxEdge: number,
+	quality: number,
+): string {
+	const sourceCanvas = document.createElement('canvas');
+	sourceCanvas.width = width;
+	sourceCanvas.height = height;
+	const sourceCtx = sourceCanvas.getContext('2d');
+	if (!sourceCtx) throw new Error('Could not get 2d context');
+	sourceCtx.putImageData(new ImageData(new Uint8ClampedArray(rgba), width, height), 0, 0);
+
+	const scale = Math.min(1, maxEdge / Math.max(width, height));
+	const targetWidth = Math.max(1, Math.round(width * scale));
+	const targetHeight = Math.max(1, Math.round(height * scale));
+
+	const targetCanvas = document.createElement('canvas');
+	targetCanvas.width = targetWidth;
+	targetCanvas.height = targetHeight;
+	const targetCtx = targetCanvas.getContext('2d');
+	if (!targetCtx) throw new Error('Could not get 2d context');
+	targetCtx.drawImage(sourceCanvas, 0, 0, targetWidth, targetHeight);
+
+	return targetCanvas.toDataURL('image/jpeg', quality);
+}
+
+/**
+ * Reads an image off the clipboard, if there is one, and produces two JPEGs:
+ * one downscaled for the model (Groq charges a flat per-image token cost
+ * regardless of resolution, so sending more than this buys nothing and only
+ * costs upload time) and one much smaller for the overlay's thumbnail chip.
+ * Returns null for a missing or unreadable clipboard image — that's the
+ * common case (no screenshot copied), not an error.
+ */
+async function captureClipboardImageForAsk(): Promise<{
+	forModel: string;
+	thumbnail: string;
+} | null> {
+	try {
+		const clipboardImage = await readImage();
+		const [rgba, size] = await Promise.all([clipboardImage.rgba(), clipboardImage.size()]);
+		return {
+			forModel: resizeRgbaToDataUrl(rgba, size.width, size.height, ASK_IMAGE_MAX_EDGE, 0.85),
+			thumbnail: resizeRgbaToDataUrl(
+				rgba,
+				size.width,
+				size.height,
+				ASK_THUMBNAIL_MAX_EDGE,
+				0.6,
+			),
+		};
+	} catch (error) {
+		// Expected when there's genuinely no image on the clipboard — but also
+		// catches real failures (decode errors, oversized representations),
+		// which look identical from the outside without this. Logged, not
+		// surfaced to the user: a failed capture silently falls back to a
+		// text-only question rather than blocking the answer.
+		console.error('[Ask] Failed to read clipboard image:', error);
+		return null;
+	}
+}
+
+async function answerVoiceQuestion(question: string, toastId: string) {
+	const trimmedQuestion = question.trim();
+	if (!trimmedQuestion) {
+		notify.warning.execute({
+			title: 'No question heard',
+			description: 'Try asking again.',
+			id: toastId,
+		});
+		return;
+	}
+
+	// Gated separately from transcription itself — a free user's voice can
+	// still get transcribed (local fallback), but the actual Q&A answer is
+	// Pro-only. Denial goes through the same cross-app-visible overlay panel
+	// used elsewhere (see show_ask_overlay_toast), not a toast — this fires
+	// from a global shortcut, so the main window (where toasts render) is
+	// often not even the frontmost one.
+	if (!subscription.hasProAccess) {
+		analytics.trackAskBlockedNotPro();
+		invoke('show_ask_overlay_toast', {
+			message: 'Ask is a Pro feature — upgrade to use voice Q&A.',
+			isError: true,
+		}).catch(() => {});
+		return;
+	}
+
+	// Run concurrently: the clipboard read is local and cheap, but there's no
+	// reason to wait for it before showing the overlay. If this turns out to
+	// be a follow-up, the capture is simply discarded below.
+	const [isFollowUp, capturedImage] = await Promise.all([
+		invoke<boolean>('show_ask_overlay', { question: trimmedQuestion }),
+		captureClipboardImageForAsk(),
+	]);
+
+	if (!isFollowUp) {
+		askConversationHistory = [];
+		askThreadImage = capturedImage?.forModel ?? null;
+		if (capturedImage) {
+			await invoke('set_ask_overlay_thumbnail', { thumbnail: capturedImage.thumbnail });
+		}
+	}
+
+	analytics.trackAskQuestionAsked({ isFollowUp, hasImage: !!askThreadImage });
+
+	const { data: completion, error: completionError } =
+		await services.completions.groq.complete({
+			apiKey: settings.value['apiKeys.groq'] || undefined,
+			accessToken: auth.state.session?.access_token,
+			model: ASK_MODEL,
+			systemPrompt: ASK_SYSTEM_PROMPT,
+			userPrompt: buildAskUserPrompt(trimmedQuestion),
+			// Lets the model search the web when a question needs current
+			// information. tool_choice stays "auto" server-side, so this doesn't
+			// slow down the common case where the model already knows the answer.
+			// Mutually exclusive with an attached image — see groq.ts.
+			enableBrowserSearch: !askThreadImage,
+			imageBase64: askThreadImage ?? undefined,
+			feature: 'ask',
+		});
+
+	if (completionError) {
+		analytics.trackAskError(completionError.message);
+		await invoke('set_ask_overlay_result', {
+			answer: null,
+			error: completionError.message,
+		});
+		return;
+	}
+
+	analytics.trackAskAnswerReceived({ isFollowUp, hasImage: !!askThreadImage });
+	if (featureTutorial.activeFeature === 'ask') featureTutorial.complete('ask');
+
+	const answerText = completion.text.trim();
+	askConversationHistory.push({ answer: answerText, question: trimmedQuestion });
+	if (askConversationHistory.length > ASK_HISTORY_TURN_LIMIT) {
+		askConversationHistory.shift();
+	}
+
+	await invoke('set_ask_overlay_result', {
+		answer: answerText,
+		error: null,
+	});
+}
 
 /**
  * Processes a recording through the full pipeline: save → transcribe → transform
@@ -641,6 +875,7 @@ async function processRecordingPipeline({
 	toastId,
 	initiatedVia = 'local',
 	selectionContext = null,
+	intent = 'dictate',
 }: {
 	blob: Blob;
 	completionDescription: string;
@@ -648,6 +883,7 @@ async function processRecordingPipeline({
 	toastId: string;
 	initiatedVia?: 'global-shortcut' | 'local';
 	selectionContext?: SelectionContext | null;
+	intent?: 'dictate' | 'ask';
 }) {
 	const now = new Date().toISOString();
 	const newRecordingId = nanoid();
@@ -668,7 +904,7 @@ async function processRecordingPipeline({
 	if (createRecordingError) {
 		notify.error.execute({
 			title:
-				'❌ Your recording was captured but could not be saved to the database.',
+				'Your recording was captured but could not be saved to the database.',
 			description: createRecordingError.message,
 			action: { error: createRecordingError, type: 'more-details' },
 			id: toastId,
@@ -694,7 +930,7 @@ async function processRecordingPipeline({
 	// fixed in place since the correct data already existed one layer down.
 
 	notify.loading.execute({
-		title: '📋 Transcribing...',
+		title: 'Transcribing...',
 		description: 'Your recording is being transcribed...',
 		id: transcribeToastId,
 	});
@@ -709,7 +945,7 @@ async function processRecordingPipeline({
 			return;
 		}
 		notify.error.execute({
-			title: '❌ Failed to transcribe recording',
+			title: 'Failed to transcribe recording',
 			description: 'Your recording could not be transcribed.',
 			action: { error: transcribeError, type: 'more-details' },
 			id: transcribeToastId,
@@ -719,6 +955,12 @@ async function processRecordingPipeline({
 	}
 
 	sound.playSoundIfEnabled.execute('transcriptionComplete');
+
+	if (intent === 'ask') {
+		await hideRecordingOverlay();
+		await answerVoiceQuestion(transcribedText, transcribeToastId);
+		return;
+	}
 
 	// COMMENTED OUT: Raw text delivery when transformation is selected
 	// This ensures only transformed text goes to clipboard/cursor when transformation is applied
@@ -769,7 +1011,7 @@ async function processRecordingPipeline({
 	if (getTransformationError) {
 		notify.error.execute(
 			fromTaggedError(getTransformationError, {
-				title: '❌ Failed to get transformation',
+				title: 'Failed to get transformation',
 				action: { error: getTransformationError, type: 'more-details' },
 			}),
 		);
@@ -780,7 +1022,7 @@ async function processRecordingPipeline({
 	if (transformationNoLongerExists) {
 		settings.updateKey('transformations.selectedTransformationId', null);
 		notify.warning.execute({
-			title: '⚠️ No matching transformation found',
+			title: 'No matching transformation found',
 			description:
 				'No matching transformation found. Please select a different transformation.',
 			action: {
@@ -795,7 +1037,7 @@ async function processRecordingPipeline({
 
 	const transformToastId = nanoid();
 	notify.loading.execute({
-		title: '🔄 Running transformation...',
+		title: 'Running transformation...',
 		description:
 			'Applying your selected transformation to the transcribed text...',
 		id: transformToastId,
@@ -813,7 +1055,7 @@ async function processRecordingPipeline({
 
 	if (transformationRun.status === 'failed') {
 		notify.error.execute({
-			title: '⚠️ Transformation error',
+			title: 'Transformation error',
 			description: transformationRun.error,
 			action: { error: transformationRun.error, type: 'more-details' },
 			id: transformToastId,

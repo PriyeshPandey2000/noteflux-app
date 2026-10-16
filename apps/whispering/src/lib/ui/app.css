@@ -74,11 +74,11 @@
 	--popover-foreground: oklch(0.984 0.003 247.858);
 	--primary: oklch(0.929 0.013 255.508);
 	--primary-foreground: oklch(0.208 0.042 265.755);
-	--secondary: oklch(0.279 0.041 260.031);
+	--secondary: oklch(0.279 0 0);
 	--secondary-foreground: oklch(0.984 0.003 247.858);
-	--muted: oklch(0.279 0.041 260.031);
-	--muted-foreground: oklch(0.704 0.04 256.788);
-	--accent: oklch(0.279 0.041 260.031);
+	--muted: oklch(0.279 0 0);
+	--muted-foreground: oklch(0.704 0 0);
+	--accent: oklch(0.279 0 0);
 	--accent-foreground: oklch(0.984 0.003 247.858);
 	--destructive: oklch(0.704 0.191 22.216);
 	--success: oklch(0.64 0.169 145.386);
@@ -94,7 +94,7 @@
 	--sidebar-foreground: oklch(0.984 0.003 247.858);
 	--sidebar-primary: oklch(0.488 0.243 264.376);
 	--sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-	--sidebar-accent: oklch(0.279 0.041 260.031);
+	--sidebar-accent: oklch(0.279 0 0);
 	--sidebar-accent-foreground: oklch(0.984 0.003 247.858);
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.551 0.027 264.364);
@@ -149,5 +149,8 @@
 	}
 	body {
 		@apply bg-background text-foreground;
+	}
+	svg.lucide {
+		stroke-width: 1.5;
 	}
 }

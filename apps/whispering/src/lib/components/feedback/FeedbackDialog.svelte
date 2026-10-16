@@ -15,7 +15,7 @@
 	function handleSubmit() {
 		if (!message.trim()) {
 			rpc.notify.error.execute({
-				title: '❌ Message required',
+				title: 'Message required',
 				description: 'Please enter your feedback message',
 			});
 			return;
@@ -29,7 +29,7 @@
 			{
 				onSuccess: () => {
 					rpc.notify.success.execute({
-						title: '✅ Feedback submitted!',
+						title: 'Feedback submitted!',
 						description: 'Thank you for your feedback. We will review it soon.',
 					});
 					// Reset form
@@ -38,7 +38,7 @@
 				},
 				onError: (error) => {
 					rpc.notify.error.execute({
-						title: '❌ Failed to submit feedback',
+						title: 'Failed to submit feedback',
 						description: error.message || 'Please try again later',
 					});
 				},

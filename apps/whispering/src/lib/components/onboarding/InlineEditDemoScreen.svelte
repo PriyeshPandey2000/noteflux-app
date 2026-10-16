@@ -23,7 +23,7 @@
 	// real change is needed). Three joined action items means every
 	// suggested prompt below produces a visibly different result reliably.
 	const SAMPLE_TEXT =
-		'we shoudl ship the new pricing page by friday also need to fix the login bug and someone should update the docs';
+		'we should ship the new pricing page by friday also need to fix the login bug and someone should update the docs';
 
 	// Real, non-readonly textarea — paste-back after the edit needs to land
 	// somewhere real (a readonly field would silently reject it). The
@@ -77,7 +77,7 @@
 	<div class="text-center space-y-1.5">
 		<h2 class="text-2xl font-semibold tracking-tight text-white">
 			{#if hasEdited}
-				Rewritten in place. ✨
+				Rewritten in place.
 			{:else if isRecording}
 				Tell me what to change…
 			{:else}

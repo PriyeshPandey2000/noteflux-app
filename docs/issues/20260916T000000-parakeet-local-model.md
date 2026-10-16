@@ -1,8 +1,10 @@
 # Add Parakeet as a Faster Local Transcription Model
 
 **Created:** 2026-09-16
-**Status:** Ticket only — no code changed. Research/benchmarks already exist from a prior spike; this doc collects them so integration can start directly from here later.
+**Status:** Phase 1 scaffolded (2026-09-28) — see "Phase 1 — actual integration path" below, which replaces the server-based plan originally in this ticket. Not yet built/run locally; the Swift↔`speech-swift` API calls are unverified (no Swift toolchain in the session that wrote this).
 **Motivation:** the current local option (Qwen3-ASR) has noticeable latency and has reportedly hung the app multiple times in practice. Local-model users generally care more about the experience being fast and snappy than about squeezing out the last bit of accuracy, so a faster model is worth adding as an alternative.
+
+**Correction (2026-09-28): the Phase 1 plan below (HTTP server, `speaches.ts`-style client) was never a good fit — this app already has a working answer for local models, and it isn't a server.** Checked against `qwen3-asr.ts` + `src-tauri/qwen3-asr-cli`, the pattern this app already uses for its other local model: a native Swift CLI binary run as a persistent sidecar process, invoked in-process through Tauri commands (`invoke('transcribe_qwen3_asr', ...)`). No HTTP server, no port, no per-request model-switching to solve, because there's no shared server to switch models on. This matches how the closest open-source competitors do it too — Handy (Tauri + Rust, architecturally the closest match to this app) runs Parakeet in-process; VoiceInk's Parakeet path is in-process via FluidAudio/CoreML, and only spins up an HTTP server for an unrelated model class. whisper.cpp's server mode is the outlier, and it exists for a different reason (one server backing many unrelated clients, not a model bundled with a single app). See "Phase 1 — actual integration path" below for the corrected plan; the original server-based Phase 1 section is kept underneath, struck through, for history.
 
 **Correction (2026-09-16):** this ticket originally pitched Parakeet as "lightweight." That's wrong — checked against what's actually in this app already (`qwen3-asr.ts`): Qwen3-ASR ships at **680MB (0.6B, 4-bit)** and **1.7GB (1.7B, 4-bit)**. Parakeet's standard build is **2.47GB, unquantized** — bigger than both existing options, not smaller. See "Size, honestly" below for the real comparison and what a smaller Parakeet build would cost you.
 
@@ -69,24 +71,63 @@ For comparison, this is the thing being replaced/supplemented — Qwen3-ASR is l
 - **Chunked "live" streaming loses accuracy at chunk boundaries.** The recommended approach isn't true streaming — it's: run background warmup chunks *during* recording (results discarded, just to trigger MLX JIT), then transcribe the full buffer on stop. That gives ~200–400ms latency after stop with full-context accuracy, instead of true word-by-word captions (which would need a completely different architecture — `sherpa-onnx` + an online Zipformer model, not Parakeet).
 - **Apple Silicon only.** Windows and Intel Mac users can't use this provider at all (v2 and v3 both — the platform constraint is MLX/Metal, not the language support). If this ships, the settings UI needs to hide the Parakeet option on unsupported platforms, and those users need a fallback (see below).
 
-## Proposed integration path (from the prior spike, not started)
+## Phase 1 — actual integration path (2026-09-28, current plan)
 
-**Phase 1 — manual server setup (low effort, plan needs revising before implementation):** the codebase already has a `speaches.ts` provider that talks to a self-hosted OpenAI-compatible `/v1/audio/transcriptions` endpoint. The original version of this plan assumed Parakeet's server (`riedemannai/parakeet-mlx-server`) exposes that same generic API — send any `model`/`language` per request, get it transcribed accordingly, same as Speaches. **That's wrong, checked against the actual server code:**
+Mirrors `qwen3-asr.ts` / `qwen3-asr-cli` exactly — same sidecar shape, same IPC protocol, same Tauri command pattern. v2 and v3 are just two model IDs passed to the same in-process daemon, same as Qwen3-ASR's 0.6B/1.7B already work today.
+
+**Files added/changed (scaffolded, not yet built or run):**
+- `apps/whispering/src-tauri/parakeet-cli/` — new Swift package (`Package.swift`, `Sources/ParakeetCLI/main.swift`, `build.sh`), mirrors `qwen3-asr-cli/` 1:1. Depends on `speech-swift`'s `ParakeetASR` product (CoreML, batch) instead of `Qwen3ASR`.
+- `apps/whispering/src-tauri/src/lib.rs` — `ParakeetDaemon`/`ParakeetState` structs, `parakeet_daemon_paths`/`parakeet_ensure_daemon` helpers, and six commands (`transcribe_parakeet`, `preload_parakeet`, `shutdown_parakeet`, `parakeet_model_status`, `download_parakeet_model`, `delete_parakeet_model`), registered in the macOS `invoke_handler` list and app builder `.manage()` calls. Orphan-daemon cleanup on startup (`pkill -f parakeet-cli`) added alongside the existing qwen3 one.
+- `apps/whispering/src-tauri/tauri.conf.json` — `binaries/parakeet-cli` added to `externalBin`.
+- `apps/whispering/src-tauri/capabilities/default.json` — sidecar shell-execute permission for `parakeet-cli`.
+- `.github/workflows/publish-tauri-releases.yml` — SPM cache + build steps for `parakeet-cli`, mirroring the qwen3-asr-cli ones (x86_64 gets a stub since Apple Silicon is required).
+- `apps/whispering/src/lib/services/transcription/parakeet.ts` — new service, mirrors `qwen3-asr.ts`.
+- `apps/whispering/src/lib/constants/languages/supported-languages.ts` — added `mt` (Maltese) to the shared language list (needed for v3's 25 languages, wasn't previously in the list), plus `PARAKEET_V2_SUPPORTED_LANGUAGES` (en + auto) and `PARAKEET_V3_SUPPORTED_LANGUAGES` (25 languages).
+- `apps/whispering/src/lib/constants/transcription/service-config.ts` — `'Parakeet'` added to `TRANSCRIPTION_SERVICE_IDS` and `TRANSCRIPTION_SERVICES` (type `'local'`).
+- `apps/whispering/src/lib/services/transcription/index.ts` — registry export.
+- `apps/whispering/src/lib/settings/settings.ts` — `transcription.parakeet.modelId` setting, defaults to `parakeet-v2`.
+- `apps/whispering/src/lib/components/settings/ParakeetModelCard.svelte` — new, mirrors `Qwen3ASRModelCard.svelte` (per-model download/delete/status UI, both v2 and v3 as toggle options).
+- `apps/whispering/src/routes/(config)/settings/transcription/+page.svelte` — renders `ParakeetModelCard`, output-language picker switches between v2/v3 language lists based on which model is selected, temperature field hidden for both local services.
+- `apps/whispering/src/lib/components/settings/selectors/TranscriptionSelector.svelte` — local-model support/downloaded state generalized from a single Qwen3ASR-only pair of booleans to a per-service-id map, since there are now two local services with independent status.
+- `apps/whispering/src/routes/+layout.svelte` — warmup-on-select/shutdown-on-deselect effect added for Parakeet, parallel to the existing Qwen3ASR one.
+- `apps/whispering/src/lib/query/transcription.ts` — `case 'Parakeet':` branch in the transcribe dispatch switch, mirrors the Qwen3ASR case.
+
+**What's unverified — check this first when building locally:** the CLI protocol (--status/--delete/--download/daemon stdin-stdout loop, READY/OK/ERR/PROGRESS lines) is this app's own design and doesn't need re-checking. What does need checking is the three `speech-swift` API calls in `parakeet-cli/Sources/ParakeetCLI/main.swift`, written by symmetry with `Qwen3ASRModel` since this session had no Swift toolchain to `swift package resolve` and confirm against the real package source:
+1. `ParakeetASR` is the correct product name to depend on in `Package.swift`.
+2. `ParakeetASRModel.fromPretrained(modelId:offlineMode:)` is the real signature.
+3. `ParakeetDecodingOptions(language:)` is the real options type/field name, and the model IDs `"parakeet-v2"` / `"parakeet-v3"` (placeholders) are what `fromPretrained` actually expects — this may need to change to whatever repo/variant identifiers the CoreML build actually uses.
+
+If any of those are wrong, `main.swift` is the only file that needs fixing — the Rust and TypeScript sides only care about the CLI's stdout protocol, not the Swift API underneath it.
+
+**Also worth confirming while building:** `ParakeetASR` (per `speech-swift`'s README, fetched during research — not independently verified against source) is CoreML-based, not the `mlx-community` MLX safetensors this ticket originally sized at 2.47–2.51GB. If that holds, the real download size is probably close to the 494MB CoreML build Argmax ships (see "Size, honestly" below) — smaller than this ticket originally assumed, and smaller than either Qwen3-ASR option. Update the `size`/`ram` fields in `parakeet.ts`'s `PARAKEET_MODELS` once the real on-disk size is known; they currently still carry the MLX-sized estimates from the original research.
+
+**To build and test locally (macOS 15+, Apple Silicon, Xcode 16+):**
+```bash
+cd apps/whispering/src-tauri/parakeet-cli && bash build.sh
+cd ../.. && bun run tauri dev
+```
+Then in Settings → Transcription, select "Parakeet (Local)" and download a model. If `swift build` fails on step 1, that's exactly where to start fixing the three unverified API calls above.
+
+## Original proposed integration path (superseded 2026-09-28, kept for history)
+
+~~**Phase 1 — manual server setup (low effort, plan needs revising before implementation):** the codebase already has a `speaches.ts` provider that talks to a self-hosted OpenAI-compatible `/v1/audio/transcriptions` endpoint. The original version of this plan assumed Parakeet's server (`riedemannai/parakeet-mlx-server`) exposes that same generic API — send any `model`/`language` per request, get it transcribed accordingly, same as Speaches. **That's wrong, checked against the actual server code:**~~
 - `riedemannai/parakeet-mlx-server` loads **one model at startup** (via `PARAKEET_MODEL` env var or `--model` flag), default `NeurologyAI/neuro-parakeet-mlx` — a German neurology fine-tune, not even the base `mlx-community/parakeet-tdt-0.6b-v3`. Default port is `8002`, not `8000`.
 - The request body's `model` field is accepted but does **not** switch which model actually runs — whatever loaded at startup is what serves every request.
 - Its transcribe call is invoked with a fixed language rather than honoring a per-request language field, so passing `outputLanguage` per request doesn't do what the original plan assumed either.
 
-So a single shared server can't back the v2/v3 picker the way `speaches.ts`'s pattern assumes. Before implementing, pick one of:
-1. **Two separate server processes, two separate ports** — one instance started with `PARAKEET_MODEL=mlx-community/parakeet-tdt-0.6b-v2` on `:8002`, another with `PARAKEET_MODEL=mlx-community/parakeet-tdt-0.6b-v3` on a different port — and give `parakeet.ts`'s two model entries distinct `baseUrl`s instead of a shared one with a `model` field.
-2. **Fork/patch the server** to honor per-request model and language instead of a startup-fixed model.
-3. **Find or write a different server** that's genuinely OpenAI-API-compatible for model switching (not yet identified — needs its own research pass).
+~~So a single shared server can't back the v2/v3 picker the way `speaches.ts`'s pattern assumes. Before implementing, pick one of:~~
+~~1. **Two separate server processes, two separate ports** — one instance started with `PARAKEET_MODEL=mlx-community/parakeet-tdt-0.6b-v2` on `:8002`, another with `PARAKEET_MODEL=mlx-community/parakeet-tdt-0.6b-v3` on a different port — and give `parakeet.ts`'s two model entries distinct `baseUrl`s instead of a shared one with a `model` field.~~
+~~2. **Fork/patch the server** to honor per-request model and language instead of a startup-fixed model.~~
+~~3. **Find or write a different server** that's genuinely OpenAI-API-compatible for model switching (not yet identified — needs its own research pass).~~
 
-Whichever is chosen, `outputLanguage` validation (v2 = `en`/`auto` only, v3 = its 25-language list) still needs to happen client-side in `parakeet.ts` before sending, same as originally planned — that part of the plan was fine, just not sufficient on its own since the server-side language handling can't be assumed to cooperate.
-- Strip `temperature` from the request on both (Parakeet ignores it)
+~~Whichever is chosen, `outputLanguage` validation (v2 = `en`/`auto` only, v3 = its 25-language list) still needs to happen client-side in `parakeet.ts` before sending, same as originally planned — that part of the plan was fine, just not sufficient on its own since the server-side language handling can't be assumed to cooperate.~~
+~~- Strip `temperature` from the request on both (Parakeet ignores it)~~
 
-Files that would need touching: `apps/whispering/src/lib/services/transcription/parakeet.ts` (new), `.../transcription/index.ts` (export), `.../constants/transcription/service-config.ts` (registry entry).
+~~Files that would need touching: `apps/whispering/src/lib/services/transcription/parakeet.ts` (new), `.../transcription/index.ts` (export), `.../constants/transcription/service-config.ts` (registry entry).~~
 
-**Phase 2 — proper UX (in-app download + auto-managed server):** in-app 2.47GB model download with progress/resume (browser fetch doesn't give that at this size — needs Tauri's download plugin or a Rust command), stored under `~/Library/Application Support/Whispering/models/parakeet/`, with a Tauri sidecar (`tauri-plugin-shell`) starting/stopping the inference server on app launch/quit, running its warmup pass before accepting requests.
+~~**Phase 2 — proper UX (in-app download + auto-managed server):** in-app 2.47GB model download with progress/resume (browser fetch doesn't give that at this size — needs Tauri's download plugin or a Rust command), stored under `~/Library/Application Support/Whispering/models/parakeet/`, with a Tauri sidecar (`tauri-plugin-shell`) starting/stopping the inference server on app launch/quit, running its warmup pass before accepting requests.~~
+
+None of the above applies with the in-process sidecar plan — no server, no ports, no per-request model-switching problem, and the download/progress plumbing (Phase 2 concerns above) is already built and reused as-is from `qwen3-asr.ts`/`qwen3-asr-cli`, not new engineering.
 
 ## Cross-platform fallback (needed if this ships, since Parakeet is Mac-only)
 
@@ -102,4 +143,4 @@ Moonshine v2 was the prior spike's pick for the cleanest cross-platform English 
 
 ## Status
 
-Not implemented. This is a ticket capturing existing research so the integration (Phase 1 above) can start directly from here whenever it's prioritized. No code was changed as part of writing this ticket.
+Phase 1 scaffolded on branch `claude/zen-bell-itfksl` (2026-09-28): all the files listed under "Phase 1 — actual integration path" above exist and follow the qwen3-asr.ts/qwen3-asr-cli pattern exactly. Not yet built or run — needs a macOS 15+ Apple Silicon machine to `swift build` the CLI and confirm the three unverified `speech-swift` API calls flagged above. Phase 2 (in-app download UX, sidecar lifecycle management) doesn't need separate work — it's the same Tauri command plumbing Qwen3-ASR already has, reused as-is.

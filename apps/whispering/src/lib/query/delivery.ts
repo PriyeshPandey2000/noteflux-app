@@ -5,11 +5,10 @@ import type { SelectionContext } from '$lib/services/clipboard/types';
 import { WHISPERING_RECORDINGS_PATHNAME } from '$lib/constants/app';
 import * as services from '$lib/services';
 import { settings } from '$lib/stores/settings.svelte';
+import { auth } from '$lib/stores/auth.svelte';
 import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
 import { Ok } from 'wellcrafted/result';
-import { getGroqApiKey } from '$lib/utils/embedded-keys';
-import { trackLlmUsage } from '$lib/services/usage-tracking';
 import { isOnboardingDemoStep } from '$lib/services/onboarding-demo-step';
 
 import { defineMutation } from './_client';
@@ -69,7 +68,7 @@ export const delivery = {
 			// Shows transcription result and offers manual copy action
 			const offerManualCopy = () =>
 				rpc.notify.success.execute({
-					title: hasSelection ? '✏️ Inline edit result' : ' Recording transcribed!',
+					title: hasSelection ? 'Inline edit result' : 'Recording transcribed!',
 					description: finalText,
 					action: {
 						label: 'Copy to clipboard',
@@ -142,8 +141,8 @@ export const delivery = {
 			const confirmFullDelivery = (deliveredText: string) =>
 				rpc.notify.success.execute({
 					title: hasSelection
-						? '✏️ Selected text replaced!'
-						: ' Recording transcribed, copied to clipboard, and pasted!',
+						? 'Selected text replaced!'
+						: 'Recording transcribed, copied to clipboard, and pasted!',
 					description: deliveredText,
 					action: {
 						href: WHISPERING_RECORDINGS_PATHNAME,
@@ -166,7 +165,7 @@ export const delivery = {
 				// check. See docs/specs/20260925T113952-anonymous-14-day-trial.md.
 				if (!subscription.hasProAccess && !isOnboardingDemoStep()) {
 					rpc.notify.warning.execute({
-						title: '🔒 This is a Pro feature',
+						title: 'This is a Pro feature',
 						description: 'Inline editing requires Pro. Upgrade to keep using it.',
 						id: toastId,
 						action: {
@@ -181,26 +180,15 @@ export const delivery = {
 				// Guard: instruction too short to be meaningful
 				if (text.trim().length < 3) {
 					rpc.notify.error.execute({
-						title: '⚠️ Instruction too short',
+						title: 'Instruction too short',
 						description: 'Speak a clear instruction to edit the selected text.',
 						id: toastId,
 					});
 					return Ok(undefined);
 				}
 
-				// Guard: no API key
-				const apiKey = getGroqApiKey();
-				if (!apiKey) {
-					rpc.notify.error.execute({
-						title: '⚠️ No Groq API key',
-						description: 'Add a Groq API key in Settings to use smart editing.',
-						id: toastId,
-					});
-					return Ok(undefined);
-				}
-
 				rpc.notify.loading.execute({
-					title: '✏️ Editing selected text...',
+					title: 'Editing selected text...',
 					description: 'Applying your instruction...',
 					id: toastId,
 				});
@@ -216,30 +204,23 @@ export const delivery = {
 
 				const { data: rawEditedText, error: editError } =
 					await services.completions.groq.complete({
-						apiKey,
+						apiKey: settings.value['apiKeys.groq'] || undefined,
+						accessToken: auth.state.session?.access_token,
 						model: 'openai/gpt-oss-120b',
 						systemPrompt:
 							'You are a text replacement engine. Your output is ONLY the replacement text — nothing else.\n\nStrict rules:\n- No preamble. No "Here is...", "Sure!", "The edited text:", or any opener.\n- No surrounding quotes.\n- No code fences unless the input itself is code.\n- Use context_before and context_after (if provided) to match surrounding punctuation, capitalisation, and style — but only output the replacement for selected_text.\n- Preserve original formatting, whitespace, and line breaks unless the instruction requires changing them.\n- Preserve original language unless the instruction is to translate.\n- If the text needs no change, return the original text exactly.',
 						userPrompt,
+						feature: 'inline-edit',
 					});
 
 				if (editError) {
 					rpc.notify.error.execute({
-						title: '⚠️ Inline edit failed',
+						title: 'Inline edit failed',
 						description: editError.message,
 						id: toastId,
 					});
 					return Ok(undefined);
 				}
-
-				// Fire-and-forget usage tracking
-				trackLlmUsage({
-					feature: 'inline-edit',
-					provider: 'groq',
-					model: 'openai/gpt-oss-120b',
-					inputTokens: rawEditedText.inputTokens,
-					outputTokens: rawEditedText.outputTokens,
-				});
 
 				finalText = rawEditedText.text.trim();
 			}
@@ -452,7 +433,7 @@ export const delivery = {
 			// Confirms complete delivery (both copy and paste succeeded)
 			const confirmFullDelivery = () =>
 				rpc.notify.success.execute({
-					title: ' Transformation complete, copied to clipboard, and pasted!',
+					title: 'Transformation complete, copied to clipboard, and pasted!',
 					description: text,
 					action: {
 						href: WHISPERING_RECORDINGS_PATHNAME,

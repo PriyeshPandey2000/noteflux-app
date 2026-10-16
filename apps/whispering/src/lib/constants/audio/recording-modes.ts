@@ -1,6 +1,8 @@
 /**
  * Recording mode constants and options
  */
+import type { Component } from 'svelte';
+import MicIcon from '@lucide/svelte/icons/mic';
 
 export const RECORDING_MODES = [
 	'manual',
@@ -12,7 +14,7 @@ export const RECORDING_MODES = [
 export type RecordingMode = (typeof RECORDING_MODES)[number];
 
 export const RECORDING_MODE_OPTIONS = [
-	{ desktopOnly: false, icon: '🎙️', label: 'Manual', value: 'manual' },
+	{ desktopOnly: false, icon: MicIcon, label: 'Manual', value: 'manual' },
 	// COMMENTED OUT: Voice Activated mode - will be added back after transformation integration
 	// { desktopOnly: false, icon: '🎤', label: 'Voice Activated', value: 'vad' },
 	// { desktopOnly: false, icon: '📁', label: 'Upload File', value: 'upload' },
@@ -20,7 +22,7 @@ export const RECORDING_MODE_OPTIONS = [
 	// { label: 'CPAL', value: 'cpal', icon: '🔊', desktopOnly: true },
 ] as const satisfies {
 	desktopOnly: boolean;
-	icon: string;
+	icon: Component;
 	label: string;
 	value: RecordingMode;
 }[];

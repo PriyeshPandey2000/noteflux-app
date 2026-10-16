@@ -72,13 +72,13 @@ export async function getRecordingStream({
 	if (!selectedDeviceId) {
 		// No device selected
 		sendStatus({
-			title: '🔍 No Device Selected',
+			title: 'No Device Selected',
 			description:
 				"No worries! We'll find the best microphone for you automatically...",
 		});
 	} else {
 		sendStatus({
-			title: '🎯 Connecting Device',
+			title: 'Connecting Device',
 			description:
 				'Almost there! Just need your permission to use the microphone...',
 		});
@@ -95,7 +95,7 @@ export async function getRecordingStream({
 
 		// We reach here if the preferred device failed, so we'll fall back to the first available device
 		sendStatus({
-			title: '⚠️ Finding a New Microphone',
+			title: 'Finding a New Microphone',
 			description:
 				"That microphone isn't working. Let's try finding another one...",
 		});

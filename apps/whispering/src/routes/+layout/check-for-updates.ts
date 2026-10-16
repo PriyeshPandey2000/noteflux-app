@@ -58,26 +58,26 @@ async function mockCheck(): Promise<UpdateInfo> {
 	return {
 		body: `## What's New in v2.0.0
 
-### 🚀 Features
+### Features
 - Added automatic update checking on app startup
 - Improved performance by 50% through optimized audio processing
 - New dark mode theme options with better contrast
 - Enhanced keyboard shortcuts for faster workflow
 - Added progress indicators for long-running operations
 
-### 🐛 Bug Fixes
+### Bug Fixes
 - Fixed audio recording issues on macOS Sonoma
 - Resolved memory leak in long recording sessions
 - Fixed UI glitches in settings panel
 - Corrected text overflow in transcription results
 - Fixed crash when switching audio devices
 
-### 💔 Breaking Changes
+### Breaking Changes
 - Minimum macOS version is now 11.0 (Big Sur)
 - Changed default recording hotkey to Cmd+Shift+R
 - Removed deprecated API endpoints
 
-### 📝 Notes
+### Notes
 This is a mock update for testing purposes. The actual update
 process would download and install real application files.`,
 		date: new Date().toISOString(),

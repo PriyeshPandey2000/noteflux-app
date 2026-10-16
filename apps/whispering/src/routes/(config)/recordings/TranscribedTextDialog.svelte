@@ -9,10 +9,12 @@
 	let {
 		recordingId,
 		rows = 2,
+		textareaClass = '',
 		transcribedText,
 	}: {
 		recordingId: string;
 		rows?: number;
+		textareaClass?: string;
 		transcribedText: string;
 	} = $props();
 
@@ -87,6 +89,7 @@
 		label="text"
 		text={displayText}
 		{rows}
+		{textareaClass}
 	/>
 {/if}
 

@@ -23,6 +23,7 @@ enum ShortcutEvent {
     FnComboTriggered { accelerator: String },
     TapDisabled,
     FnKeyPressedForRecording, // Sent when Fn is pressed during recording mode
+    FnKeyReleasedForRecording, // Sent when Fn is released during recording mode
 }
 
 /// State tracking for Fn alone detection (shared between callback and manager)
@@ -238,6 +239,10 @@ fn process_events(
                 println!("[FnShortcut] Emitting Fn key press for UI recording");
                 let _ = app.emit("fn-key-pressed-for-recording", ());
             }
+            ShortcutEvent::FnKeyReleasedForRecording => {
+                println!("[FnShortcut] Emitting Fn key release for UI recording");
+                let _ = app.emit("fn-key-released-for-recording", ());
+            }
         }
     }
 }
@@ -411,7 +416,13 @@ fn handle_flags_changed(
 
         // Always emit release event for push-to-talk support
         let is_registered = state_guard.registered_shortcuts.contains_key("Fn");
+        let is_recording = state_guard.recording_mode;
         drop(state_guard); // Release lock before sending
+
+        if is_recording {
+            println!("[FnShortcut] CALLBACK: Recording mode - sending Fn release to UI");
+            let _ = sender.send(ShortcutEvent::FnKeyReleasedForRecording);
+        }
 
         if is_registered {
             println!("[FnShortcut] CALLBACK: Sending FnReleased event");

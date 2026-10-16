@@ -3,6 +3,7 @@
 	import * as Dialog from '$lib/ui/dialog';
 	import { auth } from '$lib/stores/auth.svelte';
 	import { authRequiredDialog } from '$lib/stores/auth-required-dialog.svelte';
+	import LockIcon from '@lucide/svelte/icons/lock';
 
 	async function handleSignIn() {
 		try {
@@ -63,7 +64,9 @@
 	>
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2">
-				<span class="text-2xl">🔐</span>
+				<span class="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted">
+					<LockIcon class="size-4 text-muted-foreground" />
+				</span>
 				Authentication Required
 			</Dialog.Title>
 			<Dialog.Description>
