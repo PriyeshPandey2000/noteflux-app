@@ -193,8 +193,6 @@ export function createKeyRecorder({
 			// Enable Fn recording mode in Tauri
 			if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
 				try {
-					await invoke('enable_fn_recording_mode');
-
 					// Listen for Fn key presses from Rust
 					fnEventUnlisten = await listen('fn-key-pressed-for-recording', () => {
 						if (!capturedKeys.includes('fn')) {
@@ -212,6 +210,8 @@ export function createKeyRecorder({
 							void completeRecording(true);
 						}
 					});
+
+					await invoke('enable_fn_recording_mode');
 				} catch (error) {
 					console.error('[KeyRecorder] Failed to enable Fn recording mode:', error);
 				}

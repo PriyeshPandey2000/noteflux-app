@@ -107,10 +107,10 @@ export function createPressedKeys({
 				key === 'shift'
 			) {
 				// When a modifier key is released, clear all non-modifier keys
-				// but keep other modifier keys that might still be pressed
-				// This prevents keys from getting "stuck" in the pressedKeys state
-				pressedKeys = pressedKeys.filter((k) =>
-					['meta', 'control', 'alt', 'shift'].includes(k),
+				// and the released modifier, but keep other held modifier keys.
+				// This prevents keys from getting "stuck" in the pressedKeys state.
+				pressedKeys = pressedKeys.filter(
+					(k) => ['meta', 'control', 'alt', 'shift'].includes(k) && k !== key,
 				);
 			} else {
 				// Regular key removal
