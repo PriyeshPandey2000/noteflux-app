@@ -1,6 +1,6 @@
 [package]
 name = "noteflux"
-version = "0.0.37"
+version = "0.0.38"
 description = "A Tauri App"
 authors = ["you"]
 repository = "https://github.com/PriyeshPandey2000/noteflux-app"

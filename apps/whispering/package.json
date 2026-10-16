@@ -1,6 +1,6 @@
 {
 	"name": "noteflux",
-	"version": "0.0.37",
+	"version": "0.0.38",
 	"description": "",
 	"exports": {
 		"./commands": "./src/lib/commands.ts"
