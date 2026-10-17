@@ -22,6 +22,7 @@ Decisions and limits:
 - Encodes in Rust from the in-memory WAV blob (raw IPC), so no file-path coupling and it also applies to the BYOK Groq path.
 - Opus only accepts 8/12/16/24/48 kHz. Other rates (the recorder often ends up at 44.1 kHz) are resampled to 16 kHz in Rust with a small windowed-sinc filter (filter phases precomputed). Found when a 40s clip at 44.1 kHz fell back to a 7 MB WAV: WER on 44.1 kHz input is 1.04% vs 0.9-1.4% for 16 kHz input, 81 MB -> 1.4 MB.
 - Opus complexity 4: ~4x faster than default 10 at the same size. Whole pipeline ~1.9 ms per second of audio (release build).
+- The encoder feeds `lookahead` extra silent samples at the end so the delayed tail is flushed (found in review: without it a recording whose length hit the frame boundary lost its last ~6.5 ms; covered by a decode round-trip test).
 - Any encode failure (not a WAV, empty audio) falls back to the original WAV.
 - Website (`noteflux--`) needs no change: the proxy already accepts Ogg/Opus. It hardcodes the filename `recording.webm`; harmless today because Groq sniffs content.
 - Not yet verified: Windows and Linux builds, full app run.
@@ -30,6 +31,6 @@ Decisions and limits:
 - Opus works in the app: 7004 KB -> 123 KB in 120 ms.
 - First request after idle: total 3427 ms (upload+overhead 2660, auth 421). Immediately after: total 1979 ms (upload+overhead 1298, auth 338). The ~1.4s difference is cold start (edge instance, TLS, JWKS).
 - Tauri's http plugin builds a new reqwest client per request, so it can't reuse connections; skipping the preflight with it would trade ~0.1s for a new TLS handshake. Kept the webview fetch.
-- Desktop: `groq.warmUp()` fires a GET at the proxy when recording starts, only for Pro users on the cloud path, and skips it if the proxy was contacted in the last 2 minutes (a real upload warms it too).
+- Desktop: `groq.warmUp()` fires a GET at the proxy when recording starts, for any signed-in or anonymous session with Groq selected and no bring-your-own key, and skips it if the proxy was contacted in the last 2 minutes (a real upload warms it too).
 - Website `noteflux--/app/api/groq/transcribe/route.ts`: new `GET` warm-up handler (verifies the token to warm the JWKS cache) and `Access-Control-Max-Age: 600` so the preflight is cached. Needs a Vercel deploy; the desktop app degrades gracefully without it.
 - Remaining cost on this uplink: ~1s to upload 123 KB. Next lever would be a lower bitrate (16 kbps scored the same on the corpus) or uploading while recording.

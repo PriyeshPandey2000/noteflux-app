@@ -169,11 +169,13 @@ pub fn wav_to_ogg_opus(wav: &[u8]) -> Result<Vec<u8>, String> {
         .map_err(|e| format!("Opus complexity failed: {e}"))?;
 
     let to_granule = |samples: u64| samples * GRANULE_RATE / rate as u64;
-    let pre_skip = to_granule(
-        encoder
-            .get_lookahead()
-            .map_err(|e| format!("Opus lookahead failed: {e}"))? as u64,
-    );
+    // The encoder delays its output by its lookahead, so the first
+    // `lookahead` decoded samples are skipped (pre-skip) and the same number of
+    // silent samples must be fed at the end to flush the real tail.
+    let lookahead = encoder
+        .get_lookahead()
+        .map_err(|e| format!("Opus lookahead failed: {e}"))? as usize;
+    let pre_skip = to_granule(lookahead as u64);
 
     let mut out = Vec::new();
     {
@@ -203,13 +205,13 @@ pub fn wav_to_ogg_opus(wav: &[u8]) -> Result<Vec<u8>, String> {
 
         let frame_len = rate as usize * FRAME_MS / 1000;
         let total = pcm.mono.len();
-        let frame_count = total.div_ceil(frame_len);
+        let frame_count = (total + lookahead).div_ceil(frame_len);
         let mut packet = [0u8; 4000];
         let mut frame = vec![0f32; frame_len];
 
         for i in 0..frame_count {
-            let start = i * frame_len;
-            let end = (start + frame_len).min(total);
+            let start = (i * frame_len).min(total);
+            let end = ((i + 1) * frame_len).min(total);
             frame[..end - start].copy_from_slice(&pcm.mono[start..end]);
             frame[end - start..].fill(0.0);
 
@@ -218,9 +220,14 @@ pub fn wav_to_ogg_opus(wav: &[u8]) -> Result<Vec<u8>, String> {
                 .map_err(|e| format!("Opus encode failed: {e}"))?;
 
             let is_last = i + 1 == frame_count;
-            // The last granule is the true sample count so the decoder trims
-            // the zero padding added to fill the final frame.
-            let granule = pre_skip + to_granule(if is_last { total } else { end } as u64);
+            // Granule positions count decoded samples including the pre-skip.
+            // The last one is the true end of the audio, so the decoder trims
+            // the flush padding.
+            let granule = if is_last {
+                pre_skip + to_granule(total as u64)
+            } else {
+                to_granule(((i + 1) * frame_len) as u64)
+            };
             let end_info = if is_last {
                 PacketWriteEndInfo::EndStream
             } else {
@@ -312,6 +319,47 @@ mod tests {
         let peak = out[2_000..14_000].iter().fold(0f32, |m, s| m.max(s.abs()));
         assert!((peak - 0.3).abs() < 0.03, "peak {peak}");
         assert!(wav_to_ogg_opus(&wav_f32(44_100, 1, &tone(44_100, 1.0))).is_ok());
+    }
+
+    /// Decodes our own output the way a demuxer would: skip the pre-skip, trim
+    /// to the final granule, and return the samples at the input rate.
+    fn decode(ogg: &[u8], rate: u32) -> Vec<f32> {
+        let mut reader = ogg::PacketReader::new(std::io::Cursor::new(ogg));
+        let head = reader.read_packet_expected().unwrap();
+        let pre_skip = u16::from_le_bytes([head.data[10], head.data[11]]) as usize;
+        reader.read_packet_expected().unwrap(); // OpusTags
+
+        let mut decoder = opus::Decoder::new(rate, Channels::Mono).unwrap();
+        let (mut pcm, mut final_granule) = (Vec::new(), 0u64);
+        while let Some(packet) = reader.read_packet().unwrap() {
+            let mut out = vec![0f32; rate as usize * 60 / 1000];
+            let n = decoder.decode_float(&packet.data, &mut out, false).unwrap();
+            pcm.extend_from_slice(&out[..n]);
+            final_granule = packet.absgp_page();
+        }
+        let factor = (GRANULE_RATE / rate as u64) as usize;
+        let start = pre_skip / factor;
+        let end = (final_granule as usize - pre_skip) / factor + start;
+        pcm[start..end.min(pcm.len())].to_vec()
+    }
+
+    #[test]
+    fn keeps_every_sample_including_the_tail() {
+        // The lookahead bug depended on how much zero padding the last frame
+        // happened to have, so cover exact multiples and every nearby remainder
+        // of the 320-sample frame. The last 40 ms is a loud tone that must survive.
+        for total in [16_000, 16_001, 16_100, 16_200, 16_215, 16_216, 16_250, 16_319, 5_000, 321] {
+            let mut samples = vec![0f32; total];
+            for (i, s) in samples.iter_mut().enumerate().skip(total - 320) {
+                *s = (i as f32 * 440.0 * std::f32::consts::TAU / 16_000.0).sin() * 0.5;
+            }
+            let out = decode(&wav_to_ogg_opus(&wav_f32(16_000, 1, &samples)).unwrap(), 16_000);
+
+            assert_eq!(out.len(), total, "decoded length for {total} samples");
+            let last_5ms = &out[out.len() - 80..];
+            let rms = (last_5ms.iter().map(|s| s * s).sum::<f32>() / 80.0).sqrt();
+            assert!(rms > 0.2, "last 5 ms went quiet for {total} samples: {rms}");
+        }
     }
 
     #[test]
