@@ -2869,7 +2869,7 @@ dependencies = [
 
 [[package]]
 name = "noteflux"
-version = "0.0.38"
+version = "0.0.39"
 dependencies = [
  "accessibility-sys",
  "block",
