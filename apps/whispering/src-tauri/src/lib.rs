@@ -39,6 +39,9 @@ use recorder::commands::{
     set_overlay_processing, show_recording_overlay, start_recording, stop_recording, AppData,
 };
 
+mod opus_encoder;
+use opus_encoder::encode_opus;
+
 mod ask_overlay;
 use ask_overlay::{copy_ask_answer, hide_ask_overlay, open_ask_link, set_ask_overlay_result, set_ask_overlay_thumbnail, show_ask_overlay, show_ask_overlay_toast, ASK_OVERLAY_HEIGHT, ASK_OVERLAY_WIDTH};
 
@@ -536,6 +539,7 @@ pub async fn run() {
         start_recording,
         stop_recording,
         cancel_recording,
+        encode_opus,
         // UI commands
         show_recording_overlay,
         hide_recording_overlay,
@@ -584,6 +588,7 @@ pub async fn run() {
         start_recording,
         stop_recording,
         cancel_recording,
+        encode_opus,
         // UI commands
         show_recording_overlay,
         hide_recording_overlay,
