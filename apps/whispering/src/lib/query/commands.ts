@@ -6,7 +6,6 @@ import { auth } from '$lib/stores/auth.svelte';
 import { featureTutorial } from '$lib/stores/feature-tutorial.svelte';
 import { settings } from '$lib/stores/settings.svelte';
 import { authRequiredDialog } from '$lib/stores/auth-required-dialog.svelte';
-import { isOnboardingDemoStep } from '$lib/services/onboarding-demo-step';
 import { onboardingStore } from '$lib/stores/onboarding.svelte';
 import { subscription } from '$lib/stores/subscription.svelte';
 import { proPricingDialog } from '$lib/stores/pro-pricing-dialog.svelte';
@@ -143,13 +142,7 @@ const startManualRecording = defineMutation({
 			});
 		}
 
-		// Same gate as the Groq case in transcription.ts: only users who will
-		// actually hit the cloud proxy (Pro, active trial, or an onboarding demo
-		// step). A lapsed free user falls back to local transcription.
-		if (
-			(subscription.hasProAccess || isOnboardingDemoStep()) &&
-			settings.value['transcription.selectedTranscriptionService'] === 'Groq'
-		)
+		if (settings.value['transcription.selectedTranscriptionService'] === 'Groq')
 			services.transcriptions.groq.warmUp({
 				accessToken: auth.state.session?.access_token,
 				apiKey: settings.value['apiKeys.groq'] || undefined,
