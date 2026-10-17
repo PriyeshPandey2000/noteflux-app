@@ -142,6 +142,12 @@ const startManualRecording = defineMutation({
 			});
 		}
 
+		if (settings.value['transcription.selectedTranscriptionService'] === 'Groq')
+			services.transcriptions.groq.warmUp({
+				accessToken: auth.state.session?.access_token,
+				apiKey: settings.value['apiKeys.groq'] || undefined,
+			});
+
 		const toastId = nanoid();
 		notify.loading.execute({
 			title: 'Preparing to record...',

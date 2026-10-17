@@ -2,6 +2,7 @@ import type { Settings } from '$lib/settings';
 
 import { NoteFluxErr, type NoteFluxError } from '$lib/result';
 import { getExtensionFromAudioBlob } from '$lib/services/_utils';
+import { compressForUpload } from '$lib/services/transcription/_compress';
 import Groq from 'groq-sdk';
 import { Err, Ok, type Result, tryAsync, trySync } from 'wellcrafted/result';
 
@@ -42,6 +43,21 @@ type TranscribeOptions = {
 	prompt: string;
 	temperature: string;
 };
+
+// The first request after idle pays for a cold edge instance, a fresh TLS
+// connection and a JWKS fetch (measured 3.4s vs 2.0s for the same recording).
+// Pinging the proxy when recording starts hides that behind the recording, but
+// only when the proxy hasn't been touched recently: a real upload warms it too.
+const PROXY_WARM_FOR_MS = 120_000;
+let lastProxyContactAt = 0;
+
+function warmUpProxy(accessToken?: string) {
+	if (!accessToken || Date.now() - lastProxyContactAt < PROXY_WARM_FOR_MS) return;
+	lastProxyContactAt = Date.now();
+	fetch(`${NOTEFLUX_API_URL}/api/groq/transcribe`, {
+		headers: { Authorization: `Bearer ${accessToken}` },
+	}).catch(() => {});
+}
 
 async function transcribeViaProxy(
 	audioBlob: Blob,
@@ -95,6 +111,7 @@ async function transcribeViaProxy(
 	// lib/usage-log.ts), so the client doesn't also insert a row.
 	formData.append('feature', 'transcription');
 
+	const tStart = performance.now();
 	const { data: response, error: fetchError } = await tryAsync({
 		mapErr: (error) =>
 			NoteFluxErr({
@@ -113,7 +130,17 @@ async function transcribeViaProxy(
 
 	if (fetchError) return Err(fetchError);
 
+	lastProxyContactAt = Date.now();
+	const tResponse = performance.now();
 	const body = await response.json();
+	const tDone = performance.now();
+
+	const timingHeader = response.headers.get('x-timing');
+	const serverTotalMs = Number(timingHeader?.match(/total=(\d+)/)?.[1] ?? 0);
+	const uploadMs = Math.max(0, tResponse - tStart - serverTotalMs);
+	console.log(
+		`[Groq proxy timing] total=${(tDone - tStart).toFixed(0)}ms upload=${uploadMs.toFixed(0)}ms server=${timingHeader ?? 'n/a'}`,
+	);
 
 	if (!response.ok) {
 		return NoteFluxErr({
@@ -131,10 +158,16 @@ export type GroqTranscriptionService = ReturnType<
 
 export function createGroqTranscriptionService() {
 	return {
+		/** Call when recording starts; no-op for BYOK users (they call Groq directly). */
+		warmUp(options: Pick<TranscribeOptions, 'accessToken' | 'apiKey'>) {
+			if (!options.apiKey) warmUpProxy(options.accessToken);
+		},
+
 		async transcribe(
-			audioBlob: Blob,
+			recordedBlob: Blob,
 			options: TranscribeOptions,
 		): Promise<Result<string, NoteFluxError>> {
+			const audioBlob = await compressForUpload(recordedBlob);
 			if (!options.apiKey) return transcribeViaProxy(audioBlob, options);
 
 			if (!options.apiKey.startsWith('gsk_')) {
